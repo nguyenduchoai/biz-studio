@@ -170,7 +170,7 @@
   // Nhãn đẹp cho từng key trong kết quả POST /api/settings/test; key lạ hiện nguyên.
   var TEST_LABELS = {
     gemini: 'Gemini API', claude: 'Claude CLI', ffmpeg: 'FFmpeg', ytdlp: 'yt-dlp',
-    openai: 'API Trực Tiếp', pexels: 'Pexels', chrome: 'Chrome'
+    openai: 'API Trực Tiếp', pexels: 'Pexels', chrome: 'Chrome', vieneu: 'VieNeu-TTS'
   };
 
   // Tab 1 — API Server Chung
@@ -198,6 +198,7 @@
       textField('Thư mục tải về', st, 'downloadDir', 'data/downloads'),
       textField('File Cookies', st, 'cookiesFile', 'Đường dẫn file cookies.txt (tùy chọn)'),
       textField('Chrome bin (render HTML Video)', st, 'chromeBin', 'tự dò Google Chrome'),
+      textField('VieNeu-TTS python (giọng đọc Việt on-device)', st, 'vieneuPython', 'tự dò data/vieneu/venv — cài bằng: ./scripts/setup-vieneu.sh'),
       qualitySel,
       threadsSlider);
   }

@@ -159,3 +159,9 @@ Gọi POST tools/* → nhận Job → hiện progress card, cập nhật qua `Bu
 
 ### Settings fields mới (đã có trong types.go): openaiBase, openaiKey, openaiModel, pexelsKey, chromeBin.
 ### settings/test (v1.1) trả thêm keys: openai, pexels, chrome — FE render ĐỘNG mọi key trong response.
+
+## Mở rộng v1.2 — VieNeu-TTS (engine giọng mặc định)
+- internal/tts: engine mới "vieneu" — VieNeu-TTS on-device 48 kHz (https://github.com/pnnbao97/VieNeu-TTS). Venv tại data/vieneu/venv (Settings.vieneuPython override). Runner python NHÚNG trong binary (tts/vieneu.go) → tự ghi data/vieneu/runner.py.
+- Speak engine rỗng: tự chọn vieneu → say → gemini; nếu voiceID thuộc engine khác thì theo engine của giọng. voiceID VieNeu hỗ trợ "Tên@style" (tu_nhien|tin_tuc|doc_truyen).
+- tts.VoicesFor(st) = giọng VieNeu (đọc data/vieneu/voices.json, fallback 5 tên) + Voices() cũ. Route /api/tools/voices dùng VoicesFor.
+- settings/test thêm key "vieneu"; state.tools thêm "vieneu". Cài đặt: scripts/setup-vieneu.sh.

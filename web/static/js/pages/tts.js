@@ -125,7 +125,7 @@
 
   App.pages.tts = {
     title: 'TTS / Giọng đọc',
-    subtitle: 'Chuyển văn bản thành giọng đọc — giọng macOS (say) hoặc Gemini TTS',
+    subtitle: 'Chuyển văn bản thành giọng đọc — VieNeu-TTS (tiếng Việt tự nhiên), macOS say hoặc Gemini',
     render: function (el) {
       var voices = [];
       var selected = null;
@@ -160,9 +160,12 @@
       });
       var engineSel = UI.select(null, [
         { value: '', label: 'Tất cả engine' },
+        { value: 'vieneu', label: 'VieNeu (khuyên dùng)' },
         { value: 'say', label: 'macOS' },
         { value: 'gemini', label: 'Gemini' }
       ], '', function (v) { engineFilter = v; renderGrid(); });
+
+      var ENGINE_LABELS = { vieneu: 'VieNeu', say: 'macOS', gemini: 'Gemini' };
 
       var gridHost = h('div', null, h('div', { class: 'row muted' }, UI.spinner(), 'Đang tải danh sách giọng…'));
       var selectedLine = h('div', { class: 'muted', style: { fontSize: '12.5px', marginTop: '10px' } }, 'Chưa chọn giọng nào');
@@ -190,8 +193,10 @@
           h('div', { style: { fontWeight: '600', fontSize: '13px', wordBreak: 'break-word' } },
             name, genderIcon(v.gender) ? ' ' + genderIcon(v.gender) : ''),
           h('div', { class: 'muted', style: { fontSize: '11.5px', margin: '3px 0 6px' } }, v.lang || '—'),
-          h('span', { class: v.engine === 'gemini' ? 'badge badge-blue' : 'badge badge-gray' },
-            v.engine === 'gemini' ? 'Gemini' : 'macOS'));
+          h('span', {
+            class: v.engine === 'vieneu' ? 'badge badge-green'
+              : v.engine === 'gemini' ? 'badge badge-blue' : 'badge badge-gray'
+          }, ENGINE_LABELS[v.engine] || v.engine));
       }
 
       function renderGrid() {
@@ -222,7 +227,8 @@
         selectedLine.appendChild(h('span', null, '✅ Giọng đã chọn: '));
         selectedLine.appendChild(h('strong', null, selected.name || selected.id));
         selectedLine.appendChild(h('span', null,
-          ' (' + (selected.lang || '—') + ' · ' + (selected.engine === 'gemini' ? 'Gemini' : 'macOS') + ')'));
+          ' (' + (selected.lang || '—') + ' · ' + (ENGINE_LABELS[selected.engine] || selected.engine) + ')'));
+        styleRow.style.display = selected.engine === 'vieneu' ? '' : 'none';
       }
 
       API.get('/api/tools/voices').then(function (list) {
@@ -259,12 +265,20 @@
         min: 100, max: 260, step: 5, value: rate,
         oninput: function (v) { rate = v; }
       });
+      var vieneuStyle = 'tu_nhien';
+      var styleSel = UI.select(null, [
+        { value: 'tu_nhien', label: 'Tự nhiên (hội thoại)' },
+        { value: 'tin_tuc', label: 'Tin tức' },
+        { value: 'doc_truyen', label: 'Đọc truyện' }
+      ], vieneuStyle, function (v) { vieneuStyle = v; });
+      var styleRow = UI.field('Phong cách đọc (VieNeu)', styleSel);
       el.appendChild(UI.card({
         title: '5. Cấu hình', icon: '⚙️',
         body: h('div', null,
+          styleRow,
           UI.field('Tốc độ đọc (từ/phút)', rateSlider),
           h('div', { class: 'muted', style: { fontSize: '12px' } },
-            '💡 Tốc độ chỉ áp dụng cho giọng macOS (engine say). Giọng Gemini dùng tốc độ mặc định.'))
+            '💡 Phong cách đọc áp dụng cho giọng VieNeu; tốc độ áp dụng cho giọng macOS (say). Giọng Gemini dùng mặc định.'))
       }));
 
       // --- Cảnh báo Gemini key
@@ -308,7 +322,8 @@
           if (!text) { showErr('Chưa có văn bản — nhập nội dung ở mục "1. Nguồn nội dung".'); return; }
           if (!selected) { showErr('Chưa chọn giọng đọc.'); return; }
           startBtn.disabled = true;
-          API.post('/api/tools/tts', { text: text, voice: selected.id, rate: rate, engine: selected.engine })
+          var voiceParam = selected.engine === 'vieneu' ? selected.id + '@' + vieneuStyle : selected.id;
+          API.post('/api/tools/tts', { text: text, voice: voiceParam, rate: rate, engine: selected.engine })
             .then(function (job) {
               addJobCard(job);
               UI.toast('Đã bắt đầu tạo giọng đọc');

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"bizstudio/internal/store"
+	"bizstudio/internal/tts"
 	"bizstudio/internal/util"
 )
 
@@ -57,6 +58,7 @@ func (s *Server) handleSettingsTest(w http.ResponseWriter, r *http.Request) {
 		"openai": checkOpenAI(cfg),
 		"pexels": checkPexels(cfg),
 		"chrome": checkChrome(ctx, cfg),
+		"vieneu": s.checkVieNeu(ctx),
 	}
 	writeJSON(w, http.StatusOK, res)
 }
@@ -108,6 +110,19 @@ func checkPexels(cfg store.Settings) toolCheck {
 	}
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	return toolCheck{OK: false, Detail: fmt.Sprintf("Pexels lỗi (HTTP %d): %s", resp.StatusCode, truncateDetail(string(body), 200))}
+}
+
+// checkVieNeu kiểm tra venv VieNeu-TTS (import SDK, không nạp model).
+func (s *Server) checkVieNeu(ctx context.Context) toolCheck {
+	py := tts.VieNeuPythonPath(s.st)
+	if py == "" {
+		return toolCheck{OK: false, Detail: "chưa cài — chạy: ./scripts/setup-vieneu.sh"}
+	}
+	out, err := tts.VieNeuRun(ctx, s.st, "-c", "import vieneu, importlib.metadata as m; print(m.version('vieneu'))")
+	if err != nil {
+		return toolCheck{OK: false, Detail: "venv có nhưng import lỗi: " + truncateDetail(err.Error(), 200)}
+	}
+	return toolCheck{OK: true, Detail: "VieNeu-TTS v" + strings.TrimSpace(out) + " (on-device, 48 kHz)"}
 }
 
 // checkChrome dò trình duyệt render HTML Video.

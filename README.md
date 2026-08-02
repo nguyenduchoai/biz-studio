@@ -25,6 +25,9 @@
 
 ## Có gì mới
 
+### v1.2.0 — 02/08/2026
+- 🦜 **VieNeu-TTS làm engine giọng đọc mặc định**: giọng tiếng Việt tự nhiên như người thật, chạy **on-device 48 kHz** (CPU/ONNX, không cần GPU, không cần API key). 14 giọng preset 3 miền Bắc/Trung/Nam, 3 phong cách đọc (tự nhiên / tin tức / đọc truyện). Cài một lệnh: `./scripts/setup-vieneu.sh`. Thứ tự engine tự động mới: **VieNeu → macOS say → Gemini**.
+
 ### v1.1.0 — 02/08/2026
 - 🧩 **HTML Video**: render video MP4 từ HTML/CSS bằng headless Chrome — nhập prompt, dán bài viết hoặc **link repo GitHub** (tự đọc README), AI tách thành cảnh theo 7 template (hero, ý chính, code, biểu đồ, sản phẩm, trích dẫn, CTA), 3 theme, narration TTS, nhạc nền, phụ đề.
 - 🔌 **API Trực Tiếp**: endpoint OpenAI-compatible (OpenAI, OpenRouter, LM Studio, Ollama local) làm engine thứ 3 cho Dịch thuật & tách cảnh.
@@ -45,7 +48,7 @@
 | ✂️ **Tự động cắt** | Phát hiện & cắt bỏ khoảng lặng, đoạn thừa trong video dài (silence detection). |
 | 📝 **Phụ đề** | Bóc băng âm thanh (ASR) và bóc chữ trên hình (OCR) thành file SRT; tùy chọn burn phụ đề vào video. |
 | 🌐 **Dịch thuật** | Dịch SRT/TXT theo 4 phong cách (Phim/Vlog, Sub ngắn gọn, Truyện, Khoa học) — engine Claude CLI (subscription) hoặc Gemini API. |
-| 🎙 **TTS / Giọng đọc** | Chuyển văn bản thành giọng đọc: hàng chục giọng macOS (có giọng Việt) + giọng Gemini TTS. |
+| 🎙 **TTS / Giọng đọc** | **VieNeu-TTS** (mặc định): giọng Việt tự nhiên như người thật, on-device 48 kHz, 14 giọng 3 miền, 3 phong cách đọc + giọng macOS `say` + Gemini TTS. |
 | 🎬 **Bài viết → Video** | Dán bài viết → AI tách thành danh sách cảnh (tiêu đề, lời đọc, từ khóa media) → tự TTS + ghép ảnh + phụ đề + nhạc nền → render mp4 dọc 9:16 hoặc ngang 16:9. |
 | 🧩 **HTML Video** | Video-as-code: prompt / bài viết / **repo GitHub** → AI tách cảnh → dựng frame bằng **HTML/CSS** (7 template: hero, ý chính, code, biểu đồ, sản phẩm, trích dẫn, CTA) → render MP4 bằng headless Chrome. Hợp video giới thiệu repo, explainer, số liệu, social short hàng loạt. |
 | 🎭 **Vox-Director** | Như trên nhưng gắn vào dự án, gán media cụ thể cho từng cảnh — làm video dạng TVC khi có đủ source. |
@@ -108,6 +111,7 @@ Nguyên tắc thiết kế:
 | **Gemini API key** | Cho OCR/ASR, ảnh AI, TTS Gemini, thumbnail AI | Lấy tại [aistudio.google.com](https://aistudio.google.com/apikey), dán vào **Cấu hình & API** |
 | **yt-dlp** | Cho module Tải Video | `brew install yt-dlp` / `pip install yt-dlp` |
 | **Google Chrome / Chromium** | Cho module HTML Video (render frame) | tự dò bản đã cài, hoặc nhập đường dẫn ở Cấu hình |
+| **VieNeu-TTS** (khuyên dùng) | Giọng đọc Việt tự nhiên on-device — engine TTS mặc định | `./scripts/setup-vieneu.sh` (cần Python 3.10+, tải model lần đầu vài phút) |
 | **API Trực Tiếp** (tùy chọn) | Endpoint OpenAI-compatible cho Dịch thuật & tách cảnh: OpenAI, OpenRouter, LM Studio, Ollama local | nhập ở tab **API Trực Tiếp** |
 | **Pexels API key** (tùy chọn) | Ảnh stock theo từ khóa cho cảnh Vox/HTML Video | miễn phí tại [pexels.com/api](https://www.pexels.com/api/), nhập ở tab **Media Xu hướng** |
 | Go 1.22+ | Chỉ khi build từ source | [go.dev/dl](https://go.dev/dl/) |
@@ -245,6 +249,7 @@ Biz Studio học hỏi ý tưởng từ những dự án mã nguồn mở rất 
 
 | Dự án | Học được gì → áp dụng vào Biz Studio |
 |---|---|
+| [VieNeu-TTS](https://github.com/pnnbao97/VieNeu-TTS) | TTS tiếng Việt **on-device 48 kHz** tự nhiên như người thật (tác giả Phạm Nguyễn Ngọc Bảo) → **engine giọng đọc mặc định** của Biz Studio cho TTS / Vox / HTML Video |
 | [HTML Video](https://github.com/nexu-io/html-video) | Hướng **"video-as-code"**: dựng frame bằng HTML/CSS thay cho timeline thủ công → module **HTML Video** (AI → JSON cảnh → HTML → MP4, render local bằng headless Chrome) |
 | [AiToEarn](https://github.com/yikart/AiToEarn) | Tư duy hệ sinh thái agent **Create → Publish → Engage → Monetize** → định hướng **Gói xuất bản** (meta/hashtag sẵn sàng đăng đa nền tảng) và roadmap tự động hóa xuất bản |
 | [Pallaidium](https://github.com/tin2tin/Pallaidium) | Mô hình **"AI movie studio" khép kín** một môi trường duy nhất (kịch bản → sinh media → dựng → phân tích ngược) → cách tổ chức workflow Bài viết → Video / Vox-Director / phiên AI trong cùng một studio |

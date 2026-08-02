@@ -305,7 +305,8 @@
     var voiceSel = UI.select(null, [{ value: '', label: 'Đang tải giọng đọc…' }], '');
     voiceSel.onchange = function () { st.cfg.voice = voiceSel.value; };
     var engineSel = UI.select(null, [
-      { value: '', label: 'Tự động' },
+      { value: '', label: 'Tự động (ưu tiên VieNeu)' },
+        { value: 'vieneu', label: 'VieNeu-TTS (tiếng Việt tự nhiên)' },
       { value: 'say', label: 'macOS say' },
       { value: 'gemini', label: 'Gemini TTS' }
     ], '', function (v) { st.cfg.engine = v; });

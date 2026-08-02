@@ -259,7 +259,8 @@
       ], st.cfg.aspect, function (v) { st.cfg.aspect = v; }),
       UI.field('Giọng đọc', voiceSel),
       UI.select('Engine giọng', [
-        { value: '', label: 'Tự động' },
+        { value: '', label: 'Tự động (ưu tiên VieNeu)' },
+        { value: 'vieneu', label: 'VieNeu-TTS (tiếng Việt tự nhiên)' },
         { value: 'say', label: 'macOS say' },
         { value: 'gemini', label: 'Gemini TTS' }
       ], st.cfg.engine, function (v) { st.cfg.engine = v; }),

@@ -120,4 +120,6 @@ type Settings struct {
 	PexelsKey string `json:"pexelsKey"`
 	// Trình duyệt render HTML Video (rỗng = tự dò Chrome/Chromium)
 	ChromeBin string `json:"chromeBin"`
+	// VieNeu-TTS — python của venv (rỗng = tự dò data/vieneu/venv)
+	VieNeuPython string `json:"vieneuPython"`
 }

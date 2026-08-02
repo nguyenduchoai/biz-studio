@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"bizstudio/internal/tts"
 	"bizstudio/internal/util"
 )
 
@@ -29,6 +30,7 @@ func (s *Server) toolsAvail() map[string]bool {
 		"openaiKey": cfg.OpenAIKey != "",
 		"pexelsKey": cfg.PexelsKey != "",
 		"chrome":    findChromeBin(cfg) != "",
+		"vieneu":    tts.VieNeuAvailable(s.st),
 	}
 	toolsAt = time.Now()
 	return toolsLast

@@ -16,8 +16,9 @@ import (
 const defaultSayRate = 175
 
 // Speak tổng hợp giọng nói ra file dst.
-// engine "say": macOS say → ffmpeg convert; "gemini": Gemini TTS (dst nên là .wav);
-// engine rỗng: tự chọn "say" nếu máy có binary, ngược lại "gemini".
+// engine "vieneu": VieNeu-TTS on-device (48 kHz, tiếng Việt tự nhiên — mặc định nếu đã cài);
+// "say": macOS say → ffmpeg convert; "gemini": Gemini TTS (dst nên là .wav);
+// engine rỗng: tự chọn theo thứ tự vieneu → say → gemini.
 func Speak(ctx context.Context, st *store.Store, text, voiceID string, rate float64, engine, dst string) error {
 	if strings.TrimSpace(text) == "" {
 		return fmt.Errorf("nội dung TTS trống")
@@ -32,20 +33,45 @@ func Speak(ctx context.Context, st *store.Store, text, voiceID string, rate floa
 	}
 
 	if engine == "" {
-		if util.Exists("say") {
+		switch {
+		case VieNeuAvailable(st):
+			engine = "vieneu"
+		case util.Exists("say"):
 			engine = "say"
-		} else {
+		default:
 			engine = "gemini"
+		}
+		// Giọng đang chọn thuộc engine khác → tôn trọng engine của giọng.
+		if voiceID != "" {
+			if e := engineOfVoice(st, voiceID); e != "" {
+				engine = e
+			}
 		}
 	}
 	switch engine {
+	case "vieneu":
+		return speakVieNeu(ctx, st, text, voiceID, dst)
 	case "say":
 		return speakSay(ctx, text, voiceID, rate, dst)
 	case "gemini":
 		return gemini.NewFromSettings(st).TTS(ctx, text, voiceID, dst)
 	default:
-		return fmt.Errorf("engine TTS không hỗ trợ: %q (chỉ hỗ trợ \"say\" hoặc \"gemini\")", engine)
+		return fmt.Errorf("engine TTS không hỗ trợ: %q (hỗ trợ \"vieneu\", \"say\", \"gemini\")", engine)
 	}
+}
+
+// engineOfVoice tìm engine sở hữu voiceID (bỏ hậu tố @style nếu có).
+func engineOfVoice(st *store.Store, voiceID string) string {
+	base := voiceID
+	if i := strings.LastIndex(base, "@"); i >= 0 {
+		base = base[:i]
+	}
+	for _, v := range VoicesFor(st) {
+		if v.ID == base || v.Name == base {
+			return v.Engine
+		}
+	}
+	return ""
 }
 
 // speakSay: ghi text ra file tạm → say -o tmp.aiff → ffmpeg convert sang dst.

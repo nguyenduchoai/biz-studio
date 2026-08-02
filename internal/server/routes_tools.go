@@ -214,7 +214,7 @@ func (s *Server) handleToolTranslate(w http.ResponseWriter, r *http.Request) {
 
 // handleToolVoices — danh sách giọng đọc (macOS say + Gemini).
 func (s *Server) handleToolVoices(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, tts.Voices())
+	writeJSON(w, http.StatusOK, tts.VoicesFor(s.st))
 }
 
 // handleToolTTS — job kind=tts, output=data/tmp/tts_<id>.wav.

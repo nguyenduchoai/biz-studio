@@ -16,6 +16,7 @@
       { id: 'tts', label: 'TTS / Giọng đọc', icon: '🎙️' },
       { id: 'article', label: 'Bài viết → Video', icon: '📰' },
       { id: 'vox', label: 'Vox-Director', icon: '🎬' },
+      { id: 'htmlvideo', label: 'HTML Video', icon: '🧩' },
       { id: 'editor', label: 'Studio Editor', icon: '✂️' }
     ]},
     { group: 'HỆ THỐNG', items: [

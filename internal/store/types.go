@@ -111,4 +111,13 @@ type Settings struct {
 	GradientBg   bool   `json:"gradientBg"`
 	RememberTranslations bool `json:"rememberTranslations"`
 	CacheTTS     bool   `json:"cacheTts"`
+
+	// API Trực Tiếp — endpoint OpenAI-compatible (OpenAI, LM Studio, Ollama, OpenRouter…)
+	OpenAIBase  string `json:"openaiBase"`
+	OpenAIKey   string `json:"openaiKey"`
+	OpenAIModel string `json:"openaiModel"`
+	// Media Xu hướng — kho media stock theo từ khóa
+	PexelsKey string `json:"pexelsKey"`
+	// Trình duyệt render HTML Video (rỗng = tự dò Chrome/Chromium)
+	ChromeBin string `json:"chromeBin"`
 }

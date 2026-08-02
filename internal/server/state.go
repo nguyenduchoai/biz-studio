@@ -26,6 +26,9 @@ func (s *Server) toolsAvail() map[string]bool {
 		"claude":    util.Exists(cfg.ClaudeBin),
 		"ytdlp":     util.Exists(cfg.YtdlpBin),
 		"geminiKey": cfg.GeminiAPIKey != "",
+		"openaiKey": cfg.OpenAIKey != "",
+		"pexelsKey": cfg.PexelsKey != "",
+		"chrome":    findChromeBin(cfg) != "",
 	}
 	toolsAt = time.Now()
 	return toolsLast

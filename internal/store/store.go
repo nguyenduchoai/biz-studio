@@ -20,6 +20,7 @@ type db struct {
 	Prompts  []PromptTemplate `json:"prompts"`
 	LogList  []LogEntry       `json:"logs"`
 	Config   Settings         `json:"settings"`
+	Seeded   bool             `json:"promptsSeeded"`
 }
 
 // Store — JSON file store, an toàn goroutine.
@@ -48,6 +49,7 @@ func Open(dataDir string) (*Store, error) {
 		}
 	}
 	s.applyDefaults()
+	s.seedPrompts()
 	return s, s.saveLocked()
 }
 
@@ -82,6 +84,12 @@ func (s *Store) applyDefaults() {
 	}
 	if c.PerfMode == "" {
 		c.PerfMode = "auto"
+	}
+	if c.OpenAIBase == "" {
+		c.OpenAIBase = "https://api.openai.com/v1"
+	}
+	if c.OpenAIModel == "" {
+		c.OpenAIModel = "gpt-4o-mini"
 	}
 }
 

@@ -9,13 +9,15 @@ import (
 	"time"
 
 	"bizstudio/internal/gemini"
+	"bizstudio/internal/openaiapi"
 	"bizstudio/internal/store"
 )
 
 const claudeTimeout = 300 * time.Second
 
 // Text dịch một đoạn văn bản. mode: phim | sub | truyen | khoahoc.
-// engine: "claude" (mặc định, dùng Claude CLI qua subscription — không cần API key) | "gemini".
+// engine: "claude" (mặc định, dùng Claude CLI qua subscription — không cần API key)
+// | "gemini" | "openai" (API Trực Tiếp — endpoint OpenAI-compatible).
 func Text(ctx context.Context, st *store.Store, text, mode, engine, targetLang string) (string, error) {
 	if strings.TrimSpace(text) == "" {
 		return "", fmt.Errorf("nội dung cần dịch trống")
@@ -50,15 +52,17 @@ func systemPrompt(mode, lang string) string {
 	}
 }
 
-// runEngine chọn engine dịch: "claude" (mặc định) hoặc "gemini".
+// runEngine chọn engine dịch: "claude" (mặc định), "gemini" hoặc "openai".
 func runEngine(ctx context.Context, st *store.Store, engine, system, text string) (string, error) {
 	switch engine {
 	case "", "claude":
 		return runClaude(ctx, st, system, text)
 	case "gemini":
 		return gemini.NewFromSettings(st).GenerateText(ctx, system, text)
+	case "openai":
+		return openaiapi.NewFromSettings(st).ChatText(ctx, system, text)
 	default:
-		return "", fmt.Errorf("engine dịch không hỗ trợ: %q (chỉ hỗ trợ \"claude\" hoặc \"gemini\")", engine)
+		return "", fmt.Errorf("engine dịch không hỗ trợ: %q (chỉ hỗ trợ \"claude\", \"gemini\" hoặc \"openai\")", engine)
 	}
 }
 

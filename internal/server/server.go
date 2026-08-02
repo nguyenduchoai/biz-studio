@@ -37,6 +37,7 @@ func New(st *store.Store, dataDir string, port int) *Server {
 	s.routesAssets(s.mux)
 	s.routesSessions(s.mux)
 	s.routesTools(s.mux)
+	s.routesHTMLVideo(s.mux)
 	s.routesMisc(s.mux)
 	return s
 }

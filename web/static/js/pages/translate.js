@@ -179,7 +179,8 @@
       // --- Cấu hình engine / ngôn ngữ / slider trang trí
       var engineSel = UI.select(null, [
         { value: 'claude', label: 'Claude CLI (subscription — khuyên dùng)' },
-        { value: 'gemini', label: 'Gemini API' }
+        { value: 'gemini', label: 'Gemini API' },
+        { value: 'openai', label: 'API Trực Tiếp (OpenAI-compatible)' }
       ], engine, function (v) { engine = v; });
 
       var langSel = UI.select(null, [

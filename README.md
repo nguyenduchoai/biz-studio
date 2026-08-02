@@ -31,6 +31,7 @@
 | 🌐 **Dịch thuật** | Dịch SRT/TXT theo 4 phong cách (Phim/Vlog, Sub ngắn gọn, Truyện, Khoa học) — engine Claude CLI (subscription) hoặc Gemini API. |
 | 🎙 **TTS / Giọng đọc** | Chuyển văn bản thành giọng đọc: hàng chục giọng macOS (có giọng Việt) + giọng Gemini TTS. |
 | 🎬 **Bài viết → Video** | Dán bài viết → AI tách thành danh sách cảnh (tiêu đề, lời đọc, từ khóa media) → tự TTS + ghép ảnh + phụ đề + nhạc nền → render mp4 dọc 9:16 hoặc ngang 16:9. |
+| 🧩 **HTML Video** | Video-as-code: prompt / bài viết / **repo GitHub** → AI tách cảnh → dựng frame bằng **HTML/CSS** (7 template: hero, ý chính, code, biểu đồ, sản phẩm, trích dẫn, CTA) → render MP4 bằng headless Chrome. Hợp video giới thiệu repo, explainer, số liệu, social short hàng loạt. |
 | 🎭 **Vox-Director** | Như trên nhưng gắn vào dự án, gán media cụ thể cho từng cảnh — làm video dạng TVC khi có đủ source. |
 | 🛡 **QC tự động** | Đo loudness (LUFS), phát hiện frame đen, đoạn đứng hình, khoảng lặng — báo cáo kèm cảnh báo. |
 | 🖼 **Thumbnail** | Tạo thumbnail từ frame video hoặc sinh bằng AI (Gemini). |
@@ -90,6 +91,9 @@ Nguyên tắc thiết kế:
 | **Claude CLI** (đăng nhập subscription) | Cho Phiên AI, dịch thuật, meta xuất bản | `npm i -g @anthropic-ai/claude-code` rồi chạy `claude` đăng nhập |
 | **Gemini API key** | Cho OCR/ASR, ảnh AI, TTS Gemini, thumbnail AI | Lấy tại [aistudio.google.com](https://aistudio.google.com/apikey), dán vào **Cấu hình & API** |
 | **yt-dlp** | Cho module Tải Video | `brew install yt-dlp` / `pip install yt-dlp` |
+| **Google Chrome / Chromium** | Cho module HTML Video (render frame) | tự dò bản đã cài, hoặc nhập đường dẫn ở Cấu hình |
+| **API Trực Tiếp** (tùy chọn) | Endpoint OpenAI-compatible cho Dịch thuật & tách cảnh: OpenAI, OpenRouter, LM Studio, Ollama local | nhập ở tab **API Trực Tiếp** |
+| **Pexels API key** (tùy chọn) | Ảnh stock theo từ khóa cho cảnh Vox/HTML Video | miễn phí tại [pexels.com/api](https://www.pexels.com/api/), nhập ở tab **Media Xu hướng** |
 | Go 1.22+ | Chỉ khi build từ source | [go.dev/dl](https://go.dev/dl/) |
 
 ### Chạy từ bản đóng gói
@@ -134,6 +138,9 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 | Mục | Ý nghĩa |
 |---|---|
 | Gemini Base / API Key / Model | Kết nối Gemini (mặc định `gemini-2.5-flash`) |
+| **API Trực Tiếp** (tab riêng) | Base URL + Key + Model endpoint OpenAI-compatible — thêm 1 engine cho Dịch thuật/tách cảnh |
+| **Media Xu hướng** (tab riêng) | Pexels API key — tự chèn ảnh stock theo từ khóa cảnh |
+| Chrome bin | Đường dẫn trình duyệt render HTML Video (mặc định tự dò) |
 | Claude bin / model | Đường dẫn `claude` CLI + model tùy chọn |
 | yt-dlp bin / Thư mục tải / Cookies / Chất lượng / Luồng | Cấu hình tải video |
 | Giao diện / Kích thước / Gradient / Hiệu năng | Tuỳ biến UI (sáng/tối, scale…) |
@@ -151,7 +158,8 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 - **Bài viết → Video** — quy trình 4 bước; bảng cảnh chỉnh sửa inline từng ô; cấu hình theme, khung hình, giọng, nhạc nền, burn phụ đề.
 - **Vox-Director** — quy trình 5 bước, chọn dự án đích, gán media từng cảnh.
 - **Studio Editor** — chọn dự án → thư viện media, preview, thuộc tính file, timeline theo thời lượng thật; cắt khoảng lặng, render final.
-- **Dự án** — trang điều phối trung tâm (chi tiết ở phần Phiên AI phía trên) + QC, thumbnail, gói xuất bản, QR điện thoại, quản lý prompt mẫu.
+- **HTML Video** — video-as-code: 3 nguồn (prompt / bài viết / repo GitHub — tự đọc README), AI tách thành cảnh theo 7 template HTML, chỉnh từng cảnh, render bằng Chrome headless (24/30fps, 3 theme, narration TTS, nhạc nền, phụ đề).
+- **Dự án** — trang điều phối trung tâm (chi tiết ở phần Phiên AI phía trên) + QC, thumbnail, gói xuất bản, QR điện thoại, quản lý prompt mẫu (**có sẵn 8 prompt mẫu** cho các thể loại: viral TikTok, TVC sản phẩm, vlog, giáo dục, recap, repo tech, podcast clip, số liệu).
 - **Nhật ký** — log hệ thống realtime, lọc theo mức độ.
 
 ## REST API
@@ -168,6 +176,7 @@ Backend là REST thuần — bạn có thể tự động hóa mọi thứ khôn
 | `POST /api/projects/{id}/qc` · `/thumbnail` · `/publish` · `/render-final` | QC, thumbnail, gói xuất bản, render |
 | `POST /api/tools/upload` | Upload file cho OCR/ASR/Dịch (vào `data/uploads/`) |
 | `POST /api/tools/download` · `/asr` · `/ocr` · `/translate` · `/tts` · `/scenes` · `/vox` · `/autocut` | Các công cụ (đều trả Job) |
+| `POST /api/tools/htmlvideo/plan` · `POST /api/tools/htmlvideo` | HTML Video: tách cảnh từ prompt/bài viết/repo → render MP4 |
 | `GET /api/tools/voices` · `GET /api/jobs` · `GET /api/logs` · CRUD `/api/prompts` | Tra cứu |
 | `GET /api/qr.png?project=ID` · `GET /m/{id}` | QR + trang upload điện thoại |
 

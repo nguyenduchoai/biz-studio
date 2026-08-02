@@ -134,3 +134,28 @@ Gọi POST tools/* → nhận Job → hiện progress card, cập nhật qua `Bu
 - `go build ./...` phải xanh cho package của mình trước khi kết thúc.
 - File <400 dòng, hàm <50 dòng, kebab-case cho file FE, xử lý lỗi rõ ràng (không nuốt lỗi), text UI tiếng Việt.
 - Kết thúc báo: **Status:** DONE|BLOCKED + Summary ngắn.
+
+## Mở rộng v1.1 — HTML Video, API Trực Tiếp, Media Xu hướng
+
+### internal/htmlvideo (engine render video từ HTML/CSS bằng chromedp)
+- Scene (json camelCase): `{template, title, subtitle, bullets []string, code, image, chart [{label,value float64}], voiceText, duration float64, accent}`
+- template: `hero | bullets | code | chart | product | quote | outro`
+- Config: `{Aspect "9:16|16:9|1:1", Theme "vivid|dark|light", FPS int (default 24), Narration bool, Voice, Engine, BgmPath string, BgmVolume float64, BurnSub bool}`
+- `htmlvideo.Render(ctx, st *store.Store, scenes []Scene, cfg Config, workDir string, upd func(float64,string)) (mp4 string, error)`
+- Chrome dò theo thứ tự: Settings().ChromeBin → "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" → "/Applications/Chromium.app/Contents/MacOS/Chromium" → PATH "google-chrome","chromium". Export `FindChrome(st) (string, error)`.
+
+### routes_htmlvideo.go
+- `POST /api/tools/htmlvideo/plan` body `{prompt?, content?, repoUrl?, count, style}` → `{scenes:[Scene]}` (LLM đồng bộ ≤180s; ưu tiên engine: openai nếu OpenAIKey → gemini nếu GeminiAPIKey → claude CLI; repoUrl github → fetch README raw main/master)
+- `POST /api/tools/htmlvideo` body `{projectId?, scenes, config}` → Job kind=htmlvideo; projectId → render vào ProjectDir/outputs + cập nhật project như vox; else data/tmp.
+
+### internal/openaiapi (API Trực Tiếp — OpenAI-compatible)
+- `Client{Base, Key, Model string; HTTP *http.Client}`; `NewFromSettings(st) *Client` (Key rỗng → mọi call lỗi "chưa cấu hình API Trực Tiếp (Cấu hình & API)")
+- `ChatText(ctx, system, user string) (string, error)` — POST {Base}/chat/completions {model, messages}; parse choices[0].message.content; lỗi HTTP đọc body.
+- translate: engine "openai" (thêm case trong engines.go).
+
+### internal/stockmedia (Media Xu hướng — Pexels)
+- `SearchImage(ctx, st *store.Store, keyword string, w, h int, dst string) error` — GET https://api.pexels.com/v1/search?query=&orientation=(portrait|landscape|square theo w/h)&per_page=3, header Authorization: PexelsKey; tải photos[0].src.large2x (fallback .original) về dst; PexelsKey rỗng → lỗi "chưa cấu hình Pexels API key (Media Xu hướng)".
+- vox: chuỗi fallback ảnh cảnh: MediaPath → stockmedia.SearchImage (nếu có key + MediaKeyword) → gemini.GenerateImage → card màu.
+
+### Settings fields mới (đã có trong types.go): openaiBase, openaiKey, openaiModel, pexelsKey, chromeBin.
+### settings/test (v1.1) trả thêm keys: openai, pexels, chrome — FE render ĐỘNG mọi key trong response.

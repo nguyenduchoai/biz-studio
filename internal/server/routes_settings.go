@@ -54,8 +54,94 @@ func (s *Server) handleSettingsTest(w http.ResponseWriter, r *http.Request) {
 		"claude": checkBinVersion(ctx, binOrDefault(cfg.ClaudeBin, "claude"), "--version"),
 		"ytdlp":  checkBinVersion(ctx, binOrDefault(cfg.YtdlpBin, "yt-dlp"), "--version"),
 		"gemini": checkGeminiKey(cfg),
+		"openai": checkOpenAI(cfg),
+		"pexels": checkPexels(cfg),
+		"chrome": checkChrome(ctx, cfg),
 	}
 	writeJSON(w, http.StatusOK, res)
+}
+
+// checkOpenAI gọi GET {base}/models với Bearer key (API Trực Tiếp).
+func checkOpenAI(cfg store.Settings) toolCheck {
+	key := strings.TrimSpace(cfg.OpenAIKey)
+	if key == "" {
+		return toolCheck{OK: false, Detail: "chưa nhập API key (tab API Trực Tiếp)"}
+	}
+	base := strings.TrimRight(strings.TrimSpace(cfg.OpenAIBase), "/")
+	if base == "" {
+		base = "https://api.openai.com/v1"
+	}
+	if !strings.HasSuffix(base, "/v1") && !strings.Contains(base, "/v1/") {
+		base += "/v1"
+	}
+	req, _ := http.NewRequest(http.MethodGet, base+"/models", nil)
+	req.Header.Set("Authorization", "Bearer "+key)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return toolCheck{OK: false, Detail: "gọi API Trực Tiếp thất bại: " + truncateDetail(err.Error(), 200)}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		return toolCheck{OK: true, Detail: "kết nối API Trực Tiếp thành công (" + base + ")"}
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	return toolCheck{OK: false, Detail: fmt.Sprintf("API Trực Tiếp lỗi (HTTP %d): %s", resp.StatusCode, truncateDetail(string(body), 200))}
+}
+
+// checkPexels gọi search 1 ảnh để xác thực key (Media Xu hướng).
+func checkPexels(cfg store.Settings) toolCheck {
+	key := strings.TrimSpace(cfg.PexelsKey)
+	if key == "" {
+		return toolCheck{OK: false, Detail: "chưa nhập Pexels API key (tab Media Xu hướng)"}
+	}
+	req, _ := http.NewRequest(http.MethodGet, "https://api.pexels.com/v1/search?query=nature&per_page=1", nil)
+	req.Header.Set("Authorization", key)
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return toolCheck{OK: false, Detail: "gọi Pexels thất bại: " + truncateDetail(err.Error(), 200)}
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		return toolCheck{OK: true, Detail: "kết nối Pexels thành công"}
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	return toolCheck{OK: false, Detail: fmt.Sprintf("Pexels lỗi (HTTP %d): %s", resp.StatusCode, truncateDetail(string(body), 200))}
+}
+
+// checkChrome dò trình duyệt render HTML Video.
+func checkChrome(ctx context.Context, cfg store.Settings) toolCheck {
+	bin := findChromeBin(cfg)
+	if bin == "" {
+		return toolCheck{OK: false, Detail: "không tìm thấy Google Chrome/Chromium — cài Chrome hoặc nhập đường dẫn ở Cấu hình"}
+	}
+	return checkBinVersion(ctx, bin, "--version")
+}
+
+// findChromeBin: ChromeBin cấu hình → đường dẫn macOS quen thuộc → PATH.
+func findChromeBin(cfg store.Settings) string {
+	candidates := []string{
+		strings.TrimSpace(cfg.ChromeBin),
+		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+		"/Applications/Chromium.app/Contents/MacOS/Chromium",
+		"google-chrome", "chromium",
+	}
+	for _, c := range candidates {
+		if c == "" {
+			continue
+		}
+		if filepath.IsAbs(c) {
+			if _, err := os.Stat(c); err == nil {
+				return c
+			}
+			continue
+		}
+		if util.Exists(c) {
+			return c
+		}
+	}
+	return ""
 }
 
 func binOrDefault(bin, def string) string {

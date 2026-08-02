@@ -8,6 +8,7 @@ import (
 
 	"bizstudio/internal/gemini"
 	"bizstudio/internal/media"
+	"bizstudio/internal/stockmedia"
 	"bizstudio/internal/store"
 	"bizstudio/internal/tts"
 	"bizstudio/internal/util"
@@ -84,8 +85,9 @@ func makeSilence(ctx context.Context, dst string, dur float64) error {
 
 // buildSceneImage chọn ảnh nền theo thứ tự ưu tiên:
 // 1) MediaPath người dùng cung cấp (video → lấy frame giữa),
-// 2) Gemini sinh ảnh (nếu có API key),
-// 3) card màu nền tối.
+// 2) ảnh stock Pexels theo MediaKeyword (nếu có Pexels API key),
+// 3) Gemini sinh ảnh (nếu có API key),
+// 4) card màu nền tối.
 func buildSceneImage(ctx context.Context, st *store.Store, sc Scene, idx int, cfg Config, w, h int, tmpDir string) (string, error) {
 	img := filepath.Join(tmpDir, fmt.Sprintf("img-%d.png", idx))
 
@@ -101,6 +103,17 @@ func buildSceneImage(ctx context.Context, st *store.Store, sc Scene, idx int, cf
 			return img, nil
 		} else {
 			st.AddLog("warn", "vox", fmt.Sprintf("Cảnh %d: không lấy được khung hình từ %s: %v — dùng phương án dự phòng", idx+1, sc.MediaPath, err))
+		}
+	}
+
+	if kw := strings.TrimSpace(sc.MediaKeyword); kw != "" && strings.TrimSpace(st.Settings().PexelsKey) != "" {
+		if err := stockmedia.SearchImage(ctx, st, kw, w, h, img); err == nil {
+			return img, nil
+		} else {
+			if ctx.Err() != nil {
+				return "", fmt.Errorf("render bị hủy: %w", ctx.Err())
+			}
+			st.AddLog("warn", "vox", fmt.Sprintf("Cảnh %d: tìm ảnh stock Pexels cho %q thất bại: %v — dùng phương án dự phòng", idx+1, kw, err))
 		}
 	}
 

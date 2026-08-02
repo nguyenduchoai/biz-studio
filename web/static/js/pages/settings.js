@@ -69,6 +69,37 @@
     }));
   }
 
+  // Ô nhập bí mật (API key) + nút hiện/ẩn 👁
+  function passwordField(label, st, key, placeholder) {
+    var input = UI.input({
+      type: 'password', value: st[key] || '', placeholder: placeholder,
+      oninput: function (e) { st[key] = e.target.value; }
+    });
+    input.style.flex = '1';
+    input.style.minWidth = '0';
+    var eyeBtn = h('button', {
+      class: 'icon-btn', type: 'button', title: 'Hiện / ẩn API key',
+      onclick: function () {
+        input.type = input.type === 'password' ? 'text' : 'password';
+        eyeBtn.textContent = input.type === 'password' ? '👁' : '🙈';
+      }
+    }, '👁');
+    return UI.field(label, h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } }, input, eyeBtn));
+  }
+
+  // Ô nhập model + datalist gợi ý
+  function modelField(label, st, key, placeholder, listId, suggestions) {
+    var input = UI.input({
+      value: st[key] || '', placeholder: placeholder,
+      oninput: function (e) { st[key] = e.target.value; }
+    });
+    input.setAttribute('list', listId);
+    var list = h('datalist', { id: listId }, suggestions.map(function (m) {
+      return h('option', { value: m });
+    }));
+    return UI.field(label, h('div', null, input, list));
+  }
+
   // ---------- Lưới card cài đặt giao diện ----------
 
   function uiCards(st, container) {
@@ -134,7 +165,66 @@
     ));
   }
 
-  // ---------- Panel API Server Chung ----------
+  // ---------- Panel API (3 tab: Server Chung / Trực Tiếp / Media Xu hướng) ----------
+
+  // Nhãn đẹp cho từng key trong kết quả POST /api/settings/test; key lạ hiện nguyên.
+  var TEST_LABELS = {
+    gemini: 'Gemini API', claude: 'Claude CLI', ffmpeg: 'FFmpeg', ytdlp: 'yt-dlp',
+    openai: 'API Trực Tiếp', pexels: 'Pexels', chrome: 'Chrome'
+  };
+
+  // Tab 1 — API Server Chung
+  function serverFields(st) {
+    var qualitySel = UI.select('Chất lượng mặc định',
+      [{ value: 'best', label: 'Tốt nhất (best)' }, { value: '1080p', label: '1080p' },
+       { value: '720p', label: '720p' }, { value: '480p', label: '480p' },
+       { value: 'audio', label: 'Chỉ âm thanh' }],
+      st.quality || 'best',
+      function (v) { st.quality = v; });
+
+    var threadsSlider = UI.slider('Luồng tải (song song)', {
+      min: 1, max: 8, step: 1, value: st.threads || 3,
+      oninput: function (v) { st.threads = v; }
+    });
+
+    return h('div', { class: 'grid-2 mt-8' },
+      textField('Gemini Base', st, 'geminiBase', 'https://generativelanguage.googleapis.com'),
+      passwordField('API Key', st, 'geminiApiKey', 'Dán API key của bạn…'),
+      modelField('Model', st, 'geminiModel', 'gemini-2.5-flash', 'gemini-model-list',
+        ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview']),
+      textField('Claude bin', st, 'claudeBin', 'claude'),
+      textField('Claude model (tùy chọn)', st, 'claudeModel', 'VD: claude-sonnet-4-5'),
+      textField('yt-dlp bin', st, 'ytdlpBin', 'yt-dlp'),
+      textField('Thư mục tải về', st, 'downloadDir', 'data/downloads'),
+      textField('File Cookies', st, 'cookiesFile', 'Đường dẫn file cookies.txt (tùy chọn)'),
+      textField('Chrome bin (render HTML Video)', st, 'chromeBin', 'tự dò Google Chrome'),
+      qualitySel,
+      threadsSlider);
+  }
+
+  // Tab 2 — API Trực Tiếp (OpenAI-compatible)
+  function directFields(st) {
+    return h('div', { class: 'mt-8' },
+      h('p', { class: 'muted', style: { margin: '0 0 12px' } },
+        'Endpoint OpenAI-compatible — dùng cho Dịch thuật & phân tích cảnh: OpenAI, OpenRouter, LM Studio, Ollama (http://localhost:11434/v1)…'),
+      h('div', { class: 'grid-2' },
+        textField('Base URL', st, 'openaiBase', 'https://api.openai.com/v1'),
+        passwordField('API Key', st, 'openaiKey', 'Dán API key của bạn…'),
+        modelField('Model', st, 'openaiModel', 'gpt-4o-mini', 'openai-model-list',
+          ['gpt-4o-mini', 'gpt-4o', 'llama3.1', 'qwen2.5'])));
+  }
+
+  // Tab 3 — Media Xu hướng (Pexels)
+  function mediaFields(st) {
+    return h('div', { class: 'mt-8' },
+      h('p', { class: 'muted', style: { margin: '0 0 12px' } },
+        'Kho media stock theo từ khóa — tự chèn ảnh cho cảnh Vox/HTML Video khi có MediaKeyword.'),
+      h('div', { class: 'grid-2' },
+        passwordField('Pexels API Key', st, 'pexelsKey', 'Dán Pexels API key…')),
+      h('p', { style: { margin: '10px 0 0', fontSize: '13px' } },
+        h('a', { href: 'https://www.pexels.com/api/', target: '_blank', rel: 'noopener' },
+          'Lấy key miễn phí tại pexels.com/api')));
+  }
 
   function apiPanel(st) {
     var statusDot = h('span', { class: 'muted' }, '●');
@@ -147,16 +237,21 @@
       statusText.textContent = text;
     }
 
+    // Render ĐỘNG mọi key server trả về — không hardcode danh sách.
     function renderResults(res) {
       resultsBox.innerHTML = '';
-      var items = [['gemini', 'Gemini API'], ['claude', 'Claude CLI'], ['ffmpeg', 'FFmpeg'], ['ytdlp', 'yt-dlp']];
+      var keys = Object.keys(res || {});
+      if (!keys.length) {
+        resultsBox.appendChild(h('div', { class: 'api-check-line text-red' }, '✗ không có dữ liệu trả về'));
+        return false;
+      }
       var allOk = true;
-      items.forEach(function (it) {
-        var r = (res && res[it[0]]) || { ok: false, detail: 'không có dữ liệu trả về' };
+      keys.forEach(function (k) {
+        var r = res[k] || {};
         if (!r.ok) allOk = false;
         resultsBox.appendChild(h('div', { class: 'api-check-line' },
           h('span', { class: r.ok ? 'text-green' : 'text-red' }, r.ok ? '✓' : '✗'),
-          h('strong', null, it[1]),
+          h('strong', null, TEST_LABELS[k] || k),
           h('span', { class: 'muted', style: { wordBreak: 'break-word' } }, r.detail || '')));
       });
       return allOk;
@@ -180,62 +275,28 @@
       }
     });
 
-    // API key + nút hiện/ẩn
-    var keyInput = UI.input({
-      type: 'password', value: st.geminiApiKey || '', placeholder: 'Dán API key của bạn…',
-      oninput: function (e) { st.geminiApiKey = e.target.value; }
-    });
-    keyInput.style.flex = '1';
-    keyInput.style.minWidth = '0';
-    var eyeBtn = h('button', {
-      class: 'icon-btn', type: 'button', title: 'Hiện / ẩn API key',
-      onclick: function () {
-        keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
-        eyeBtn.textContent = keyInput.type === 'password' ? '👁' : '🙈';
-      }
-    }, '👁');
+    // 3 tab thật — chuyển tab chỉ đổi phần fields; mọi giá trị chung 1 state st.
+    var panels = [serverFields(st), directFields(st), mediaFields(st)];
+    var tabBtns = [];
 
-    // Model + datalist gợi ý
-    var modelInput = UI.input({
-      value: st.geminiModel || '', placeholder: 'gemini-2.5-flash',
-      oninput: function (e) { st.geminiModel = e.target.value; }
-    });
-    modelInput.setAttribute('list', 'gemini-model-list');
-    var modelList = h('datalist', { id: 'gemini-model-list' },
-      ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview'].map(function (m) {
-        return h('option', { value: m });
-      }));
+    function showTab(idx) {
+      tabBtns.forEach(function (b, i) { b.classList.toggle('active', i === idx); });
+      panels.forEach(function (p, i) { p.style.display = i === idx ? '' : 'none'; });
+    }
 
-    var qualitySel = UI.select('Chất lượng mặc định',
-      [{ value: 'best', label: 'Tốt nhất (best)' }, { value: '1080p', label: '1080p' },
-       { value: '720p', label: '720p' }, { value: '480p', label: '480p' },
-       { value: 'audio', label: 'Chỉ âm thanh' }],
-      st.quality || 'best',
-      function (v) { st.quality = v; });
-
-    var threadsSlider = UI.slider('Luồng tải (song song)', {
-      min: 1, max: 8, step: 1, value: st.threads || 3,
-      oninput: function (v) { st.threads = v; }
+    ['API Server Chung', 'API Trực Tiếp', 'Media Xu hướng'].forEach(function (name, i) {
+      tabBtns.push(h('button', {
+        class: i === 0 ? 'tab active' : 'tab', type: 'button',
+        onclick: function () { showTab(i); }
+      }, name));
     });
+    panels.forEach(function (p, i) { if (i > 0) p.style.display = 'none'; });
 
     return h('div', { class: 'card mt-16' },
-      h('div', { class: 'tabs' },
-        h('button', { class: 'tab active', type: 'button' }, 'API Server Chung'),
-        h('button', { class: 'tab', type: 'button', disabled: true, title: 'Sắp có' }, 'API Trực Tiếp (sắp có)'),
-        h('button', { class: 'tab', type: 'button', disabled: true, title: 'Sắp có' }, 'Media Xu hướng (sắp có)')),
+      h('div', { class: 'tabs' }, tabBtns),
       h('div', { class: 'api-status-row' }, statusDot, statusText, testBtn),
       resultsBox,
-      h('div', { class: 'grid-2 mt-8' },
-        textField('Gemini Base', st, 'geminiBase', 'https://generativelanguage.googleapis.com'),
-        UI.field('API Key', h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } }, keyInput, eyeBtn)),
-        UI.field('Model', h('div', null, modelInput, modelList)),
-        textField('Claude bin', st, 'claudeBin', 'claude'),
-        textField('Claude model (tùy chọn)', st, 'claudeModel', 'VD: claude-sonnet-4-5'),
-        textField('yt-dlp bin', st, 'ytdlpBin', 'yt-dlp'),
-        textField('Thư mục tải về', st, 'downloadDir', 'data/downloads'),
-        textField('File Cookies', st, 'cookiesFile', 'Đường dẫn file cookies.txt (tùy chọn)'),
-        qualitySel,
-        threadsSlider));
+      panels);
   }
 
   // ---------- Hàng hành động ----------

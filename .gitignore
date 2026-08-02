@@ -1,0 +1,16 @@
+# Dữ liệu runtime & build
+data/
+dist/
+/bizstudio
+/bizstudio.exe
+
+# Tài liệu làm việc nội bộ (không đưa lên repo)
+plans/
+.claude/
+*.jpg
+*.jpeg
+
+# Hệ thống
+.DS_Store
+*.log
+node_modules/

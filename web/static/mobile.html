@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Biz Studio — Gửi file vào dự án</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #F5F7FB; color: #0F172A;
+      min-height: 100vh; padding: 20px 16px 40px;
+    }
+    .wrap { max-width: 480px; margin: 0 auto; }
+    .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .logo .emoji { font-size: 34px; }
+    .logo .name { font-size: 20px; font-weight: 800; }
+    .logo .sub { font-size: 12px; color: #64748B; }
+    h1 { font-size: 17px; font-weight: 700; margin: 18px 0 4px; }
+    .pid { font-size: 12px; color: #64748B; word-break: break-all; margin-bottom: 16px; }
+    .zone {
+      display: block; text-align: center;
+      border: 2px dashed #C7D2E5; border-radius: 16px;
+      background: #fff; padding: 34px 16px; cursor: pointer;
+      color: #64748B;
+    }
+    .zone:active { border-color: #2563EB; color: #2563EB; }
+    .zone .ic { font-size: 36px; display: block; margin-bottom: 8px; }
+    .zone b { color: #0F172A; font-size: 15px; }
+    .zone small { display: block; margin-top: 4px; font-size: 12px; }
+    input[type=file] { display: none; }
+    .cam-btn {
+      display: block; width: 100%; text-align: center;
+      margin-top: 10px; padding: 12px;
+      background: #fff; border: 1px solid #E5EAF2; border-radius: 12px;
+      font-size: 14px; font-weight: 600; color: #2563EB; cursor: pointer;
+    }
+    .files { margin-top: 16px; }
+    .file {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: #fff; border: 1px solid #E5EAF2; border-radius: 12px;
+      padding: 11px 14px; margin-bottom: 8px; font-size: 13.5px;
+    }
+    .file .nm { font-weight: 600; word-break: break-all; }
+    .file .sz { color: #64748B; font-size: 12px; }
+    .file .rm { color: #EF4444; font-size: 18px; border: none; background: none; padding: 4px 6px; }
+    .big-btn {
+      display: block; width: 100%; margin-top: 18px;
+      background: #2563EB; color: #fff; border: none; border-radius: 14px;
+      padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer;
+      font-family: inherit;
+    }
+    .big-btn:disabled { opacity: .5; }
+    .ghost-btn {
+      display: block; width: 100%; margin-top: 10px;
+      background: #fff; color: #0F172A; border: 1px solid #E5EAF2; border-radius: 14px;
+      padding: 13px; font-size: 14px; font-weight: 600; cursor: pointer;
+      font-family: inherit;
+    }
+    .bar-wrap { margin-top: 16px; display: none; }
+    .bar-label { display: flex; justify-content: space-between; font-size: 12.5px; color: #64748B; margin-bottom: 6px; }
+    .bar { height: 10px; background: #E5EAF2; border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; width: 0%; background: #2563EB; border-radius: 999px; transition: width .2s ease; }
+    .msg { margin-top: 16px; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 600; display: none; }
+    .msg.ok { display: block; background: #ECFDF5; color: #059669; border: 1px solid #A7F3D0; }
+    .msg.err { display: block; background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">
+      <span class="emoji" style="display:inline-flex;width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#7C3AED,#EC4899);color:#fff;font-weight:800;font-size:22px;align-items:center;justify-content:center">B</span>
+      <div>
+        <div class="name">Biz Studio</div>
+        <div class="sub">Video AI Studio</div>
+      </div>
+    </div>
+
+    <h1>Gửi file vào dự án</h1>
+    <div class="pid" id="pid">Dự án: …</div>
+
+    <label class="zone" for="fileInput">
+      <span class="ic">📤</span>
+      <b>Chạm để chọn file</b>
+      <small>Video, hình ảnh hoặc âm thanh — chọn được nhiều file</small>
+    </label>
+    <input type="file" id="fileInput" multiple accept="video/*,image/*,audio/*">
+
+    <label class="cam-btn" for="camInput">📷 Quay video / chụp ảnh mới</label>
+    <input type="file" id="camInput" accept="video/*,image/*" capture="environment">
+
+    <div class="files" id="fileList"></div>
+
+    <button class="big-btn" id="uploadBtn" disabled>Tải lên dự án</button>
+    <button class="ghost-btn" id="moreBtn" style="display:none">＋ Chọn thêm</button>
+
+    <div class="bar-wrap" id="barWrap">
+      <div class="bar-label"><span>Đang tải lên…</span><span id="barPct">0%</span></div>
+      <div class="bar"><div class="bar-fill" id="barFill"></div></div>
+    </div>
+
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+      var m = location.pathname.match(/^\/m\/([^\/]+)/);
+      var projectID = m ? m[1] : '';
+      document.getElementById('pid').textContent = projectID
+        ? 'Dự án: ' + projectID
+        : 'Không tìm thấy mã dự án trong đường dẫn';
+
+      var picked = []; // File[]
+      var fileInput = document.getElementById('fileInput');
+      var camInput = document.getElementById('camInput');
+      var listEl = document.getElementById('fileList');
+      var uploadBtn = document.getElementById('uploadBtn');
+      var moreBtn = document.getElementById('moreBtn');
+      var msgEl = document.getElementById('msg');
+      var barWrap = document.getElementById('barWrap');
+      var barFill = document.getElementById('barFill');
+      var barPct = document.getElementById('barPct');
+
+      function fmtBytes(n) {
+        if (n < 1024) return n + ' B';
+        if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+        if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+        return (n / 1073741824).toFixed(2) + ' GB';
+      }
+
+      function showMsg(text, ok) {
+        msgEl.className = 'msg ' + (ok ? 'ok' : 'err');
+        msgEl.textContent = text;
+      }
+      function hideMsg() { msgEl.className = 'msg'; msgEl.textContent = ''; }
+
+      function renderList() {
+        listEl.innerHTML = '';
+        picked.forEach(function (f, i) {
+          var row = document.createElement('div');
+          row.className = 'file';
+          var left = document.createElement('div');
+          var nm = document.createElement('div');
+          nm.className = 'nm'; nm.textContent = f.name;
+          var sz = document.createElement('div');
+          sz.className = 'sz'; sz.textContent = fmtBytes(f.size);
+          left.appendChild(nm); left.appendChild(sz);
+          var rm = document.createElement('button');
+          rm.className = 'rm'; rm.textContent = '×'; rm.type = 'button';
+          rm.onclick = function () { picked.splice(i, 1); renderList(); };
+          row.appendChild(left); row.appendChild(rm);
+          listEl.appendChild(row);
+        });
+        uploadBtn.disabled = picked.length === 0 || !projectID;
+        uploadBtn.textContent = picked.length
+          ? 'Tải lên dự án (' + picked.length + ' file)'
+          : 'Tải lên dự án';
+      }
+
+      function addFiles(input) {
+        if (!input.files || !input.files.length) return;
+        for (var i = 0; i < input.files.length; i++) picked.push(input.files[i]);
+        input.value = '';
+        hideMsg();
+        renderList();
+      }
+      fileInput.onchange = function () { addFiles(fileInput); };
+      camInput.onchange = function () { addFiles(camInput); };
+      moreBtn.onclick = function () { fileInput.click(); };
+
+      uploadBtn.onclick = function () {
+        if (!picked.length) return;
+        if (!projectID) { showMsg('Thiếu mã dự án — hãy quét lại mã QR.', false); return; }
+        hideMsg();
+        uploadBtn.disabled = true;
+        moreBtn.style.display = 'none';
+        barWrap.style.display = 'block';
+        barFill.style.width = '0%';
+        barPct.textContent = '0%';
+
+        var fd = new FormData();
+        picked.forEach(function (f) { fd.append('files', f); });
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/m/' + encodeURIComponent(projectID) + '/upload');
+        xhr.upload.onprogress = function (e) {
+          if (e.lengthComputable) {
+            var p = Math.round(e.loaded / e.total * 100);
+            barFill.style.width = p + '%';
+            barPct.textContent = p + '%';
+          }
+        };
+        xhr.onload = function () {
+          barWrap.style.display = 'none';
+          moreBtn.style.display = 'block';
+          if (xhr.status >= 200 && xhr.status < 300) {
+            showMsg('✓ Đã tải lên ' + picked.length + ' file thành công!', true);
+            picked = [];
+            renderList();
+          } else {
+            var errMsg = 'Tải lên thất bại (HTTP ' + xhr.status + ')';
+            try {
+              var j = JSON.parse(xhr.responseText);
+              if (j && j.error) errMsg = 'Tải lên thất bại: ' + j.error;
+            } catch (e) { /* giữ thông báo mặc định */ }
+            showMsg(errMsg, false);
+            uploadBtn.disabled = false;
+          }
+        };
+        xhr.onerror = function () {
+          barWrap.style.display = 'none';
+          moreBtn.style.display = 'block';
+          showMsg('Lỗi mạng — không gửi được file. Kiểm tra WiFi cùng mạng với máy tính.', false);
+          uploadBtn.disabled = false;
+        };
+        xhr.send(fd);
+      };
+
+      renderList();
+    })();
+  </script>
+</body>
+</html>

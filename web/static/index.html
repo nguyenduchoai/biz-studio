@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Biz Studio</title>
+  <link rel="stylesheet" href="css/nova.css">
+  <link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+  <div class="shell">
+    <!-- ===== Sidebar ===== -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span class="logo-emoji">B</span>
+        <div>
+          <div class="logo-name">Biz Studio</div>
+          <div class="logo-sub">Video AI Studio</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" id="navGroups"><!-- app.js render --></nav>
+
+      <div class="sidebar-foot">
+        <div class="user-card">
+          <div class="user-avatar">HN</div>
+          <div class="user-info">
+            <div class="user-name">Hoai Nguyen</div>
+            <div class="user-role">Studio Owner</div>
+          </div>
+        </div>
+        <div class="disk-card">
+          <div class="disk-row">
+            <span>Dung lượng</span>
+            <span id="diskPctLabel">--%</span>
+          </div>
+          <div class="progress disk-progress"><div class="progress-fill" id="diskFill" style="width:0%"></div></div>
+        </div>
+        <div class="app-version" id="appVersion">Biz Studio</div>
+      </div>
+    </aside>
+
+    <!-- ===== Main ===== -->
+    <div class="main">
+      <header class="topbar">
+        <div class="topbar-titles">
+          <h1 class="page-title" id="pageTitle">Đang tải…</h1>
+          <div class="page-subtitle" id="pageSubtitle"></div>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-btn" id="themeToggle" title="Đổi giao diện sáng / tối">🌙</button>
+          <button class="icon-btn" id="settingsBtn" title="Cấu hình &amp; API">⚙</button>
+          <span class="badge badge-blue nova-badge">BIZ</span>
+        </div>
+      </header>
+
+      <main class="workspace" id="workspace"></main>
+
+      <footer class="statusbar">
+        <div class="statusbar-left">
+          <span>Trạng thái [STUDIO1]:</span>
+          <span class="status-dot" id="studioDot">●</span>
+          <span class="status-text" id="studioStatus">Đang kết nối…</span>
+        </div>
+        <div class="statusbar-right">
+          <span id="hostStats">Máy CPU: --% | GPU: -- | RAM: --% | Disk: --%</span>
+          <span class="sep">|</span>
+          <span class="brand-blue">Biz Studio</span>
+          <span id="ramUsed">RAM: -- MB</span>
+          <span class="sep">|</span>
+          <span class="backend-dot" id="backendDot">●</span>
+          <span id="backendText">Backend…</span>
+        </div>
+      </footer>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts"></div>
+
+  <!-- Thứ tự load bắt buộc: api → ui → app → pages -->
+  <script src="js/api.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/pages/dashboard.js"></script>
+  <script src="js/pages/download.js"></script>
+  <script src="js/pages/ocr.js"></script>
+  <script src="js/pages/translate.js"></script>
+  <script src="js/pages/tts.js"></script>
+  <script src="js/pages/article.js"></script>
+  <script src="js/pages/vox.js"></script>
+  <script src="js/pages/editor.js"></script>
+  <script src="js/pages/projects.js"></script>
+  <script src="js/pages/project-detail.js"></script>
+  <script src="js/pages/settings.js"></script>
+  <script src="js/pages/logs.js"></script>
+  <script src="js/pages/prompts.js"></script>
+</body>
+</html>

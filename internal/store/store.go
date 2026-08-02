@@ -1,0 +1,116 @@
+package store
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+)
+
+type db struct {
+	Projects []Project        `json:"projects"`
+	Assets   []Asset          `json:"assets"`
+	Sessions []Session        `json:"sessions"`
+	Events   []SessionEvent   `json:"events"`
+	Jobs     []Job            `json:"jobs"`
+	Prompts  []PromptTemplate `json:"prompts"`
+	LogList  []LogEntry       `json:"logs"`
+	Config   Settings         `json:"settings"`
+}
+
+// Store — JSON file store, an toàn goroutine.
+type Store struct {
+	mu      sync.RWMutex
+	d       db
+	path    string
+	DataDir string
+}
+
+// Open mở (hoặc tạo) store tại <dataDir>/db.json và chuẩn bị cây thư mục.
+func Open(dataDir string) (*Store, error) {
+	abs, err := filepath.Abs(dataDir)
+	if err != nil {
+		return nil, err
+	}
+	for _, sub := range []string{"", "projects", "downloads", "tmp"} {
+		if err := os.MkdirAll(filepath.Join(abs, sub), 0o755); err != nil {
+			return nil, err
+		}
+	}
+	s := &Store{path: filepath.Join(abs, "db.json"), DataDir: abs}
+	if b, err := os.ReadFile(s.path); err == nil {
+		if err := json.Unmarshal(b, &s.d); err != nil {
+			return nil, fmt.Errorf("db.json hỏng: %w", err)
+		}
+	}
+	s.applyDefaults()
+	return s, s.saveLocked()
+}
+
+func (s *Store) applyDefaults() {
+	c := &s.d.Config
+	if c.GeminiBase == "" {
+		c.GeminiBase = "https://generativelanguage.googleapis.com"
+	}
+	if c.GeminiModel == "" {
+		c.GeminiModel = "gemini-2.5-flash"
+	}
+	if c.ClaudeBin == "" {
+		c.ClaudeBin = "claude"
+	}
+	if c.YtdlpBin == "" {
+		c.YtdlpBin = "yt-dlp"
+	}
+	if c.DownloadDir == "" {
+		c.DownloadDir = filepath.Join(s.DataDir, "downloads")
+	}
+	if c.Quality == "" {
+		c.Quality = "best"
+	}
+	if c.Threads == 0 {
+		c.Threads = 3
+	}
+	if c.Theme == "" {
+		c.Theme = "light"
+	}
+	if c.UIScale == 0 {
+		c.UIScale = 100
+	}
+	if c.PerfMode == "" {
+		c.PerfMode = "auto"
+	}
+}
+
+// save ghi xuống disk (atomic). Gọi khi ĐANG giữ write lock.
+func (s *Store) saveLocked() error {
+	b, err := json.MarshalIndent(s.d, "", " ")
+	if err != nil {
+		return err
+	}
+	tmp := s.path + ".tmp"
+	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, s.path)
+}
+
+// write chạy fn trong write lock rồi persist.
+func (s *Store) write(fn func(*db)) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	fn(&s.d)
+	_ = s.saveLocked()
+}
+
+// NewID sinh ID dạng <prefix>_<8 hex>.
+func (s *Store) NewID(prefix string) string {
+	b := make([]byte, 4)
+	_, _ = rand.Read(b)
+	return prefix + "_" + hex.EncodeToString(b)
+}
+
+func now() time.Time { return time.Now() }

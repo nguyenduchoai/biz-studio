@@ -8,6 +8,7 @@
 
 ## Mục lục
 
+- [Có gì mới](#có-gì-mới)
 - [Biz Studio làm được gì](#biz-studio-làm-được-gì)
 - [Hệ thống vận hành thế nào](#hệ-thống-vận-hành-thế-nào)
 - [Phiên AI edit video hoạt động ra sao](#phiên-ai-edit-video-hoạt-động-ra-sao)
@@ -18,6 +19,21 @@
 - [REST API](#rest-api)
 - [Cấu trúc dữ liệu & mã nguồn](#cấu-trúc-dữ-liệu--mã-nguồn)
 - [Khắc phục sự cố](#khắc-phục-sự-cố)
+- [Cảm hứng & ghi nhận](#cảm-hứng--ghi-nhận)
+
+---
+
+## Có gì mới
+
+### v1.1.0 — 02/08/2026
+- 🧩 **HTML Video**: render video MP4 từ HTML/CSS bằng headless Chrome — nhập prompt, dán bài viết hoặc **link repo GitHub** (tự đọc README), AI tách thành cảnh theo 7 template (hero, ý chính, code, biểu đồ, sản phẩm, trích dẫn, CTA), 3 theme, narration TTS, nhạc nền, phụ đề.
+- 🔌 **API Trực Tiếp**: endpoint OpenAI-compatible (OpenAI, OpenRouter, LM Studio, Ollama local) làm engine thứ 3 cho Dịch thuật & tách cảnh.
+- 🖼 **Media Xu hướng**: Pexels API — tự chèn ảnh stock theo từ khóa cho cảnh Vox / HTML Video.
+- 📚 **8 prompt mẫu có sẵn** cho yêu cầu edit (viral, TVC, vlog, giáo dục, recap, repo tech, podcast, số liệu).
+- ⬆️ Upload file trực tiếp cho OCR/ASR & Dịch thuật; kiểm tra kết nối 7 mục; sửa tràn layout Studio Editor.
+
+### v1.0.0 — 02/08/2026
+- Phát hành đầu tiên: Phiên AI edit video qua Claude CLI, tự cắt khoảng lặng, OCR/ASR, dịch thuật, TTS, Bài viết → Video, Vox-Director, Studio Editor, QC tự động, thumbnail, gói xuất bản, kết nối điện thoại QR, đóng gói dmg/exe/linux.
 
 ---
 
@@ -222,6 +238,19 @@ web/static/                 # SPA: index.html, css/, js/pages/*.js (nhúng vào 
 | Video không preview được | Kiểm tra file có trong `data/` và URL bắt đầu bằng `/data/`. |
 | Điện thoại không mở được trang QR | Điện thoại phải cùng mạng Wi-Fi; kiểm tra firewall cho phép cổng 6868. |
 | Muốn đổi cổng / thư mục dữ liệu | `./bizstudio -port 8080 -data /duong/dan/khac` |
+
+## Cảm hứng & ghi nhận
+
+Biz Studio học hỏi ý tưởng từ những dự án mã nguồn mở rất hay trong hệ sinh thái AI video — xin ghi nhận và cảm ơn:
+
+| Dự án | Học được gì → áp dụng vào Biz Studio |
+|---|---|
+| [HTML Video](https://github.com/nexu-io/html-video) | Hướng **"video-as-code"**: dựng frame bằng HTML/CSS thay cho timeline thủ công → module **HTML Video** (AI → JSON cảnh → HTML → MP4, render local bằng headless Chrome) |
+| [AiToEarn](https://github.com/yikart/AiToEarn) | Tư duy hệ sinh thái agent **Create → Publish → Engage → Monetize** → định hướng **Gói xuất bản** (meta/hashtag sẵn sàng đăng đa nền tảng) và roadmap tự động hóa xuất bản |
+| [Pallaidium](https://github.com/tin2tin/Pallaidium) | Mô hình **"AI movie studio" khép kín** một môi trường duy nhất (kịch bản → sinh media → dựng → phân tích ngược) → cách tổ chức workflow Bài viết → Video / Vox-Director / phiên AI trong cùng một studio |
+| HyperFrame · OpenDesign | Cảm hứng về motion/storytelling cho short video và thiết kế scene/layout động → bộ template cảnh + theme của HTML Video |
+
+Và những công cụ nền tảng mà Biz Studio đứng trên vai: [FFmpeg](https://ffmpeg.org), [chromedp](https://github.com/chromedp/chromedp), [yt-dlp](https://github.com/yt-dlp/yt-dlp), [Claude Code CLI](https://claude.com/claude-code), [Gemini API](https://ai.google.dev), [Pexels](https://www.pexels.com/api/), [go-qrcode](https://github.com/skip2/go-qrcode).
 
 ---
 

@@ -114,7 +114,7 @@
 
     // --- Trái: thư viện media (tabs Media / SFX)
     function libraryCard(assets) {
-      var gridEl = h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' } });
+      var gridEl = h('div', { style: { display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: '8px' } });
       var tabMedia = h('button', { class: 'btn btn-sm btn-primary' }, 'Media');
       var tabSfx = h('button', { class: 'btn btn-sm btn-ghost' }, 'SFX');
       function setTab(t) {
@@ -145,7 +145,7 @@
         }
         return h('div', {
           title: a.name,
-          style: { cursor: 'pointer', border: '1px solid var(--border)', borderRadius: '10px', padding: '6px' },
+          style: { cursor: 'pointer', border: '1px solid var(--border)', borderRadius: '10px', padding: '6px', minWidth: '0', overflow: 'hidden' },
           onclick: function () { selectAsset(a); }
         }, inner,
         h('div', { style: { fontSize: '11px', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, a.name));
@@ -224,7 +224,7 @@
     function propRow(label, valueNode) {
       return h('tr', null,
         h('td', { class: 'muted', style: { width: '38%' } }, label),
-        h('td', null, valueNode));
+        h('td', { style: { wordBreak: 'break-all', overflowWrap: 'anywhere', minWidth: '0' } }, valueNode));
     }
 
     function updateProps() {
@@ -235,7 +235,7 @@
         propsHost.appendChild(h('div', { class: 'muted' }, 'Chưa chọn media nào.'));
         return;
       }
-      propsHost.appendChild(h('table', { class: 'table' }, h('tbody', null,
+      propsHost.appendChild(h('table', { class: 'table', style: { tableLayout: 'fixed', width: '100%' } }, h('tbody', null,
         propRow('Tên', a.name),
         propRow('Loại', KIND_LABELS[a.kind] || a.kind),
         propRow('Kích thước', UI.fmtBytes(a.size)),

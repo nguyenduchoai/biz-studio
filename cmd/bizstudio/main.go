@@ -8,9 +8,12 @@ import (
 
 	"bizstudio/internal/server"
 	"bizstudio/internal/store"
+	"bizstudio/internal/util"
 )
 
 func main() {
+	// App mở từ Finder (dmg) chỉ có PATH tối thiểu — bổ sung để thấy claude/ffmpeg/yt-dlp.
+	util.AugmentPATH()
 	port := flag.Int("port", 6868, "cổng HTTP")
 	dataDir := flag.String("data", "data", "thư mục dữ liệu")
 	flag.Parse()

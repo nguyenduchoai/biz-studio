@@ -46,7 +46,8 @@ DATA="$HOME/Library/Application Support/BizStudio"
 mkdir -p "$DATA"
 if ! curl -sf -o /dev/null "http://localhost:6868/api/state" 2>/dev/null; then
   ( sleep 1.5; open "http://localhost:6868" ) &
-  exec "$DIR/bizstudio" -port 6868 -data "$DATA"
+  # Chạy qua login shell để kế thừa PATH của người dùng (claude, ffmpeg, yt-dlp…)
+  exec /bin/zsh -l -c "exec \"$DIR/bizstudio\" -port 6868 -data \"$DATA\""
 else
   open "http://localhost:6868"
 fi

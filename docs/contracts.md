@@ -291,3 +291,35 @@ CRUD: `Characters()`, `Character(id)`, `SaveCharacter(*Character)`, `DeleteChara
 ### FE
 - Trang mới `characters` (nav đã đăng ký, file web/static/js/pages/characters.js): lưới nhân vật (avatar từ RefImage/preview, tên, vai trò, mô tả ngoại hình rút gọn), nút Tạo/Sửa/Xoá/Tải ảnh tham chiếu/Xem thử.
 - Trong Storyboard (text2video-storyboard.js): mỗi cảnh thêm hàng chọn nhân vật — chip bật/tắt theo danh sách `GET /api/characters`, lưu vào `segment.characterIds` qua PUT session.
+
+## Mở rộng v1.8 — Ý tưởng & Hàng đợi sản xuất
+
+Mục tiêu: AI đề xuất hàng loạt ý tưởng video cho một chủ đề/kênh → người duyệt → hệ thống tự sản xuất tuần tự (viết kịch bản → giọng đọc → storyboard → dựng video) mà không cần bấm từng bước.
+
+### Store (ĐÃ CÓ — chỉ dùng)
+`store.Idea{ID, Title, Angle, Hook, Keywords []string, Status (proposed|approved|rejected|queued|producing|done|error), Width, Height, FPS, T2VSessionID, OutputPath, Error, CreatedAt, UpdatedAt}`.
+CRUD: `Ideas()`, `Idea(id)`, `SaveIdea(*Idea)`, `DeleteIdea(id)`, `NextQueuedIdea() (Idea, bool)`.
+
+### internal/ideas (MỚI)
+- `Generate(ctx, st *store.Store, topic string, count int, audience, tone string) ([]store.Idea, error)` — hỏi LLM (engine như `text2video.WriteScript`: openai → gemini → claude CLI) trả JSON mảng `{title, angle, hook, keywords}`; tiêu đề tiếng Việt, hấp dẫn, không clickbait rẻ tiền; status="proposed". Strip codefence, lỗi parse → fallback tách dòng.
+- `Runner` — bộ chạy hàng đợi TUẦN TỰ (mỗi lúc chỉ 1 ý tưởng, tránh tranh Chrome/ffmpeg/TTS):
+  - `NewRunner(st *store.Store, dataDir string, broadcast func(string, any)) *Runner`
+  - `(*Runner).Start()` / `Stop()` / `Running() bool` / `Status() (running bool, currentIdeaID string)`
+  - Vòng lặp: `NextQueuedIdea()` → status="producing" → tạo `store.T2VSession` (tên = Title, kích thước từ Idea, SourceText = Title + Angle + Hook + Keywords) → `text2video.WriteScript` → `BuildVoice` → `BuildStoryboard` (lỗi thiếu key ảnh thì BỎ QUA, vẫn dựng được bằng chữ) → `BuildVideoHTML` → lưu OutputPath, status="done". Lỗi ở bước nào → status="error" + Error, chạy tiếp ý tưởng sau.
+  - Mỗi bước gọi `broadcast("idea", idea)` và ghi `st.AddLog("info","ideas",...)`.
+  - Stop() = ngừng NHẬN ý tưởng mới, ý tưởng đang chạy vẫn chạy xong (dùng context riêng, hủy khi Stop → đánh dấu error "đã dừng hàng đợi").
+
+### routes_ideas.go (server.go ĐÃ gọi s.routesIdeas)
+- `GET /api/ideas` → []Idea
+- `POST /api/ideas/generate` body `{topic, count (mặc định 8, tối đa 20), audience, tone, width, height, fps}` → Job kind=`idea_gen` → lưu các Idea mới (kèm width/height/fps)
+- `POST /api/ideas` body `{title, angle, hook, keywords, width, height, fps}` → tự thêm 1 ý tưởng thủ công (status="approved")
+- `PUT /api/ideas/{id}` → sửa (title/angle/hook/keywords/status/width/height/fps)
+- `DELETE /api/ideas/{id}`
+- `POST /api/ideas/{id}/approve` → status="approved" · `POST /api/ideas/{id}/reject` → status="rejected"
+- `POST /api/ideas/{id}/queue` → status="queued" (chỉ từ proposed/approved/error/rejected)
+- `GET /api/ideas/queue` → `{running: bool, currentIdeaId: string, queued: int, producing: int}`
+- `POST /api/ideas/queue/start` · `POST /api/ideas/queue/stop`
+Runner khởi tạo 1 lần trong server (singleton như aiRunner ở routes_sessions.go).
+
+### FE — trang `ideas` (nav đã đăng ký)
+2 khu: **Sinh ý tưởng** (ô Chủ đề/kênh, số lượng, Đối tượng xem, Tông giọng, chọn khung hình → nút "✨ Sinh ý tưởng") và **Hàng đợi** (trạng thái runner + nút Bắt đầu/Dừng + đếm chờ/đang chạy). Danh sách ý tưởng dạng card: tiêu đề, badge trạng thái, góc tiếp cận, hook, chips keyword; nút theo trạng thái: Duyệt / Bỏ / Đưa vào hàng đợi / Mở phiên (khi có T2VSessionID) / Xem video (khi done) / Sửa / Xoá. Realtime qua `Bus.on('idea')` và `Bus.on('job')`.

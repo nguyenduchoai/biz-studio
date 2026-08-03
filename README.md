@@ -27,6 +27,14 @@
 
 ## Có gì mới
 
+### v1.5.0 — 03/08/2026 — Dây chuyền sản xuất nội dung
+Bốn tính năng biến Biz Studio thành xưởng làm video hàng loạt, không chỉ dựng từng video một:
+
+- 🎨 **Style Kit** — một câu mô tả phong cách được ghép vào **mọi** prompt sinh ảnh, nên các cảnh trong cùng video trông như một bộ phim. Có sẵn 6 bộ mẫu (doodle 2D vẽ tay, editorial 2D, điện ảnh, phẳng tối giản, neon, 3D đất sét); đổi bộ là đổi chất phim cả video.
+- 🖼 **Storyboard** — mỗi đoạn kịch bản có ảnh riêng: sửa prompt từng cảnh, tạo lại đúng một cảnh, hoặc tự tải ảnh thay thế. Ảnh bạn tải lên không bị ghi đè khi sinh lại toàn bộ.
+- 🧑‍🎤 **Nhân vật nhất quán** — đặt tên + mô tả ngoại hình một lần, gán vào từng cảnh; mô tả tự chèn vào prompt nên nhân vật giữ nguyên nhân dạng xuyên suốt video.
+- 💡 **Ý tưởng & Hàng đợi** — AI đề xuất hàng loạt ý tưởng cho kênh của bạn, bạn duyệt, hệ thống **tự sản xuất tuần tự** từ kịch bản đến video hoàn chỉnh.
+
 ### v1.4.0 — 03/08/2026
 - 📜 **Text → Video** — module mới dạng **phiên làm việc lưu được** (đóng app mở lại vẫn còn, sửa tiếp được):
   1. **Nguồn**: dán văn bản hoặc **dán link bài viết** để tự bóc nội dung
@@ -65,6 +73,8 @@
 | 🎙 **TTS / Giọng đọc** | 3 chế độ: **Dubbing nhanh** (văn bản → giọng đọc), **Dubbing chất lượng** (lồng tiếng video theo phụ đề, khớp timing từng câu), **Clone voice** (nhân bản giọng từ clip 3–8 giây). Engine mặc định **VieNeu-TTS** on-device 48 kHz, 14 giọng 3 miền, 3 phong cách đọc + macOS `say` + Gemini TTS. |
 | 🎬 **Bài viết → Video** | Dán bài viết → AI tách thành danh sách cảnh (tiêu đề, lời đọc, từ khóa media) → tự TTS + ghép ảnh + phụ đề + nhạc nền → render mp4 dọc 9:16 hoặc ngang 16:9. |
 | 🧩 **HTML Video** | Video-as-code: prompt / bài viết / **repo GitHub** → AI tách cảnh → dựng frame bằng **HTML/CSS** (7 template: hero, ý chính, code, biểu đồ, sản phẩm, trích dẫn, CTA) → render MP4 bằng headless Chrome. Hợp video giới thiệu repo, explainer, số liệu, social short hàng loạt. |
+| 💡 **Ý tưởng & Hàng đợi** | AI đề xuất ý tưởng video hàng loạt cho một chủ đề/kênh → bạn duyệt → hàng đợi tự sản xuất tuần tự (kịch bản → giọng đọc → storyboard → video). |
+| 🎨 **Style Kit · 🖼 Storyboard · 🧑‍🎤 Nhân vật** | Phong cách hình ảnh thống nhất cho cả video; ảnh riêng từng cảnh sửa/tạo lại được; nhân vật giữ nguyên nhân dạng xuyên suốt. |
 | 📜 **Text → Video** | Phiên làm việc lưu được: link bài viết / văn bản → AI viết kịch bản chia đoạn (sửa tay được) → giọng đọc có **thời lượng đo thật từng đoạn** → dựng video bám đúng giọng. Chọn dựng bằng AI hoặc HTML Video. |
 | 🎭 **Vox-Director** | Như trên nhưng gắn vào dự án, gán media cụ thể cho từng cảnh — làm video dạng TVC khi có đủ source. |
 | 🛡 **QC tự động** | Đo loudness (LUFS), phát hiện frame đen, đoạn đứng hình, khoảng lặng — báo cáo kèm cảnh báo. |

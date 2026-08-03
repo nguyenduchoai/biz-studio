@@ -77,6 +77,27 @@ type Job struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// Idea — ý tưởng video do AI đề xuất, chờ người duyệt rồi mới sản xuất.
+type Idea struct {
+	ID       string   `json:"id"`
+	Title    string   `json:"title"`
+	Angle    string   `json:"angle"`    // góc tiếp cận / tóm tắt nội dung
+	Hook     string   `json:"hook"`     // câu mở đầu giữ chân người xem
+	Keywords []string `json:"keywords"`
+	Status   string   `json:"status"` // proposed | approved | rejected | queued | producing | done | error
+
+	// Cấu hình sản xuất (kế thừa khi tạo phiên Text → Video)
+	Width  int `json:"width"`
+	Height int `json:"height"`
+	FPS    int `json:"fps"`
+
+	T2VSessionID string    `json:"t2vSessionId"` // phiên được tạo khi sản xuất
+	OutputPath   string    `json:"outputPath"`
+	Error        string    `json:"error"`
+	CreatedAt    time.Time `json:"createdAt"`
+	UpdatedAt    time.Time `json:"updatedAt"`
+}
+
 // Character — nhân vật xuất hiện lặp lại trong nhiều cảnh; mô tả ngoại hình
 // được chèn vào prompt sinh ảnh để nhân vật trông giống nhau xuyên suốt video.
 type Character struct {

@@ -94,7 +94,7 @@
 
   // ---------- SSE /api/events/stream ----------
 
-  var SSE_EVENTS = ['job', 'session_event', 'session', 'log', 'project'];
+  var SSE_EVENTS = ['job', 'session_event', 'session', 'log', 'project', 'idea'];
   var es = null;
   var reconnectTimer = null;
   var everConnected = false;

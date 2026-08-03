@@ -43,6 +43,7 @@ func New(st *store.Store, dataDir string, port int) *Server {
 	s.routesT2V(s.mux)
 	s.routesStyle(s.mux)
 	s.routesChars(s.mux)
+	s.routesIdeas(s.mux)
 	s.routesMisc(s.mux)
 	return s
 }

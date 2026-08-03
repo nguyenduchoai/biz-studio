@@ -208,6 +208,67 @@ func (s *Store) SaveJob(j *Job) {
 	})
 }
 
+// ---------- Ideas (hàng đợi sản xuất) ----------
+
+func (s *Store) Ideas() []Idea {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := append([]Idea(nil), s.d.Ideas...)
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out
+}
+
+func (s *Store) Idea(id string) (Idea, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, x := range s.d.Ideas {
+		if x.ID == id {
+			return x, true
+		}
+	}
+	return Idea{}, false
+}
+
+func (s *Store) SaveIdea(x *Idea) {
+	if x.ID == "" {
+		x.ID = s.NewID("idea")
+		x.CreatedAt = now()
+	}
+	x.UpdatedAt = now()
+	s.write(func(d *db) {
+		for i := range d.Ideas {
+			if d.Ideas[i].ID == x.ID {
+				d.Ideas[i] = *x
+				return
+			}
+		}
+		d.Ideas = append(d.Ideas, *x)
+	})
+}
+
+func (s *Store) DeleteIdea(id string) {
+	s.write(func(d *db) {
+		d.Ideas = filterSlice(d.Ideas, func(x Idea) bool { return x.ID != id })
+	})
+}
+
+// NextQueuedIdea lấy ý tưởng cũ nhất đang chờ sản xuất (status=queued).
+func (s *Store) NextQueuedIdea() (Idea, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var best Idea
+	found := false
+	for _, x := range s.d.Ideas {
+		if x.Status != "queued" {
+			continue
+		}
+		if !found || x.CreatedAt.Before(best.CreatedAt) {
+			best, found = x, true
+		}
+	}
+	return best, found
+}
+
 // ---------- Characters ----------
 
 func (s *Store) Characters() []Character {

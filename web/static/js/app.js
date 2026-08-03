@@ -20,6 +20,7 @@
       { id: 'text2video', label: 'Text → Video', icon: '📜' },
       { id: 'stylekit', label: 'Style Kit', icon: '🎨' },
       { id: 'characters', label: 'Nhân vật', icon: '🧑‍🎤' },
+      { id: 'ideas', label: 'Ý tưởng & Hàng đợi', icon: '💡' },
       { id: 'editor', label: 'Studio Editor', icon: '✂️' }
     ]},
     { group: 'HỆ THỐNG', items: [

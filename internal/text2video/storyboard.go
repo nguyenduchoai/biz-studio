@@ -70,7 +70,8 @@ func BuildStoryboard(ctx context.Context, st *store.Store, sess *store.T2VSessio
 		upd(6+float64(k)/float64(len(todo))*90, fmt.Sprintf("Tạo ảnh cảnh %d/%d", k+1, len(todo)))
 
 		name := ShotFile(i)
-		src, err := generateShot(ctx, st, sess.Segments[i].ImagePrompt, w, h, filepath.Join(workDir, name))
+		src, err := generateShot(ctx, st, sess.Segments[i].ImagePrompt, sess.Segments[i].CharacterIDs,
+			w, h, filepath.Join(workDir, name))
 		if err != nil {
 			fails = append(fails, fmt.Sprintf("cảnh %d: %v", i+1, err))
 			st.AddLog("warn", "text2video", fmt.Sprintf("Tạo ảnh cảnh %d thất bại: %v", i+1, err))
@@ -118,7 +119,7 @@ func BuildSegmentImage(ctx context.Context, st *store.Store, sess *store.T2VSess
 
 	w, h := sessionSize(sess)
 	name := ShotFile(idx)
-	src, err := generateShot(ctx, st, p, w, h, filepath.Join(workDir, name))
+	src, err := generateShot(ctx, st, p, sess.Segments[idx].CharacterIDs, w, h, filepath.Join(workDir, name))
 	if err != nil {
 		return fmt.Errorf("tạo lại ảnh cảnh %d thất bại: %w", idx+1, err)
 	}
@@ -175,9 +176,9 @@ func CheckImageSource(st *store.Store) error {
 // generateShot sinh ảnh một cảnh theo chuỗi nguồn: Gemini (prompt qua Style Kit)
 // → Pexels (từ khóa rút từ prompt). Ghi ra file tạm rồi mới thay file đích để
 // ảnh cũ không bị mất khi sinh lỗi. Trả nguồn ảnh: "ai" | "stock".
-func generateShot(ctx context.Context, st *store.Store, prompt string, w, h int, dst string) (string, error) {
-	prompt = cleanPrompt(prompt)
-	if prompt == "" {
+func generateShot(ctx context.Context, st *store.Store, prompt string, charIDs []string, w, h int, dst string) (string, error) {
+	scene := cleanPrompt(prompt)
+	if scene == "" {
 		return "", errors.New("chưa có mô tả cảnh để sinh ảnh")
 	}
 	tmp := dst + ".part.png"
@@ -186,7 +187,7 @@ func generateShot(ctx context.Context, st *store.Store, prompt string, w, h int,
 	set := st.Settings()
 	var fails []string
 	if strings.TrimSpace(set.GeminiAPIKey) != "" {
-		err := gemini.NewFromSettings(st).GenerateImage(ctx, stylekit.Apply(st, imagePrompt(prompt, w, h)), tmp)
+		err := gemini.NewFromSettings(st).GenerateImage(ctx, shotPrompt(st, scene, charIDs, w, h), tmp)
 		if err == nil {
 			return "ai", commitShot(tmp, dst)
 		}
@@ -196,7 +197,9 @@ func generateShot(ctx context.Context, st *store.Store, prompt string, w, h int,
 		return "", err
 	}
 	if strings.TrimSpace(set.PexelsKey) != "" {
-		err := stockmedia.SearchImage(ctx, st, stockKeyword(prompt), w, h, tmp)
+		// Ảnh kho tìm theo từ khóa CẢNH, không kèm mô tả nhân vật: kho ảnh có
+		// sẵn không thể khớp ngoại hình đã đặt, thêm vào chỉ làm lệch kết quả.
+		err := stockmedia.SearchImage(ctx, st, stockKeyword(scene), w, h, tmp)
 		if err == nil {
 			return "stock", commitShot(tmp, dst)
 		}
@@ -248,6 +251,69 @@ func fileExists(p string) bool {
 	return err == nil && !fi.IsDir()
 }
 
+// ---------- nhân vật nhất quán ----------
+
+// characterLead — mở đầu mệnh đề nhân vật, đặt NGAY SAU mô tả cảnh.
+const characterLead = "Featuring "
+
+// CharacterClause dựng mệnh đề mô tả ngoại hình các nhân vật của một cảnh:
+// "Featuring <Tên>: <Look>. <Tên2>: <Look2>". Nhờ mệnh đề này mà nhân vật ở
+// mọi cảnh trông giống nhau xuyên suốt video.
+//
+// Nhân vật không còn trong store (đã xoá) được BỎ QUA im lặng — thiếu một nhân
+// vật không đáng làm hỏng cả việc sinh ảnh. Không có nhân vật dùng được → "".
+func CharacterClause(st *store.Store, ids []string) string {
+	if st == nil || len(ids) == 0 {
+		return ""
+	}
+	seen := make(map[string]bool, len(ids))
+	parts := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		c, ok := st.Character(id)
+		if !ok {
+			continue
+		}
+		name, look := cleanPrompt(c.Name), cleanPrompt(c.Look)
+		switch {
+		case name != "" && look != "":
+			parts = append(parts, name+": "+look)
+		case look != "":
+			parts = append(parts, look)
+		case name != "":
+			parts = append(parts, name)
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return characterLead + strings.Join(parts, ". ")
+}
+
+// shotPrompt dựng prompt cuối cùng gửi model sinh ảnh, THỨ TỰ BẮT BUỘC:
+// mô tả cảnh → mô tả nhân vật → khung hình + luật không chữ → Style Kit (lớp
+// ngoài cùng). Đặt nhân vật ngay sau cảnh để ngoại hình không bị style ghi đè.
+func shotPrompt(st *store.Store, scene string, charIDs []string, w, h int) string {
+	return stylekit.Apply(st, imagePrompt(withCharacters(st, scene, charIDs), w, h))
+}
+
+// withCharacters ghép mô tả cảnh với mệnh đề nhân vật: "<cảnh>. Featuring …".
+func withCharacters(st *store.Store, scene string, charIDs []string) string {
+	clause := CharacterClause(st, charIDs)
+	switch {
+	case clause == "":
+		return scene
+	case strings.TrimSpace(scene) == "":
+		return clause
+	default:
+		return strings.TrimRight(strings.TrimSpace(scene), ".") + ". " + clause
+	}
+}
+
 // ---------- mô tả cảnh ----------
 
 const shotSystem = "Bạn là đạo diễn hình ảnh. Luôn trả về đúng JSON mảng chuỗi được yêu cầu, không thêm nội dung nào khác."
@@ -257,24 +323,44 @@ const shotSystem = "Bạn là đạo diễn hình ảnh. Luôn trả về đúng
 // hỏi được LLM. Kết quả là câu tiếng Anh ngắn: chủ thể + bối cảnh + cảm xúc +
 // ánh sáng, và luôn cấm chữ trong ảnh.
 func SuggestPrompt(seg store.T2VSegment) string {
-	return cleanPrompt(guessScene(seg.Text) + ". " + noTextRule)
+	scene := guessScene(seg.Text)
+	if len(seg.CharacterIDs) > 0 {
+		// Cảnh có nhân vật thì phải thấy người; ngoại hình KHÔNG tả ở đây —
+		// phần đó do hồ sơ nhân vật lo (CharacterClause).
+		scene = withPersonInFrame(scene)
+	}
+	return cleanPrompt(scene + ". " + noTextRule)
+}
+
+// personWords — dấu hiệu cảnh đã có người, khỏi thêm gợi ý.
+var personWords = []string{"person", "people", "someone", "man", "woman", "team", "family", "student", "traveler"}
+
+// withPersonInFrame bảo đảm cảnh có người xuất hiện (không tả ngoại hình).
+func withPersonInFrame(scene string) string {
+	low := strings.ToLower(scene)
+	for _, w := range personWords {
+		if strings.Contains(low, w) {
+			return scene
+		}
+	}
+	return scene + ", with the character clearly visible in frame"
 }
 
 // fillPrompts điền ImagePrompt cho các đoạn còn trống: hỏi LLM MỘT lần cho cả
 // danh sách, đoạn nào LLM không trả thì dùng SuggestPrompt.
 func fillPrompts(ctx context.Context, st *store.Store, sess *store.T2VSession, idxs []int) {
 	need := make([]int, 0, len(idxs))
-	texts := make([]string, 0, len(idxs))
+	asks := make([]shotAsk, 0, len(idxs))
 	for _, i := range idxs {
 		if strings.TrimSpace(sess.Segments[i].ImagePrompt) == "" {
 			need = append(need, i)
-			texts = append(texts, sess.Segments[i].Text)
+			asks = append(asks, askOf(sess.Segments[i]))
 		}
 	}
 	if len(need) == 0 {
 		return
 	}
-	got := suggestPromptsLLM(ctx, st, sess.ScriptEngine, sess.ScriptModel, texts)
+	got := suggestPromptsLLM(ctx, st, sess.ScriptEngine, sess.ScriptModel, asks)
 	for k, i := range need {
 		p := ""
 		if k < len(got) {
@@ -289,21 +375,32 @@ func fillPrompts(ctx context.Context, st *store.Store, sess *store.T2VSession, i
 
 // suggestOne sinh mô tả cảnh cho đúng một đoạn (LLM → heuristic).
 func suggestOne(ctx context.Context, st *store.Store, sess *store.T2VSession, idx int) string {
-	got := suggestPromptsLLM(ctx, st, sess.ScriptEngine, sess.ScriptModel, []string{sess.Segments[idx].Text})
+	got := suggestPromptsLLM(ctx, st, sess.ScriptEngine, sess.ScriptModel, []shotAsk{askOf(sess.Segments[idx])})
 	if len(got) > 0 && got[0] != "" {
 		return got[0]
 	}
 	return SuggestPrompt(sess.Segments[idx])
 }
 
+// shotAsk — một đoạn cần mô tả cảnh; withChars = đoạn đã gán nhân vật.
+type shotAsk struct {
+	text      string
+	withChars bool
+}
+
+// askOf dựng yêu cầu mô tả cảnh từ một đoạn kịch bản.
+func askOf(seg store.T2VSegment) shotAsk {
+	return shotAsk{text: seg.Text, withChars: len(seg.CharacterIDs) > 0}
+}
+
 // suggestPromptsLLM nhờ LLM mô tả cảnh bằng tiếng Anh cho từng đoạn — MỘT lần
 // gọi cho cả danh sách. Lỗi hoặc thiếu phần tử → chuỗi rỗng (caller tự dự phòng).
-func suggestPromptsLLM(ctx context.Context, st *store.Store, engine, model string, texts []string) []string {
-	out := make([]string, len(texts))
-	if len(texts) == 0 {
+func suggestPromptsLLM(ctx context.Context, st *store.Store, engine, model string, asks []shotAsk) []string {
+	out := make([]string, len(asks))
+	if len(asks) == 0 {
 		return out
 	}
-	raw, err := runScriptLLM(ctx, st, engine, model, buildShotPrompt(texts))
+	raw, err := runScriptLLM(ctx, st, engine, model, buildShotPrompt(asks))
 	if err != nil {
 		st.AddLog("warn", "text2video",
 			fmt.Sprintf("Không nhờ được AI mô tả cảnh: %v — dùng mô tả tự suy từ nội dung", err))
@@ -321,8 +418,11 @@ func suggestPromptsLLM(ctx context.Context, st *store.Store, engine, model strin
 	return out
 }
 
+// charMark — nhãn đánh dấu đoạn có nhân vật trong prompt gửi LLM.
+const charMark = "[CÓ NHÂN VẬT] "
+
 // buildShotPrompt dựng prompt yêu cầu LLM mô tả cảnh cho từng đoạn lời đọc.
-func buildShotPrompt(texts []string) string {
+func buildShotPrompt(asks []shotAsk) string {
 	var b strings.Builder
 	b.WriteString(`Với mỗi đoạn lời đọc tiếng Việt bên dưới, hãy viết MỘT câu mô tả CẢNH QUAY minh họa cho đoạn đó, bằng TIẾNG ANH.
 
@@ -332,15 +432,34 @@ Quy tắc bắt buộc:
 - TUYỆT ĐỐI không có chữ, số, biển hiệu, logo hay watermark trong ảnh.
 - Không mô tả phong cách vẽ hay chất liệu ảnh (phong cách do bộ style riêng lo).
 - Các cảnh phải liên quan tới nhau như trong cùng một video.
-
+`)
+	if anyWithChars(asks) {
+		b.WriteString(`- Đoạn có nhãn ` + strings.TrimSpace(charMark) + `: cảnh PHẢI có nhân vật đó xuất hiện (đang làm gì, ở đâu, cảm xúc ra sao), nhưng TUYỆT ĐỐI không tả ngoại hình (tuổi, giới tính, tóc, khuôn mặt, trang phục, màu da) — ngoại hình đã có hồ sơ nhân vật riêng lo.
+`)
+	}
+	b.WriteString(`
 Trả về DUY NHẤT một JSON mảng chuỗi, đúng thứ tự và ĐÚNG SỐ LƯỢNG đoạn đầu vào.
 
 Các đoạn lời đọc:
 `)
-	for i, t := range texts {
-		fmt.Fprintf(&b, "%d. %s\n", i+1, shortText(strings.TrimSpace(t), 400))
+	for i, a := range asks {
+		mark := ""
+		if a.withChars {
+			mark = charMark
+		}
+		fmt.Fprintf(&b, "%d. %s%s\n", i+1, mark, shortText(strings.TrimSpace(a.text), 400))
 	}
 	return b.String()
+}
+
+// anyWithChars — trong danh sách có đoạn nào gán nhân vật không.
+func anyWithChars(asks []shotAsk) bool {
+	for _, a := range asks {
+		if a.withChars {
+			return true
+		}
+	}
+	return false
 }
 
 // imagePrompt hoàn thiện prompt trước khi gửi model sinh ảnh: thêm khung hình

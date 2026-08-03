@@ -29,7 +29,9 @@
     ctx: null,
     warnHost: null, // ô cảnh báo thiếu API key (vẽ lại khi /api/state về)
     pending: {},   // idx -> job đang chạy cho cảnh đó
-    bust: {}       // idx -> timestamp phá cache ảnh
+    bust: {},      // idx -> timestamp phá cache ảnh
+    chars: [],     // danh sách nhân vật (GET /api/characters), nạp 1 lần mỗi lần mở trang
+    charsLoaded: false
   };
 
   // ---------- CSS nội bộ ----------
@@ -57,6 +59,15 @@
       '.t2v-sb-lab{font-size:11.5px;font-weight:600;color:var(--muted);margin:8px 0 4px}' +
       '.t2v-sb-row .textarea{min-height:44px;font-size:12.5px;padding:7px 10px}' +
       '.t2v-sb-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}' +
+      '.t2v-sb-chips{display:flex;gap:6px;flex-wrap:wrap}' +
+      '.t2v-sb-chip{display:inline-flex;align-items:center;gap:5px;font-family:inherit;font-size:12px;' +
+        'font-weight:600;line-height:1.3;padding:4px 11px;border-radius:999px;cursor:pointer;' +
+        'background:var(--bg);color:var(--muted);border:1px solid var(--border);' +
+        'transition:background .12s ease,color .12s ease,border-color .12s ease}' +
+      '.t2v-sb-chip:hover{border-color:var(--blue);color:var(--text)}' +
+      '.t2v-sb-chip.on{background:var(--blue);color:#fff;border-color:var(--blue)}' +
+      '.t2v-sb-chip .tick{display:none;font-size:11px}' +
+      '.t2v-sb-chip.on .tick{display:inline}' +
       '@media(max-width:700px){.t2v-sb-row{flex-direction:column}.t2v-sb-thumb{width:100%;height:160px}}';
     document.head.appendChild(el);
   }
@@ -113,6 +124,59 @@
     }).catch(function (e) {
       UI.toast('Không tải lại được thông tin cảnh: ' + e.message, 'error');
     }).then(function () { redraw(); });
+  }
+
+  // ---------- Nhân vật của cảnh ----------
+
+  // Nạp danh sách nhân vật 1 lần cho mỗi lần mở trang. Backend chưa có endpoint
+  // này thì coi như chưa có nhân vật — KHÔNG làm hỏng phần còn lại của Storyboard.
+  function loadChars() {
+    if (st.charsLoaded) return;
+    st.charsLoaded = true;
+    API.get('/api/characters').then(function (list) {
+      st.chars = Array.isArray(list) ? list.filter(function (c) { return c && c.id; }) : [];
+    }).catch(function () {
+      st.chars = [];
+    }).then(function () {
+      // Danh sách rỗng → bản vẽ đầu đã đúng, khỏi vẽ lại (tránh cắt ngang người đang gõ prompt).
+      if (st.chars.length) redraw();
+    });
+  }
+
+  function charIds(seg) {
+    if (!Array.isArray(seg.characterIds)) seg.characterIds = [];
+    return seg.characterIds;
+  }
+
+  function charChip(ctx, seg, c) {
+    var on = charIds(seg).indexOf(c.id) >= 0;
+    var name = c.name || '(chưa đặt tên)';
+    var chip = h('button', {
+      type: 'button', class: 't2v-sb-chip' + (on ? ' on' : ''),
+      title: c.look || c.role || ('Nhân vật ' + name)
+    }, h('span', { class: 'tick' }, '✓'), h('span', null, name));
+
+    chip.onclick = function () {
+      var ids = charIds(seg);
+      var i = ids.indexOf(c.id);
+      if (i >= 0) ids.splice(i, 1); else ids.push(c.id);
+      chip.className = 't2v-sb-chip' + (i >= 0 ? '' : ' on');
+      if (ctx.saveSegments) ctx.saveSegments();
+    };
+    return chip;
+  }
+
+  function charBlock(ctx, seg) {
+    var box = h('div', null, h('div', { class: 't2v-sb-lab' }, '🧑 Nhân vật trong cảnh:'));
+    if (!st.chars.length) {
+      box.appendChild(h('div', { class: 'muted', style: { fontSize: '11.5px' } },
+        'Chưa có nhân vật — tạo ở trang ', h('a', { href: '#/characters' }, 'Nhân vật'), '.'));
+      return box;
+    }
+    var chips = h('div', { class: 't2v-sb-chips' });
+    st.chars.forEach(function (c) { chips.appendChild(charChip(ctx, seg, c)); });
+    box.appendChild(chips);
+    return box;
   }
 
   // ---------- Xem ảnh lớn ----------
@@ -244,6 +308,7 @@
         h('div', { class: 't2v-sb-text', title: seg.text || '' }, seg.text || '(đoạn trống)'),
         h('div', { class: 't2v-sb-lab' }, '🎨 Prompt tạo ảnh:'),
         promptTa,
+        charBlock(ctx, seg),
         h('div', { class: 't2v-sb-btns' }, upBtn, genBtn, viewBtn, fileIn),
         errHost));
 
@@ -348,13 +413,17 @@
       host.appendChild(redAlert('Thiếu dữ liệu phiên — không dựng được Storyboard.'));
       return function () {};
     }
-    // Mở lại trang (mount mới) → bỏ tiến trình cũ để không hiện spinner treo.
+    // Mở lại trang (mount mới) → bỏ tiến trình cũ để không hiện spinner treo,
+    // đồng thời nạp lại danh sách nhân vật (người dùng có thể vừa thêm nhân vật mới).
     if (st.mountId !== ctx.mountId) {
       st.mountId = ctx.mountId || '';
       st.pending = {};
       st.bust = {};
+      st.charsLoaded = false;
+      st.chars = [];
     }
     draw(host, ctx);
+    loadChars();
 
     return function () {
       if (st.host === host) { st.host = null; st.ctx = null; st.warnHost = null; }
@@ -367,6 +436,7 @@
     dispose: function () {
       st.host = null; st.ctx = null; st.warnHost = null;
       st.pending = {}; st.bust = {}; st.mountId = '';
+      st.chars = []; st.charsLoaded = false;
     }
   };
 })();

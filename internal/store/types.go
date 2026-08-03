@@ -77,6 +77,18 @@ type Job struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// Character — nhân vật xuất hiện lặp lại trong nhiều cảnh; mô tả ngoại hình
+// được chèn vào prompt sinh ảnh để nhân vật trông giống nhau xuyên suốt video.
+type Character struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`      // tên gọi ngắn, dùng để gán cho cảnh
+	Look      string    `json:"look"`      // mô tả ngoại hình (tiếng Anh cho model hiểu)
+	Role      string    `json:"role"`      // vai trò/tính cách (ghi chú cho người dùng)
+	RefImage  string    `json:"refImage"`  // ảnh tham chiếu, tương đối data dir
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 // StyleKit — bộ style hình ảnh dùng chung cho mọi cảnh của một video,
 // để hình sinh ra đồng nhất như cùng một bộ phim.
 type StyleKit struct {
@@ -102,6 +114,9 @@ type T2VSegment struct {
 	ImagePath   string `json:"imagePath"`   // tương đối data dir
 	ImagePrompt string `json:"imagePrompt"` // mô tả cảnh để sinh ảnh (sửa được)
 	ImageSource string `json:"imageSource"` // ai | stock | upload
+
+	// Nhân vật xuất hiện trong cảnh này (ID của store.Character)
+	CharacterIDs []string `json:"characterIds"`
 }
 
 // T2VSession — một phiên Text → Video (nguồn → kịch bản → giọng đọc → cấu hình → dựng video).

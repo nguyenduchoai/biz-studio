@@ -17,6 +17,7 @@ type db struct {
 	Sessions []Session        `json:"sessions"`
 	Events   []SessionEvent   `json:"events"`
 	Jobs     []Job            `json:"jobs"`
+	Chars    []Character      `json:"characters"`
 	Styles   []StyleKit       `json:"styleKits"`
 	T2V      []T2VSession     `json:"t2vSessions"`
 	Clones   []CloneVoice     `json:"cloneVoices"`

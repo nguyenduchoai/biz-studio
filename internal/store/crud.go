@@ -208,6 +208,50 @@ func (s *Store) SaveJob(j *Job) {
 	})
 }
 
+// ---------- Characters ----------
+
+func (s *Store) Characters() []Character {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := append([]Character(nil), s.d.Chars...)
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.Before(out[j].CreatedAt) })
+	return out
+}
+
+func (s *Store) Character(id string) (Character, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, c := range s.d.Chars {
+		if c.ID == id {
+			return c, true
+		}
+	}
+	return Character{}, false
+}
+
+func (s *Store) SaveCharacter(c *Character) {
+	if c.ID == "" {
+		c.ID = s.NewID("chr")
+		c.CreatedAt = now()
+	}
+	c.UpdatedAt = now()
+	s.write(func(d *db) {
+		for i := range d.Chars {
+			if d.Chars[i].ID == c.ID {
+				d.Chars[i] = *c
+				return
+			}
+		}
+		d.Chars = append(d.Chars, *c)
+	})
+}
+
+func (s *Store) DeleteCharacter(id string) {
+	s.write(func(d *db) {
+		d.Chars = filterSlice(d.Chars, func(c Character) bool { return c.ID != id })
+	})
+}
+
 // ---------- Style kits ----------
 
 func (s *Store) StyleKits() []StyleKit {

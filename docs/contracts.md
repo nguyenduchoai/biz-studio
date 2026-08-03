@@ -266,3 +266,28 @@ Thêm vào `templates/scene.html` + xử lý ảnh trong `render.go`: template `
 - `POST /api/t2v/sessions/{id}/storyboard` → Job kind=`t2v_storyboard` → BuildStoryboard → lưu session
 - `POST /api/t2v/sessions/{id}/segments/{idx}/image` body `{prompt?}` → Job kind=`t2v_shot` → BuildSegmentImage (idx là số thứ tự 0-based, sai → 400)
 - `POST /api/t2v/sessions/{id}/segments/{idx}/image/upload` — multipart `files` (1 ảnh) → lưu `shot-<idx>.png` (convert bằng ffmpeg nếu không phải png), ImageSource="upload" → trả session
+
+## Mở rộng v1.7 — Nhân vật nhất quán
+
+Mục tiêu: nhân vật xuất hiện ở nhiều cảnh trông GIỐNG NHAU xuyên suốt video, bằng cách chèn mô tả ngoại hình cố định vào prompt sinh ảnh của mọi cảnh có nhân vật đó.
+
+### Store (ĐÃ CÓ — chỉ dùng)
+`store.Character{ID, Name, Look (mô tả ngoại hình, tiếng Anh), Role (ghi chú), RefImage (tương đối DataDir), CreatedAt, UpdatedAt}`.
+CRUD: `Characters()`, `Character(id)`, `SaveCharacter(*Character)`, `DeleteCharacter(id)`.
+`store.T2VSegment` thêm `CharacterIDs []string` (json `characterIds`).
+
+### internal/text2video/storyboard.go (SỬA)
+- Prompt sinh ảnh của cảnh phải chèn mô tả nhân vật: `<mô tả cảnh>. Featuring <Tên>: <Look>[. <Tên2>: <Look2>]`. Thứ tự bắt buộc: mô tả cảnh → nhân vật → (Style Kit thêm ở lớp ngoài qua `stylekit.Apply`). Nhân vật không tồn tại trong store thì bỏ qua, KHÔNG lỗi.
+- `SuggestPrompt` khi cảnh có nhân vật: yêu cầu LLM mô tả cảnh có người, KHÔNG mô tả ngoại hình (ngoại hình do Character lo).
+- Tách hàm export `CharacterClause(st *store.Store, ids []string) string` để nơi khác dùng lại được.
+
+### routes_chars.go (server.go ĐÃ gọi s.routesChars)
+- `GET /api/characters` → []Character
+- `POST /api/characters` body `{name, look, role}` → tạo (thiếu name → 400)
+- `PUT /api/characters/{id}` · `DELETE /api/characters/{id}` (404 tiếng Việt; DELETE gỡ luôn id khỏi CharacterIDs của mọi T2VSession)
+- `POST /api/characters/{id}/ref` — multipart `files` (1 ảnh) → lưu `data/characters/<id>.png` (convert ffmpeg nếu cần) → RefImage
+- `POST /api/characters/{id}/preview` body `{scene?}` → Job kind=`char_preview`: sinh ảnh thử nhân vật (`stylekit.Apply` + Look + scene mặc định "standing in a simple room, medium shot") vào `data/characters/<id>-preview.png`; thiếu Gemini key → 400 tiếng Việt.
+
+### FE
+- Trang mới `characters` (nav đã đăng ký, file web/static/js/pages/characters.js): lưới nhân vật (avatar từ RefImage/preview, tên, vai trò, mô tả ngoại hình rút gọn), nút Tạo/Sửa/Xoá/Tải ảnh tham chiếu/Xem thử.
+- Trong Storyboard (text2video-storyboard.js): mỗi cảnh thêm hàng chọn nhân vật — chip bật/tắt theo danh sách `GET /api/characters`, lưu vào `segment.characterIds` qua PUT session.

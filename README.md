@@ -27,6 +27,14 @@
 
 ## Có gì mới
 
+### v1.4.0 — 03/08/2026
+- 📜 **Text → Video** — module mới dạng **phiên làm việc lưu được** (đóng app mở lại vẫn còn, sửa tiếp được):
+  1. **Nguồn**: dán văn bản hoặc **dán link bài viết** để tự bóc nội dung
+  2. **Kịch bản đọc**: AI viết thành các đoạn văn nói, **sửa tay từng đoạn** (đổi thứ tự, thêm, xoá); chọn model viết kịch bản và nhớ cho lần sau
+  3. **Giọng đọc**: đọc từng đoạn rồi **đo thời lượng thật** (biết chính xác video dài bao nhiêu trước khi dựng), xuất `voice.wav` + `transcript.json`
+  4. **Cấu hình** khung hình / fps
+  5. **Dựng video**: chọn **AI (Claude)** hoặc **HTML Video** (render local, không cần Claude) — hình bám đúng giọng đọc đã tạo
+
 ### v1.3.0 — 03/08/2026
 - 🧬 **Clone voice**: nhân bản giọng từ clip mẫu **3–8 giây** (tải lên hoặc **ghi âm trực tiếp** trong trình duyệt). Giọng nhân bản dùng được ở mọi tính năng — TTS, Bài viết → Video, Vox-Director, HTML Video, Dubbing.
 - 💎 **Dubbing chất lượng**: lồng tiếng video theo phụ đề, **căn khớp timing từng câu** (câu đọc dài hơn khung thời gian sẽ tự tăng tốc vừa đủ). Tuỳ chọn tự bóc băng khi chưa có `.srt`, dịch phụ đề trước khi đọc, và giữ tiếng gốc làm nền ở âm lượng nhỏ. Video giữ nguyên chất lượng (không re-encode hình).
@@ -57,6 +65,7 @@
 | 🎙 **TTS / Giọng đọc** | 3 chế độ: **Dubbing nhanh** (văn bản → giọng đọc), **Dubbing chất lượng** (lồng tiếng video theo phụ đề, khớp timing từng câu), **Clone voice** (nhân bản giọng từ clip 3–8 giây). Engine mặc định **VieNeu-TTS** on-device 48 kHz, 14 giọng 3 miền, 3 phong cách đọc + macOS `say` + Gemini TTS. |
 | 🎬 **Bài viết → Video** | Dán bài viết → AI tách thành danh sách cảnh (tiêu đề, lời đọc, từ khóa media) → tự TTS + ghép ảnh + phụ đề + nhạc nền → render mp4 dọc 9:16 hoặc ngang 16:9. |
 | 🧩 **HTML Video** | Video-as-code: prompt / bài viết / **repo GitHub** → AI tách cảnh → dựng frame bằng **HTML/CSS** (7 template: hero, ý chính, code, biểu đồ, sản phẩm, trích dẫn, CTA) → render MP4 bằng headless Chrome. Hợp video giới thiệu repo, explainer, số liệu, social short hàng loạt. |
+| 📜 **Text → Video** | Phiên làm việc lưu được: link bài viết / văn bản → AI viết kịch bản chia đoạn (sửa tay được) → giọng đọc có **thời lượng đo thật từng đoạn** → dựng video bám đúng giọng. Chọn dựng bằng AI hoặc HTML Video. |
 | 🎭 **Vox-Director** | Như trên nhưng gắn vào dự án, gán media cụ thể cho từng cảnh — làm video dạng TVC khi có đủ source. |
 | 🛡 **QC tự động** | Đo loudness (LUFS), phát hiện frame đen, đoạn đứng hình, khoảng lặng — báo cáo kèm cảnh báo. |
 | 🖼 **Thumbnail** | Tạo thumbnail từ frame video hoặc sinh bằng AI (Gemini). |
@@ -185,6 +194,7 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 - **Vox-Director** — quy trình 5 bước, chọn dự án đích, gán media từng cảnh.
 - **Studio Editor** — chọn dự án → thư viện media, preview, thuộc tính file, timeline theo thời lượng thật; cắt khoảng lặng, render final.
 - **HTML Video** — video-as-code: 3 nguồn (prompt / bài viết / repo GitHub — tự đọc README), AI tách thành cảnh theo 7 template HTML, chỉnh từng cảnh, render bằng Chrome headless (24/30fps, 3 theme, narration TTS, nhạc nền, phụ đề).
+- **Text → Video** — quy trình 5 bước có lưu phiên: Nguồn (link/văn bản) → Kịch bản đọc (chia đoạn, sửa tay, chọn model) → Giọng đọc (đo thời lượng thật, xuất `voice.wav` + `transcript.json`) → Cấu hình → Dựng video (AI hoặc HTML Video). Danh sách phiên cho phép quay lại sửa và dựng lại bất cứ lúc nào.
 - **Dự án** — trang điều phối trung tâm (chi tiết ở phần Phiên AI phía trên) + QC, thumbnail, gói xuất bản, QR điện thoại, quản lý prompt mẫu (**có sẵn 8 prompt mẫu** cho các thể loại: viral TikTok, TVC sản phẩm, vlog, giáo dục, recap, repo tech, podcast clip, số liệu).
 - **Nhật ký** — log hệ thống realtime, lọc theo mức độ.
 

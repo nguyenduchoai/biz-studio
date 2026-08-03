@@ -40,6 +40,7 @@ func New(st *store.Store, dataDir string, port int) *Server {
 	s.routesHTMLVideo(s.mux)
 	s.routesClone(s.mux)
 	s.routesDubbing(s.mux)
+	s.routesT2V(s.mux)
 	s.routesMisc(s.mux)
 	return s
 }

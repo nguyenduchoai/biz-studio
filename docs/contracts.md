@@ -200,3 +200,27 @@ Luồng: (1) srtPath rỗng + videoPath có → ASR bằng gemini.GenerateWithFi
 
 ### routes_dubbing.go
 - `POST /api/tools/dub` body `{videoPath?, srtPath?, voice, engine, style, targetLang, translateEngine, keepOriginal, originalVolume, fitTiming, maxSpeed}` → Job kind=dub; workDir = data/tmp/dub_<jobid>; output = đường dẫn tương đối DataDir của video (hoặc audio nếu không có video). Resolve path bằng s.toolAbsPath/s.toolSrcPath (đã có trong routes_tools.go, cùng package).
+
+## Mở rộng v1.4 — Text → Video (phiên làm việc lưu được)
+
+Module mới `text2video`: nguồn (link bài viết / dán văn bản) → kịch bản đọc (LLM, chia đoạn, sửa tay) → giọng đọc (đo thời lượng THẬT từng đoạn) → cấu hình → dựng video. Mỗi lần chạy là 1 **phiên lưu trong store**, quay lại sửa tiếp được.
+
+### Store (ĐÃ CÓ SẴN — dùng, không sửa)
+`store.T2VSession` + `store.T2VSegment` (xem types.go). CRUD: `T2VSessions()`, `T2VSession(id)`, `SaveT2VSession(*T2VSession)`, `DeleteT2VSession(id)`.
+Thư mục dữ liệu phiên: `data/text2video/<sessionID>/` — `seg-<i>.wav`, `voice.wav`, `transcript.json`.
+
+### internal/text2video
+- `FetchArticle(ctx, url string) (title, text string, err error)` — GET (User-Agent trình duyệt, timeout 30s, giới hạn 5MB), bóc text: ưu tiên `<article>`/`<main>`, bỏ `<script>/<style>/<nav>/<footer>/<header>/<aside>`, giải mã HTML entity, gộp khoảng trắng, giữ xuống dòng giữa các block; lỗi HTTP/khác HTML → lỗi tiếng Việt rõ.
+- `WriteScript(ctx, st, src string, engine, model string, targetSeconds int) ([]store.T2VSegment, error)` — prompt tiếng Việt: viết kịch bản ĐỌC (văn nói tự nhiên, không markdown/emoji/ký hiệu), chia thành các đoạn 1–3 câu, mỗi đoạn 1 ý; nếu targetSeconds>0 ước lượng ~15 ký tự/giây để canh độ dài; trả JSON mảng string. engine: `claude` (claude CLI `-p --output-format text`, thêm `--model <model>` nếu model≠""), `gemini`, `openai`. Chars = utf8.RuneCountInString.
+- `BuildVoice(ctx, st, sess *store.T2VSession, workDir string, upd func(float64,string)) error` — TTS từng đoạn (tts.Speak) → `seg-<i>.wav` → ffprobe đo **Seconds thật** ghi vào segment → concat toàn bộ thành `voice.wav` (chuẩn hoá 44100 mono trước khi concat) → ghi `transcript.json` `{"language":"vi","duration":<tổng>,"segments":[{"index","start","end","text"}]}` → cập nhật sess.VoicePath/TranscriptPath/VoiceSeconds.
+- `BuildVideoHTML(ctx, st, sess, workDir, upd) (string, error)` — mỗi segment → 1 cảnh htmlvideo (template `hero` cho đoạn đầu, `bullets`/`quote` xen kẽ, `outro` đoạn cuối), Duration = Seconds thật của đoạn, Narration=false (đã có voice.wav) → render → **ghép voice.wav vào** (thay audio) → mp4.
+- `BuildProject(ctx, st, sess, projectDir string) (projectID string, err error)` — tạo `store.Project` (kích thước từ sess), copy `voice.wav` + `transcript.json` vào assets, đặt BriefDesc/EditPrompt mô tả yêu cầu dựng video bám theo giọng đọc; trả projectID để route khởi động phiên AI.
+
+### routes_t2v.go
+- `GET /api/t2v/sessions` → []T2VSession · `POST /api/t2v/sessions` body `{name?, width?, height?, fps?}` → tạo (default 1080×1920@30, tên "Phiên <thời gian>")
+- `GET/PUT/DELETE /api/t2v/sessions/{id}` — PUT chỉ ghi field editable (name, sourceKind, sourceUrl, sourceText, scriptEngine, scriptModel, targetSeconds, segments, voiceId, voiceEngine, voiceStyle, width, height, fps, step, buildMode); DELETE xoá cả thư mục phiên
+- `POST /api/t2v/sessions/{id}/fetch` body `{url}` → đồng bộ (timeout 60s): FetchArticle → lưu sourceText/sourceUrl/sourceKind="link" → trả session
+- `POST /api/t2v/sessions/{id}/script` → Job kind=t2v_script → WriteScript → lưu segments (Seconds=0), status="script", step≥2
+- `POST /api/t2v/sessions/{id}/voice` → Job kind=t2v_voice → BuildVoice → status="voice", step≥3; output = voice.wav (đường dẫn tương đối DataDir)
+- `POST /api/t2v/sessions/{id}/build` body `{mode:"ai"|"html"}` → Job kind=t2v_build. mode "html": BuildVideoHTML → OutputPath. mode "ai": BuildProject → tạo project, gán sess.ProjectID, rồi khởi động phiên AI (dùng chung runner như routes_sessions.go — ĐỌC file đó) và trả projectID; FE mở project để theo dõi.
+Mọi handler: session không tồn tại → 404 tiếng Việt. Job xong luôn SaveT2VSession.

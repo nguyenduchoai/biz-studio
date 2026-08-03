@@ -77,6 +77,48 @@ type Job struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// T2VSegment — một đoạn kịch bản đọc; Seconds là thời lượng ĐO THẬT sau khi tổng hợp giọng.
+type T2VSegment struct {
+	Text      string  `json:"text"`
+	Chars     int     `json:"chars"`
+	Seconds   float64 `json:"seconds"`
+	AudioPath string  `json:"audioPath"` // tương đối data dir
+}
+
+// T2VSession — một phiên Text → Video (nguồn → kịch bản → giọng đọc → cấu hình → dựng video).
+type T2VSession struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	SourceKind string `json:"sourceKind"` // text | link
+	SourceURL  string `json:"sourceUrl"`
+	SourceText string `json:"sourceText"`
+
+	ScriptEngine  string       `json:"scriptEngine"` // claude | gemini | openai
+	ScriptModel   string       `json:"scriptModel"`
+	TargetSeconds int          `json:"targetSeconds"` // 0 = tự động
+	Segments      []T2VSegment `json:"segments"`
+
+	VoiceID     string `json:"voiceId"`
+	VoiceEngine string `json:"voiceEngine"`
+	VoiceStyle  string `json:"voiceStyle"`
+
+	Width  int `json:"width"`
+	Height int `json:"height"`
+	FPS    int `json:"fps"`
+
+	Status         string  `json:"status"` // draft | script | voice | building | done | error
+	Step           int     `json:"step"`   // 0..5 cho stepper
+	VoicePath      string  `json:"voicePath"`
+	TranscriptPath string  `json:"transcriptPath"`
+	OutputPath     string  `json:"outputPath"`
+	VoiceSeconds   float64 `json:"voiceSeconds"`
+	ProjectID      string  `json:"projectId"`
+	BuildMode      string  `json:"buildMode"` // ai | html
+
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 // CloneVoice — giọng nhân bản từ clip mẫu (VieNeu instant voice cloning).
 type CloneVoice struct {
 	ID        string    `json:"id"`

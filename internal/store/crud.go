@@ -208,6 +208,50 @@ func (s *Store) SaveJob(j *Job) {
 	})
 }
 
+// ---------- Text → Video sessions ----------
+
+func (s *Store) T2VSessions() []T2VSession {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := append([]T2VSession(nil), s.d.T2V...)
+	sort.Slice(out, func(i, j int) bool { return out[i].UpdatedAt.After(out[j].UpdatedAt) })
+	return out
+}
+
+func (s *Store) T2VSession(id string) (T2VSession, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, x := range s.d.T2V {
+		if x.ID == id {
+			return x, true
+		}
+	}
+	return T2VSession{}, false
+}
+
+func (s *Store) SaveT2VSession(x *T2VSession) {
+	if x.ID == "" {
+		x.ID = s.NewID("t2v")
+		x.CreatedAt = now()
+	}
+	x.UpdatedAt = now()
+	s.write(func(d *db) {
+		for i := range d.T2V {
+			if d.T2V[i].ID == x.ID {
+				d.T2V[i] = *x
+				return
+			}
+		}
+		d.T2V = append(d.T2V, *x)
+	})
+}
+
+func (s *Store) DeleteT2VSession(id string) {
+	s.write(func(d *db) {
+		d.T2V = filterSlice(d.T2V, func(x T2VSession) bool { return x.ID != id })
+	})
+}
+
 // ---------- Clone voices ----------
 
 func (s *Store) CloneVoices() []CloneVoice {

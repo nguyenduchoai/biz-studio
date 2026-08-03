@@ -41,6 +41,7 @@ func New(st *store.Store, dataDir string, port int) *Server {
 	s.routesClone(s.mux)
 	s.routesDubbing(s.mux)
 	s.routesT2V(s.mux)
+	s.routesStyle(s.mux)
 	s.routesMisc(s.mux)
 	return s
 }

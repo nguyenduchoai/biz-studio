@@ -208,6 +208,75 @@ func (s *Store) SaveJob(j *Job) {
 	})
 }
 
+// ---------- Style kits ----------
+
+func (s *Store) StyleKits() []StyleKit {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := append([]StyleKit(nil), s.d.Styles...)
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].IsDefault != out[j].IsDefault {
+			return out[i].IsDefault
+		}
+		return out[i].UpdatedAt.After(out[j].UpdatedAt)
+	})
+	return out
+}
+
+func (s *Store) StyleKit(id string) (StyleKit, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, k := range s.d.Styles {
+		if k.ID == id {
+			return k, true
+		}
+	}
+	return StyleKit{}, false
+}
+
+// ActiveStyleKit trả bộ style đang đặt mặc định (không có → false).
+func (s *Store) ActiveStyleKit() (StyleKit, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, k := range s.d.Styles {
+		if k.IsDefault {
+			return k, true
+		}
+	}
+	return StyleKit{}, false
+}
+
+// SaveStyleKit lưu bộ style; đặt IsDefault sẽ tự bỏ mặc định ở các bộ khác.
+func (s *Store) SaveStyleKit(k *StyleKit) {
+	if k.ID == "" {
+		k.ID = s.NewID("sty")
+		k.CreatedAt = now()
+	}
+	k.UpdatedAt = now()
+	s.write(func(d *db) {
+		if k.IsDefault {
+			for i := range d.Styles {
+				if d.Styles[i].ID != k.ID {
+					d.Styles[i].IsDefault = false
+				}
+			}
+		}
+		for i := range d.Styles {
+			if d.Styles[i].ID == k.ID {
+				d.Styles[i] = *k
+				return
+			}
+		}
+		d.Styles = append(d.Styles, *k)
+	})
+}
+
+func (s *Store) DeleteStyleKit(id string) {
+	s.write(func(d *db) {
+		d.Styles = filterSlice(d.Styles, func(k StyleKit) bool { return k.ID != id })
+	})
+}
+
 // ---------- Text → Video sessions ----------
 
 func (s *Store) T2VSessions() []T2VSession {

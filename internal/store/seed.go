@@ -1,16 +1,75 @@
 package store
 
-// seedPrompts nạp bộ prompt mẫu lần đầu (chỉ khi chưa từng seed và danh sách trống).
+// seedPrompts nạp bộ prompt mẫu + bộ style mẫu lần đầu.
 func (s *Store) seedPrompts() {
-	if s.d.Seeded || len(s.d.Prompts) > 0 {
-		return
+	changed := false
+	if !s.d.Seeded && len(s.d.Prompts) == 0 {
+		for _, p := range defaultPrompts {
+			p.ID = s.NewID("pmt")
+			s.d.Prompts = append(s.d.Prompts, p)
+		}
+		s.d.Seeded = true
+		changed = true
 	}
-	for _, p := range defaultPrompts {
-		p.ID = s.NewID("pmt")
-		s.d.Prompts = append(s.d.Prompts, p)
+	if len(s.d.Styles) == 0 {
+		for i, k := range defaultStyleKits {
+			k.ID = s.NewID("sty")
+			k.CreatedAt, k.UpdatedAt = now(), now()
+			k.IsDefault = i == 0
+			s.d.Styles = append(s.d.Styles, k)
+		}
+		changed = true
 	}
-	s.d.Seeded = true
-	_ = s.saveLocked()
+	if changed {
+		_ = s.saveLocked()
+	}
+}
+
+// defaultStyleKits — 6 bộ style mẫu, mỗi bộ là một "chất phim" khác nhau.
+// StylePrompt viết bằng tiếng Anh vì model sinh ảnh hiểu tốt hơn.
+var defaultStyleKits = []StyleKit{
+	{
+		Name:        "✏️ Doodle 2D vẽ tay",
+		StylePrompt: "hand-drawn 2D doodle cartoon illustration, flat solid colors, bold black hand-drawn outlines, slightly rough linework, simple shapes, playful and warm, clean uncluttered composition",
+		Negative:    "photorealistic, 3d render, text, watermark, cluttered background",
+		Palette:     []string{"#F97316", "#FACC15", "#0EA5E9", "#1F2937"},
+		Theme:       "light",
+	},
+	{
+		Name:        "📰 Editorial 2D hiện đại",
+		StylePrompt: "premium editorial 2D animation frame, hand-crafted character art, expressive faces with natural anatomy and hands, varied ink line weight, sophisticated cel shading, cinematic lighting, magazine illustration quality",
+		Negative:    "deformed hands, extra fingers, text, watermark, low detail",
+		Palette:     []string{"#7C3AED", "#EC4899", "#F8FAFC", "#111827"},
+		Theme:       "vivid",
+	},
+	{
+		Name:        "🎬 Điện ảnh chân thực",
+		StylePrompt: "cinematic photography, shallow depth of field, natural soft lighting, film grain, 35mm lens look, realistic textures, muted cinematic color grading, rule of thirds composition",
+		Negative:    "cartoon, illustration, text, watermark, oversaturated, distorted faces",
+		Palette:     []string{"#0F172A", "#F59E0B", "#E2E8F0", "#475569"},
+		Theme:       "dark",
+	},
+	{
+		Name:        "🟦 Phẳng tối giản",
+		StylePrompt: "minimal flat vector illustration, geometric shapes, large empty negative space, two or three flat colors only, no gradients, no outlines, modern corporate infographic style",
+		Negative:    "photorealistic, texture, noise, text, watermark, busy details",
+		Palette:     []string{"#2563EB", "#F1F5F9", "#0F172A", "#22C55E"},
+		Theme:       "light",
+	},
+	{
+		Name:        "🌆 Neon tương lai",
+		StylePrompt: "futuristic neon-lit scene, cyberpunk atmosphere, glowing magenta and cyan rim lighting, wet reflective surfaces, volumetric haze, high contrast dark background, sci-fi mood",
+		Negative:    "daylight, pastel, flat lighting, text, watermark",
+		Palette:     []string{"#22D3EE", "#E879F9", "#0B1220", "#A78BFA"},
+		Theme:       "dark",
+	},
+	{
+		Name:        "🧊 3D đất sét mềm",
+		StylePrompt: "soft 3D clay render, rounded chunky shapes, matte pastel materials, gentle studio lighting with soft shadows, isometric friendly composition, toy-like and approachable",
+		Negative:    "sharp edges, photorealistic, text, watermark, harsh shadows",
+		Palette:     []string{"#FDA4AF", "#A7F3D0", "#FDE68A", "#312E81"},
+		Theme:       "light",
+	},
 }
 
 var defaultPrompts = []PromptTemplate{

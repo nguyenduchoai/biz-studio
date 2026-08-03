@@ -224,3 +224,21 @@ Thư mục dữ liệu phiên: `data/text2video/<sessionID>/` — `seg-<i>.wav`,
 - `POST /api/t2v/sessions/{id}/voice` → Job kind=t2v_voice → BuildVoice → status="voice", step≥3; output = voice.wav (đường dẫn tương đối DataDir)
 - `POST /api/t2v/sessions/{id}/build` body `{mode:"ai"|"html"}` → Job kind=t2v_build. mode "html": BuildVideoHTML → OutputPath. mode "ai": BuildProject → tạo project, gán sess.ProjectID, rồi khởi động phiên AI (dùng chung runner như routes_sessions.go — ĐỌC file đó) và trả projectID; FE mở project để theo dõi.
 Mọi handler: session không tồn tại → 404 tiếng Việt. Job xong luôn SaveT2VSession.
+
+## Mở rộng v1.5 — Style Kit (bộ style hình ảnh dùng chung)
+
+### Store (ĐÃ CÓ — chỉ dùng)
+`store.StyleKit{ID, Name, StylePrompt, Negative, Palette []string, Theme (vivid|dark|light), IsDefault, CreatedAt, UpdatedAt}`.
+CRUD: `StyleKits()`, `StyleKit(id)`, `ActiveStyleKit() (StyleKit, bool)`, `SaveStyleKit(*StyleKit)` (đặt IsDefault tự bỏ mặc định bộ khác), `DeleteStyleKit(id)`. Đã seed sẵn 6 bộ mẫu, bộ đầu là mặc định.
+
+### internal/stylekit (ĐÃ CÓ — chỉ dùng)
+`stylekit.Apply(st, base string) string` — ghép style prompt + bảng màu + negative vào mô tả cảnh; `ApplyKit(k, base)`; `Theme(st) string`.
+ĐÃ nối vào: `internal/vox/scene.go` (Gemini sinh ảnh cảnh) và `internal/htmlvideo/render.go` (ảnh template product).
+
+### routes_style.go (server.go ĐÃ gọi s.routesStyle)
+- `GET /api/styles` → []StyleKit
+- `POST /api/styles` body `{name, stylePrompt, negative, palette, theme, isDefault}` → tạo (thiếu name → 400)
+- `PUT /api/styles/{id}` → cập nhật (404 nếu không có)
+- `DELETE /api/styles/{id}` → xoá; nếu xoá bộ đang mặc định thì đặt bộ còn lại mới nhất làm mặc định
+- `POST /api/styles/{id}/default` → đặt làm mặc định
+- `POST /api/styles/{id}/preview` body `{subject?}` → Job kind=style_preview: dùng `stylekit.ApplyKit` + `gemini.GenerateImage` sinh ảnh mẫu (subject mặc định "a person working at a desk near a window") vào `data/styles/<id>-preview.png`; output = đường dẫn tương đối DataDir. Chưa có Gemini key → lỗi 400 tiếng Việt hướng dẫn vào Cấu hình & API.

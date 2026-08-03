@@ -12,6 +12,7 @@ import (
 	"bizstudio/internal/gemini"
 	"bizstudio/internal/media"
 	"bizstudio/internal/stockmedia"
+	"bizstudio/internal/stylekit"
 	"bizstudio/internal/store"
 	"bizstudio/internal/tts"
 )
@@ -154,7 +155,7 @@ func prepareImage(ctx context.Context, st *store.Store, sc Scene, w, h int, scen
 	if ctx.Err() != nil {
 		return ""
 	}
-	prompt := raw + ", ảnh minh họa sản phẩm chất lượng cao, hiện đại, không chữ"
+	prompt := stylekit.Apply(st, raw+", ảnh minh họa sản phẩm chất lượng cao, hiện đại, không chữ")
 	if err := gemini.NewFromSettings(st).GenerateImage(ctx, prompt, img); err == nil {
 		return img
 	} else {

@@ -9,6 +9,7 @@ import (
 	"bizstudio/internal/gemini"
 	"bizstudio/internal/media"
 	"bizstudio/internal/stockmedia"
+	"bizstudio/internal/stylekit"
 	"bizstudio/internal/store"
 	"bizstudio/internal/tts"
 	"bizstudio/internal/util"
@@ -118,7 +119,7 @@ func buildSceneImage(ctx context.Context, st *store.Store, sc Scene, idx int, cf
 	}
 
 	if strings.TrimSpace(st.Settings().GeminiAPIKey) != "" {
-		if err := gemini.NewFromSettings(st).GenerateImage(ctx, imagePrompt(sc, cfg.Theme), img); err == nil {
+		if err := gemini.NewFromSettings(st).GenerateImage(ctx, stylekit.Apply(st, imagePrompt(sc, cfg.Theme)), img); err == nil {
 			return img, nil
 		} else {
 			if ctx.Err() != nil {

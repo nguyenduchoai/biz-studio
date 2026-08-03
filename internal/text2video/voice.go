@@ -94,6 +94,11 @@ func BuildVoice(ctx context.Context, st *store.Store, sess *store.T2VSession, wo
 			Chars:     utf8.RuneCountInString(text),
 			Seconds:   info.Duration,
 			AudioPath: dataRelPath(workDir, sess.ID, name),
+			// Giữ nguyên storyboard: đọc lại giọng không được làm mất ảnh cảnh
+			// (nhất là ảnh người dùng tự tải lên) và mô tả cảnh đã sửa tay.
+			ImagePath:   seg.ImagePath,
+			ImagePrompt: seg.ImagePrompt,
+			ImageSource: seg.ImageSource,
 		}
 		total += info.Duration
 	}

@@ -19,6 +19,7 @@ const (
 	maxTitleRunes   = 64
 	maxBulletRunes  = 90
 	maxQuoteRunes   = 220
+	maxPhotoRunes   = 120 // chữ đè trên ảnh: tối đa 3 dòng nên phải ngắn
 )
 
 // BuildVideoHTML dựng video bằng engine HTML Video: mỗi đoạn kịch bản là một
@@ -46,7 +47,7 @@ func BuildVideoHTML(ctx context.Context, st *store.Store, sess *store.T2VSession
 		FPS:       sess.FPS,
 		Narration: false, // giọng đọc đã có sẵn (voice.wav), không đọc lại
 	}
-	scenes := buildScenes(sess.Segments)
+	scenes := buildScenes(sess.Segments, dataDirOf(workDir, sess.ID))
 
 	// htmlvideo.Render báo tiến độ 0..100 → nén về 0..90, chừa chỗ cho bước ghép giọng.
 	mp4, err := htmlvideo.Render(ctx, st, scenes, cfg, workDir, func(p float64, d string) {
@@ -95,9 +96,11 @@ func aspectOf(w, h int) string {
 	}
 }
 
-// buildScenes map mỗi đoạn kịch bản thành một cảnh HTML: đoạn đầu "hero",
-// đoạn cuối "outro", ở giữa xen kẽ "bullets" / "quote".
-func buildScenes(segs []store.T2VSegment) []htmlvideo.Scene {
+// buildScenes map mỗi đoạn kịch bản thành một cảnh HTML: đoạn có ảnh storyboard
+// dùng template "photo" (ảnh tràn khung + chữ đè), đoạn chưa có ảnh giữ nguyên
+// cách cũ — đoạn đầu "hero", đoạn cuối "outro", ở giữa xen kẽ "bullets"/"quote".
+// dataDir dùng để đổi ImagePath (tương đối DataDir) thành đường dẫn tuyệt đối.
+func buildScenes(segs []store.T2VSegment, dataDir string) []htmlvideo.Scene {
 	n := len(segs)
 	scenes := make([]htmlvideo.Scene, 0, n)
 	for i, s := range segs {
@@ -105,6 +108,13 @@ func buildScenes(segs []store.T2VSegment) []htmlvideo.Scene {
 		sc := htmlvideo.Scene{
 			VoiceText: text, // dùng để sinh file .srt cạnh video
 			Duration:  sceneDuration(s),
+		}
+		if img := shotImage(dataDir, s); img != "" {
+			sc.Template = "photo"
+			sc.Image = img
+			sc.Title = photoTitle(text)
+			scenes = append(scenes, sc)
+			continue
 		}
 		// Mỗi đoạn là một câu nói: chỉ dùng bullets khi đoạn THỰC SỰ có nhiều câu,
 		// nếu không tiêu đề và gạch đầu dòng sẽ lặp lại cùng một nội dung.
@@ -127,6 +137,46 @@ func buildScenes(segs []store.T2VSegment) []htmlvideo.Scene {
 		scenes = append(scenes, sc)
 	}
 	return scenes
+}
+
+// shotImage trả đường dẫn TUYỆT ĐỐI ảnh storyboard của đoạn; ảnh chưa có hoặc
+// file đã bị xoá → "" để cảnh quay về template chữ như trước.
+func shotImage(dataDir string, s store.T2VSegment) string {
+	p := strings.TrimSpace(s.ImagePath)
+	if p == "" {
+		return ""
+	}
+	abs := absFromData(dataDir, p)
+	if !fileExists(abs) {
+		return ""
+	}
+	if full, err := filepath.Abs(abs); err == nil {
+		return full
+	}
+	return abs
+}
+
+// photoTitle rút gọn lời đọc thành câu chữ đè trên ảnh: ưu tiên giữ trọn câu,
+// quá dài mới cắt theo mệnh đề (chữ trên ảnh không bao giờ đứt giữa chừng).
+func photoTitle(text string) string {
+	t := strings.TrimSpace(text)
+	if len([]rune(t)) <= maxPhotoRunes {
+		return t
+	}
+	if ss := splitSentences(t); len(ss) > 0 && len([]rune(ss[0])) <= maxPhotoRunes {
+		return ss[0]
+	}
+	head, _ := splitClause(t, maxPhotoRunes)
+	return head
+}
+
+// dataDirOf suy DataDir từ thư mục phiên (phép ngược của dataRelPath); workDir
+// không theo chuẩn data/text2video/<id> → "" (khi đó ImagePath đã là tuyệt đối).
+func dataDirOf(workDir, sessionID string) string {
+	if filepath.Base(workDir) == sessionID && filepath.Base(filepath.Dir(workDir)) == DirName {
+		return filepath.Dir(filepath.Dir(workDir))
+	}
+	return ""
 }
 
 // sceneDuration lấy ĐÚNG thời lượng thật của đoạn giọng đọc (không làm tròn,

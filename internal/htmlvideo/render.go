@@ -23,6 +23,15 @@ const (
 	voicePadSec  = 0.6 // giây — đệm sau khi lời đọc kết thúc
 )
 
+// imageTemplates — các template có dùng ảnh trong cảnh.
+var imageTemplates = map[string]bool{"product": true, "photo": true}
+
+// imageHints — mô tả thêm khi phải nhờ Gemini sinh ảnh cho từng loại template.
+var imageHints = map[string]string{
+	"product": "ảnh minh họa sản phẩm chất lượng cao, hiện đại, không chữ",
+	"photo":   "ảnh cảnh thật như trong phim, bố cục thoáng, ánh sáng đẹp, không chữ",
+}
+
 // sceneJob — dữ liệu đã chuẩn bị của một cảnh trước khi chụp frame.
 type sceneJob struct {
 	scene    Scene
@@ -130,12 +139,13 @@ func prepareScene(ctx context.Context, st *store.Store, sc Scene, cfg Config, w,
 	return j, nil
 }
 
-// prepareImage lấy ảnh cho template "product" theo chuỗi fallback:
-// path tồn tại → copy; từ khóa → Pexels (stockmedia) → Gemini sinh ảnh;
+// prepareImage lấy ảnh cho template có hình ("product", "photo") theo chuỗi
+// fallback: path tồn tại → copy; từ khóa → Pexels (stockmedia) → Gemini sinh ảnh;
 // tất cả lỗi → "" (template tự cân đối, không ảnh). Không bao giờ fatal.
 func prepareImage(ctx context.Context, st *store.Store, sc Scene, w, h int, sceneDir string) string {
 	raw := strings.TrimSpace(sc.Image)
-	if raw == "" || strings.ToLower(strings.TrimSpace(sc.Template)) != "product" {
+	tpl := strings.ToLower(strings.TrimSpace(sc.Template))
+	if raw == "" || !imageTemplates[tpl] {
 		return ""
 	}
 	if fileExists(raw) {
@@ -155,7 +165,7 @@ func prepareImage(ctx context.Context, st *store.Store, sc Scene, w, h int, scen
 	if ctx.Err() != nil {
 		return ""
 	}
-	prompt := stylekit.Apply(st, raw+", ảnh minh họa sản phẩm chất lượng cao, hiện đại, không chữ")
+	prompt := stylekit.Apply(st, raw+", "+imageHints[tpl])
 	if err := gemini.NewFromSettings(st).GenerateImage(ctx, prompt, img); err == nil {
 		return img
 	} else {

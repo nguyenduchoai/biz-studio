@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -18,6 +20,8 @@ const (
 	t2vFetchTimeout  = 60 * time.Second
 	t2vScriptTimeout = 20 * time.Minute
 	t2vBuildTimeout  = 2 * time.Hour
+	t2vShotTimeout   = 10 * time.Minute
+	t2vUploadTimeout = 3 * time.Minute
 )
 
 // routesT2V — Text → Video: phiên làm việc (nguồn → kịch bản → giọng đọc → dựng video).
@@ -31,6 +35,9 @@ func (s *Server) routesT2V(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/t2v/sessions/{id}/script", s.handleT2VScript)
 	mux.HandleFunc("POST /api/t2v/sessions/{id}/voice", s.handleT2VVoice)
 	mux.HandleFunc("POST /api/t2v/sessions/{id}/build", s.handleT2VBuild)
+	mux.HandleFunc("POST /api/t2v/sessions/{id}/storyboard", s.handleT2VStoryboard)
+	mux.HandleFunc("POST /api/t2v/sessions/{id}/segments/{idx}/image", s.handleT2VShot)
+	mux.HandleFunc("POST /api/t2v/sessions/{id}/segments/{idx}/image/upload", s.handleT2VShotUpload)
 }
 
 // t2vSession lấy phiên theo path param, tự trả 404 tiếng Việt nếu không có.
@@ -367,6 +374,167 @@ func (s *Server) t2vRunBuild(ctx context.Context, cur *store.T2VSession, mode st
 	cur.Status = "building" // AI đang dựng, dự án theo dõi tiếp ở trang Dự án
 	upd(95, "Phiên AI đang chạy — mở dự án để theo dõi")
 	return pid, nil
+}
+
+// ---------- Storyboard: ảnh từng cảnh ----------
+
+// handleT2VStoryboard — job kind=t2v_storyboard: sinh ảnh cho MỌI cảnh chưa có
+// ảnh (cảnh đã có ảnh, nhất là ảnh tự tải lên, không bị ghi đè).
+func (s *Server) handleT2VStoryboard(w http.ResponseWriter, r *http.Request) {
+	sess, ok := s.t2vSession(w, r)
+	if !ok {
+		return
+	}
+	if len(sess.Segments) == 0 {
+		httpErr(w, http.StatusBadRequest, "chưa có kịch bản — hãy viết kịch bản trước khi tạo storyboard")
+		return
+	}
+	// Còn cảnh thiếu ảnh thì mới cần nguồn ảnh; đủ ảnh rồi (ví dụ tự tải lên
+	// hết) thì cho chạy để job báo "không cần tạo lại".
+	if t2vShotCount(sess) < len(sess.Segments) {
+		if err := text2video.CheckImageSource(s.st); err != nil {
+			httpErr(w, http.StatusBadRequest, "%s", err)
+			return
+		}
+	}
+	id := sess.ID
+	j := s.Jobs.Submit("t2v_storyboard", "", "Storyboard: "+shortText(sess.Name, 40),
+		func(upd func(float64, string)) (string, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), t2vBuildTimeout)
+			defer cancel()
+			cur, ok := s.st.T2VSession(id)
+			if !ok {
+				return "", fmt.Errorf("phiên %q đã bị xoá", id)
+			}
+			err := text2video.BuildStoryboard(ctx, s.st, &cur, text2video.SessionDir(s.DataDir, id), upd)
+			s.st.SaveT2VSession(&cur) // giữ lại ảnh + mô tả cảnh đã làm được
+			if err != nil {
+				s.Log("error", "text2video", fmt.Sprintf("Storyboard phiên %s lỗi: %v", id, err))
+				return "", err
+			}
+			return fmt.Sprintf("%d/%d cảnh đã có ảnh", t2vShotCount(cur), len(cur.Segments)), nil
+		})
+	writeJSON(w, http.StatusOK, j)
+}
+
+// handleT2VShot — job kind=t2v_shot: sinh lại ảnh cho ĐÚNG một cảnh.
+func (s *Server) handleT2VShot(w http.ResponseWriter, r *http.Request) {
+	sess, ok := s.t2vSession(w, r)
+	if !ok {
+		return
+	}
+	idx, ok := s.t2vSegmentIndex(w, r, sess)
+	if !ok {
+		return
+	}
+	if err := text2video.CheckImageSource(s.st); err != nil {
+		httpErr(w, http.StatusBadRequest, "%s", err)
+		return
+	}
+	var body struct {
+		Prompt string `json:"prompt"`
+	}
+	if r.ContentLength != 0 {
+		if err := readJSON(r, &body); err != nil {
+			httpErr(w, http.StatusBadRequest, "%s", err)
+			return
+		}
+	}
+	id, prompt := sess.ID, strings.TrimSpace(body.Prompt)
+	j := s.Jobs.Submit("t2v_shot", "", fmt.Sprintf("Ảnh cảnh %d: %s", idx+1, shortText(sess.Name, 32)),
+		func(upd func(float64, string)) (string, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), t2vShotTimeout)
+			defer cancel()
+			cur, ok := s.st.T2VSession(id)
+			if !ok {
+				return "", fmt.Errorf("phiên %q đã bị xoá", id)
+			}
+			upd(15, fmt.Sprintf("Đang tạo ảnh cho cảnh %d…", idx+1))
+			if err := text2video.BuildSegmentImage(ctx, s.st, &cur, idx, prompt, text2video.SessionDir(s.DataDir, id)); err != nil {
+				s.Log("error", "text2video", fmt.Sprintf("Tạo ảnh cảnh %d phiên %s lỗi: %v", idx+1, id, err))
+				return "", err
+			}
+			s.st.SaveT2VSession(&cur)
+			upd(98, fmt.Sprintf("Đã tạo ảnh cảnh %d", idx+1))
+			return cur.Segments[idx].ImagePath, nil
+		})
+	writeJSON(w, http.StatusOK, j)
+}
+
+// handleT2VShotUpload — multipart "files" (1 ảnh): thay ảnh của một cảnh bằng
+// ảnh người dùng tự tải lên (đồng bộ, trả về phiên đã cập nhật).
+func (s *Server) handleT2VShotUpload(w http.ResponseWriter, r *http.Request) {
+	sess, ok := s.t2vSession(w, r)
+	if !ok {
+		return
+	}
+	idx, ok := s.t2vSegmentIndex(w, r, sess)
+	if !ok {
+		return
+	}
+	if err := r.ParseMultipartForm(256 << 20); err != nil {
+		httpErr(w, http.StatusBadRequest, "không đọc được form upload: %v", err)
+		return
+	}
+	if r.MultipartForm == nil || len(r.MultipartForm.File["files"]) == 0 {
+		httpErr(w, http.StatusBadRequest, "chưa chọn ảnh (field \"files\") — chọn 1 file ảnh cho cảnh này")
+		return
+	}
+	tmp, err := s.saveT2VUpload(r.MultipartForm.File["files"][0])
+	if err != nil {
+		httpErr(w, http.StatusInternalServerError, "%s", err)
+		return
+	}
+	defer os.Remove(tmp)
+
+	ctx, cancel := context.WithTimeout(r.Context(), t2vUploadTimeout)
+	defer cancel()
+	if err := text2video.ImportSegmentImage(ctx, &sess, idx, tmp, text2video.SessionDir(s.DataDir, sess.ID)); err != nil {
+		httpErr(w, http.StatusBadRequest, "%s", err)
+		return
+	}
+	s.st.SaveT2VSession(&sess)
+	s.Log("info", "text2video", fmt.Sprintf("Đã thay ảnh cảnh %d của phiên %q bằng ảnh tải lên", idx+1, sess.Name))
+	writeJSON(w, http.StatusOK, sess)
+}
+
+// t2vSegmentIndex đọc số thứ tự đoạn (0-based) từ URL, tự trả 400 nếu sai.
+func (s *Server) t2vSegmentIndex(w http.ResponseWriter, r *http.Request, sess store.T2VSession) (int, bool) {
+	raw := strings.TrimSpace(r.PathValue("idx"))
+	idx, err := strconv.Atoi(raw)
+	if err != nil {
+		httpErr(w, http.StatusBadRequest, "số thứ tự đoạn không hợp lệ: %q", raw)
+		return 0, false
+	}
+	if idx < 0 || idx >= len(sess.Segments) {
+		httpErr(w, http.StatusBadRequest, "không có đoạn số %d — phiên đang có %d đoạn", idx+1, len(sess.Segments))
+		return 0, false
+	}
+	return idx, true
+}
+
+// saveT2VUpload lưu ảnh upload vào data/tmp để xử lý; trả đường dẫn file tạm.
+func (s *Server) saveT2VUpload(fh *multipart.FileHeader) (string, error) {
+	dir := filepath.Join(s.DataDir, "tmp")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("không tạo được thư mục tạm: %w", err)
+	}
+	tmp := filepath.Join(dir, s.st.NewID("shotsrc")+filepath.Ext(sanitizeFileName(fh.Filename)))
+	if _, err := saveMultipartFile(fh, tmp); err != nil {
+		return "", err
+	}
+	return tmp, nil
+}
+
+// t2vShotCount đếm số cảnh đã có ảnh.
+func t2vShotCount(sess store.T2VSession) int {
+	n := 0
+	for _, seg := range sess.Segments {
+		if strings.TrimSpace(seg.ImagePath) != "" {
+			n++
+		}
+	}
+	return n
 }
 
 // t2vFail đánh dấu phiên lỗi + ghi nhật ký (đọc lại bản mới nhất để không đè kết quả khác).

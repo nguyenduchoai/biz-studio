@@ -16,7 +16,7 @@ var sceneTpl = template.Must(template.ParseFS(templateFS, "templates/scene.html"
 
 var validTemplates = map[string]bool{
 	"hero": true, "bullets": true, "code": true, "chart": true,
-	"product": true, "quote": true, "outro": true,
+	"product": true, "quote": true, "outro": true, "photo": true,
 }
 
 // normalizeTemplate chuẩn hoá tên template; không hợp lệ → "hero".

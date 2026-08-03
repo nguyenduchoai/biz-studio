@@ -44,8 +44,13 @@
   ];
 
   var ENGINE_LABELS = { vieneu: 'VieNeu', say: 'macOS', gemini: 'Gemini', clone: 'Nhân bản' };
-  var BUSY_BY_KIND = { t2v_script: 'script', t2v_voice: 'voice', t2v_build: 'build' };
-  var JOB_LABEL = { t2v_script: '✂ Viết kịch bản', t2v_voice: '🎙 Tạo giọng đọc', t2v_build: '🎬 Dựng video' };
+  var BUSY_BY_KIND = {
+    t2v_script: 'script', t2v_storyboard: 'storyboard', t2v_voice: 'voice', t2v_build: 'build'
+  };
+  var JOB_LABEL = {
+    t2v_script: '✂ Viết kịch bản', t2v_storyboard: '🖼 Sinh ảnh storyboard',
+    t2v_shot: '🖼 Tạo lại ảnh cảnh', t2v_voice: '🎙 Tạo giọng đọc', t2v_build: '🎬 Dựng video'
+  };
   var LOG_RE = /t2v|text2video|tts|vieneu|htmlvideo|agent/i;
   var VIDEO_EXT = ['.mp4', '.mov', '.mkv', '.webm', '.m4v'];
 
@@ -321,10 +326,15 @@
     ctx.saveTimer = setTimeout(function () { ctx.saveTimer = null; putSession(ctx, null); }, 600);
   }
 
+  // Card 3 (Storyboard) chen giữa Kịch bản và Giọng đọc nên số card (1..6) không
+  // còn trùng bước của máy chủ (0..5) — CARD_STAGE quy đổi để biết card nào nên
+  // thu gọn khi mở lại phiên đang dở.
+  var CARD_STAGE = [0, 1, 2, 3, 3, 4, 5];
+
   function initOpen(step) {
     var o = {};
-    for (var i = 0; i < 5; i++) o[i + 1] = (i >= step);
-    if (step >= 5) o[5] = true;
+    for (var k = 1; k <= 6; k++) o[k] = CARD_STAGE[k] > step;
+    if (step >= 5) o[6] = true;
     return o;
   }
 
@@ -668,7 +678,44 @@
       }))));
   }
 
-  // ---------- 3. Giọng đọc ----------
+  // ---------- 3. Storyboard (file text2video-storyboard.js) ----------
+
+  // ctx rút gọn cho module storyboard — chỉ những gì nó cần, không lộ nội bộ trang.
+  function storyboardCtx(ctx) {
+    return {
+      mountId: ctx.mountId,
+      session: ctx.sess,
+      busy: ctx.busy,
+      inlineHost: ctx.inline.storyboard,
+      startAll: function () { startJob(ctx, 'storyboard'); },
+      reload: function () { return reloadSession(ctx); },
+      saveSegments: function () { queueSave(ctx); },
+      fetchSession: function () { return API.get('/api/t2v/sessions/' + encodeURIComponent(ctx.sess.id)); },
+      applyServer: function (s) { applyServer(ctx, s); },
+      watchJob: function (job, host, onDone) { watchJob(ctx, job, host, onDone); }
+    };
+  }
+
+  function secStoryboard(ctx) {
+    ctx.inline.storyboard = h('div');
+    var host = h('div');
+
+    if (window.T2VStoryboard && typeof window.T2VStoryboard.render === 'function') {
+      try {
+        ctx.sbCleanup = window.T2VStoryboard.render(host, storyboardCtx(ctx));
+      } catch (e) {
+        host.innerHTML = '';
+        host.appendChild(redAlert('Không dựng được phần Storyboard: ' + (e && e.message ? e.message : e)));
+      }
+    } else {
+      host.appendChild(h('div', { class: 'muted', style: { fontSize: '12.5px' } },
+        'Chưa nạp được module Storyboard (js/pages/text2video-storyboard.js) — tải lại trang để thử lại.'));
+      host.appendChild(ctx.inline.storyboard);
+    }
+    return section(ctx, 3, 'Storyboard', '🖼️', host);
+  }
+
+  // ---------- 4. Giọng đọc ----------
 
   function secVoice(ctx) {
     var s = ctx.sess;
@@ -752,7 +799,7 @@
         'Chưa có giọng đọc. Sau khi tạo, thời lượng THẬT của từng đoạn sẽ được đo và dùng để canh cảnh video.'));
     }
 
-    return section(ctx, 3, 'Giọng đọc', '🎙️', h('div', null,
+    return section(ctx, 4, 'Giọng đọc', '🎙️', h('div', null,
       searchIn,
       h('div', { class: 'mt-8' }, gridHost),
       h('div', { class: 'mt-16' }, styleField),
@@ -762,7 +809,7 @@
       resultHost));
   }
 
-  // ---------- 4. Cấu hình video ----------
+  // ---------- 5. Cấu hình video ----------
 
   function secConfig(ctx) {
     var s = ctx.sess;
@@ -777,13 +824,13 @@
       String(s.fps || 30), function (v) {
         putSession(ctx, { fps: Number(v) || 30 }).then(function () { renderHead(ctx); });
       });
-    return section(ctx, 4, 'Cấu hình video', '⚙️', h('div', null,
+    return section(ctx, 5, 'Cấu hình video', '⚙️', h('div', null,
       h('div', { class: 'grid-2' }, sizeSel, fpsSel),
       h('div', { class: 'muted', style: { fontSize: '12px' } },
         'Kích thước áp dụng cho cả chế độ dựng bằng AI lẫn HTML Video.')));
   }
 
-  // ---------- 5. Dựng video ----------
+  // ---------- 6. Dựng video ----------
 
   function subStepper(mode, progress) {
     var labels = mode === 'html'
@@ -879,7 +926,7 @@
         'Chưa có video. Chọn chế độ dựng rồi bấm "Dựng video".'));
     }
 
-    return section(ctx, 5, 'Dựng video', '🎬', h('div', null,
+    return section(ctx, 6, 'Dựng video', '🎬', h('div', null,
       modeHost,
       h('div', { class: 'mt-16' }, buildBtn),
       ctx.inline.build,
@@ -895,6 +942,7 @@
     ctx.left.innerHTML = '';
     ctx.left.appendChild(secSource(ctx));
     ctx.left.appendChild(secScript(ctx));
+    ctx.left.appendChild(secStoryboard(ctx));
     ctx.left.appendChild(secVoice(ctx));
     ctx.left.appendChild(secConfig(ctx));
     ctx.left.appendChild(secBuild(ctx));
@@ -921,6 +969,35 @@
       UI.toast('Không chạy được bước này: ' + e.message, 'error');
       renderLeft(ctx);
     });
+  }
+
+  // Job lẻ (ảnh của MỘT cảnh storyboard): module storyboard đăng ký ở đây thay vì
+  // tự mở listener riêng — dọn dẹp gọn theo vòng đời trang.
+  function watchJob(ctx, job, host, onDone) {
+    if (!job || !job.id) return;
+    ctx.watchers[job.id] = { host: host, onDone: onDone };
+    renderWatch(ctx, job);
+  }
+
+  function renderWatch(ctx, j) {
+    var w = ctx.watchers[j.id];
+    if (!w) return;
+    if (j.status === 'running' || j.status === 'queued') {
+      if (w.host) {
+        w.host.innerHTML = '';
+        w.host.appendChild(UI.spinner());
+        w.host.appendChild(h('span', null, Math.round(Number(j.progress) || 0) + '%'));
+        if (j.detail) {
+          w.host.appendChild(h('span', { style: { fontWeight: '400', opacity: '.85' } }, j.detail));
+        }
+      }
+      return;
+    }
+    delete ctx.watchers[j.id];
+    if (w.host) w.host.innerHTML = '';
+    if (typeof w.onDone === 'function') {
+      try { w.onDone(j); } catch (e) { console.error('Lỗi xử lý job storyboard:', e); }
+    }
   }
 
   function progressBlock(j) {
@@ -1026,6 +1103,8 @@
   function bindRealtime(ctx) {
     sub(ctx, 'job', function (j) {
       if (!j) return;
+      if (ctx.watchers[j.id]) { renderWatch(ctx, j); return; }  // ảnh của 1 cảnh — storyboard tự lo
+      if (j.kind === 't2v_shot') return;                        // cảnh lẻ không thuộc luồng chính
       if (j.id !== ctx.jobId && String(j.kind || '').indexOf('t2v_') !== 0) return;
       ctx.job = j;
       if (j.status === 'running' || j.status === 'queued') {
@@ -1049,6 +1128,14 @@
         ctx.errStep = failedStep;
         UI.toast('Thất bại: ' + ctx.jobErr, 'error');
         renderLeft(ctx);
+      }
+    });
+
+    // /api/state về sau lần vẽ đầu — cập nhật cảnh báo thiếu API key của Storyboard
+    // mà không dựng lại cả cột trái (tránh mất phần người dùng đang gõ).
+    sub(ctx, 'state', function () {
+      if (window.T2VStoryboard && typeof window.T2VStoryboard.syncWarn === 'function') {
+        window.T2VStoryboard.syncWarn();
       }
     });
 
@@ -1122,19 +1209,28 @@
       ctx.unsubs.forEach(function (u) { Bus.off(u.ev, u.fn); });
       ctx.timers.forEach(clearInterval);
       if (ctx.saveTimer) { clearTimeout(ctx.saveTimer); ctx.saveTimer = null; }
+      ctx.watchers = {};
+      if (typeof ctx.sbCleanup === 'function') {
+        try { ctx.sbCleanup(); } catch (e) { console.error('Lỗi dọn Storyboard:', e); }
+        ctx.sbCleanup = null;
+      }
     };
   }
+
+  var mountSeq = 0;
 
   function openSession(el, id) {
     el.appendChild(h('div', { class: 'row muted' }, UI.spinner(), 'Đang tải phiên…'));
     API.get('/api/t2v/sessions/' + encodeURIComponent(id)).then(function (s) {
       el.innerHTML = '';
       if (!s || !s.id) throw new Error('Phản hồi không hợp lệ từ máy chủ');
+      mountSeq++;
       build({
         el: el, sess: s, voices: null, voicesErr: '',
         open: initOpen(Number(s.step) || 0), inline: {}, renderVoiceGrid: null,
         unsubs: [], timers: [], saveTimer: null,
-        busy: '', job: null, jobId: null, jobErr: '', errStep: ''
+        busy: '', job: null, jobId: null, jobErr: '', errStep: '',
+        mountId: s.id + '#' + mountSeq, watchers: {}, sbCleanup: null
       });
     }).catch(function (e) {
       el.innerHTML = '';

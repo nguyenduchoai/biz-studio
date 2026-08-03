@@ -97,6 +97,11 @@ type T2VSegment struct {
 	Chars     int     `json:"chars"`
 	Seconds   float64 `json:"seconds"`
 	AudioPath string  `json:"audioPath"` // tương đối data dir
+
+	// Storyboard — hình của cảnh này
+	ImagePath   string `json:"imagePath"`   // tương đối data dir
+	ImagePrompt string `json:"imagePrompt"` // mô tả cảnh để sinh ảnh (sửa được)
+	ImageSource string `json:"imageSource"` // ai | stock | upload
 }
 
 // T2VSession — một phiên Text → Video (nguồn → kịch bản → giọng đọc → cấu hình → dựng video).

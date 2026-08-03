@@ -242,3 +242,27 @@ CRUD: `StyleKits()`, `StyleKit(id)`, `ActiveStyleKit() (StyleKit, bool)`, `SaveS
 - `DELETE /api/styles/{id}` → xoá; nếu xoá bộ đang mặc định thì đặt bộ còn lại mới nhất làm mặc định
 - `POST /api/styles/{id}/default` → đặt làm mặc định
 - `POST /api/styles/{id}/preview` body `{subject?}` → Job kind=style_preview: dùng `stylekit.ApplyKit` + `gemini.GenerateImage` sinh ảnh mẫu (subject mặc định "a person working at a desk near a window") vào `data/styles/<id>-preview.png`; output = đường dẫn tương đối DataDir. Chưa có Gemini key → lỗi 400 tiếng Việt hướng dẫn vào Cấu hình & API.
+
+## Mở rộng v1.6 — Storyboard (ảnh từng cảnh, sửa được)
+
+Mục tiêu: video Text → Video không còn là chữ trên nền gradient mà **mỗi đoạn có ảnh riêng**; người dùng sửa prompt từng cảnh, tạo lại đúng một cảnh, hoặc tự tải ảnh thay thế.
+
+### Store (ĐÃ CÓ — chỉ dùng)
+`store.T2VSegment` thêm 3 field: `ImagePath` (tương đối DataDir), `ImagePrompt` (mô tả cảnh để sinh ảnh — sửa được), `ImageSource` (`ai|stock|upload`).
+
+### internal/text2video/storyboard.go (MỚI)
+- `SuggestPrompt(seg store.T2VSegment) string` — sinh mô tả ảnh mặc định từ nội dung đoạn: dịch ý sang câu mô tả cảnh bằng tiếng Anh ngắn gọn (danh từ + bối cảnh + cảm xúc), KHÔNG chữ trong ảnh. Dùng LLM nếu có (engine như WriteScript), fallback heuristic từ chính text.
+- `BuildStoryboard(ctx, st, sess *store.T2VSession, workDir string, upd func(float64,string)) error` — với MỌI đoạn chưa có ImagePath: sinh prompt nếu trống → sinh ảnh → lưu `shot-<i>.png` trong workDir → gán ImagePath/ImageSource. upd theo từng đoạn. Đoạn đã có ảnh (nhất là `upload`) thì BỎ QUA, không ghi đè.
+- `BuildSegmentImage(ctx, st, sess, idx int, prompt string, workDir string) error` — sinh lại ảnh CHO ĐÚNG một đoạn (prompt rỗng → dùng ImagePrompt hiện có, vẫn rỗng → SuggestPrompt). Ghi đè `shot-<idx>.png`.
+- Chuỗi nguồn ảnh: Gemini (`gemini.GenerateImage`, prompt qua `stylekit.Apply`) → Pexels (`stockmedia.SearchImage`, dùng ImagePrompt làm keyword) → lỗi tiếng Việt rõ nếu không có nguồn nào (KHÔNG tạo card màu ở bước này — để UI báo cho người dùng biết cần key).
+
+### internal/htmlvideo — template mới `photo`
+Thêm vào `templates/scene.html` + xử lý ảnh trong `render.go`: template `photo` = **ảnh tràn khung** (object-fit cover, zoom nhẹ 1.0→1.06 theo t) + lớp phủ gradient tối ở đáy + `Title` hiện ở 1/3 dưới (chữ lớn, đổ bóng, tối đa 3 dòng). `prepareImage` hiện chỉ lấy ảnh khi Template=="product" → mở rộng cho cả `photo`, và khi `Scene.Image` là đường dẫn file có thật thì copy dùng luôn (đã hỗ trợ).
+
+### internal/text2video/video.go
+`buildScenes`: đoạn nào có `ImagePath` → Template `photo`, `Image` = đường dẫn TUYỆT ĐỐI (DataDir + ImagePath), `Title` = câu nói rút gọn. Đoạn không có ảnh → giữ nguyên logic cũ (hero/bullets/quote/outro).
+
+### routes_t2v.go — 3 endpoint mới
+- `POST /api/t2v/sessions/{id}/storyboard` → Job kind=`t2v_storyboard` → BuildStoryboard → lưu session
+- `POST /api/t2v/sessions/{id}/segments/{idx}/image` body `{prompt?}` → Job kind=`t2v_shot` → BuildSegmentImage (idx là số thứ tự 0-based, sai → 400)
+- `POST /api/t2v/sessions/{id}/segments/{idx}/image/upload` — multipart `files` (1 ảnh) → lưu `shot-<idx>.png` (convert bằng ffmpeg nếu không phải png), ImageSource="upload" → trả session

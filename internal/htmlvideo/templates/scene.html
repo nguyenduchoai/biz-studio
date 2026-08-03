@@ -129,6 +129,35 @@ body.theme-light #bg { background: #F7F5FE; }
 .pbig { font-size: calc(var(--u)*8.4); }
 .psub { font-size: calc(var(--u)*3.2); color: var(--muted); font-weight: 500; margin-top: calc(var(--u)*1.6); line-height: 1.4; }
 
+/* ---------- photo (ảnh tràn khung, chữ đè 1/3 dưới) ---------- */
+.phwrap { position: absolute; inset: 0; overflow: hidden; }
+.phimg {
+  position: absolute; left: 50%; top: 50%; width: 100%; height: 100%;
+  object-fit: cover; transform-origin: 50% 50%; will-change: transform;
+}
+.phshade {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(6,4,18,.46) 0%, rgba(6,4,18,.06) 22%, rgba(6,4,18,0) 38%,
+                    rgba(6,4,18,.42) 62%, rgba(6,4,18,.80) 82%, rgba(6,4,18,.94) 100%);
+}
+.phtext {
+  position: absolute; left: 7.5%; right: 7.5%; bottom: 13%;
+  display: flex; flex-direction: column; align-items: flex-start;
+}
+.phbar {
+  height: calc(var(--u)*.8); width: calc(var(--u)*11); border-radius: 999px;
+  background: linear-gradient(92deg, var(--a1), var(--a2));
+  margin-bottom: calc(var(--u)*2.6);
+  box-shadow: 0 calc(var(--u)*.4) calc(var(--u)*1.6) rgba(0,0,0,.45);
+}
+.phtitle {
+  color: #fff; font-weight: 800; letter-spacing: -.012em; line-height: 1.26;
+  overflow: hidden; overflow-wrap: break-word;
+  text-shadow: 0 calc(var(--u)*.32) calc(var(--u)*1.5) rgba(0,0,0,.66),
+               0 calc(var(--u)*.08) calc(var(--u)*.5) rgba(0,0,0,.55);
+}
+
 /* ---------- quote ---------- */
 .qmark { font-family: Georgia, "Times New Roman", serif; font-size: calc(var(--u)*24); line-height: .55; font-weight: 800; }
 .qtext { font-size: calc(var(--u)*5.2); font-weight: 600; font-style: italic; line-height: 1.35; letter-spacing: -.01em; max-width: 94%; }
@@ -361,6 +390,48 @@ var DATA = {{.DataJSON}};
     };
   }
 
+  /* photo: ảnh tràn khung, zoom rất nhẹ theo t, chữ trắng đè ở 1/3 dưới.
+     Cỡ chữ tự co theo độ dài và bị chặn tối đa 3 dòng (đo một lần lúc dựng
+     trang, không phụ thuộc t nên mọi frame đều nhất quán). */
+  function buildPhoto() {
+    if (!D.image) return buildHero(); // chưa có ảnh → vẫn ra cảnh tử tế
+    var wrap = el('div', 'phwrap');
+    var img = document.createElement('img');
+    img.className = 'phimg';
+    img.src = D.image;
+    var shade = el('div', 'phshade');
+    var box = el('div', 'phtext');
+    var bar = el('div', 'phbar');
+    var title = el('div', 'phtitle', D.title || '');
+    box.appendChild(bar); box.appendChild(title);
+    wrap.appendChild(img); wrap.appendChild(shade); wrap.appendChild(box);
+    stage.appendChild(wrap);
+
+    var lineH = 1.26, maxLines = 3;
+    var boxW = W * 0.85;
+    var n = Math.max((D.title || '').length, 1);
+    // ước lượng bề rộng trung bình 1 ký tự ≈ 0.52 lần cỡ chữ → cỡ vừa 3 dòng
+    var px = Math.max(Math.min(maxLines * boxW / (0.52 * n), u * 6.8), u * 3.2);
+    title.style.fontSize = px + 'px';
+    for (var g = 0; g < 14 && px > u * 2.6; g++) {
+      if (title.getBoundingClientRect().height <= px * lineH * maxLines + 2) break;
+      px *= 0.93;
+      title.style.fontSize = px + 'px';
+    }
+    title.style.maxHeight = (px * lineH * maxLines) + 'px'; // chặn cứng 3 dòng
+
+    return function (t) {
+      var p = clamp01(DUR > 0 ? t / DUR : 0);
+      var e0 = seg(t, 0, 0.5);
+      img.style.opacity = 0.35 + 0.65 * e0;
+      img.style.transform = 'translate(-50%,-50%) scale(' + (1 + 0.06 * p) + ') translateY(' + (-0.6 * p) + '%)';
+      shade.style.opacity = 0.72 + 0.28 * e0;
+      var e1 = seg(t, 0.22, 0.75); fx(box, e1, 0, (1 - e1) * 40);
+      bar.style.transform = 'scaleX(' + (0.2 + 0.8 * seg(t, 0.32, 0.7)) + ')';
+      bar.style.transformOrigin = 'left center';
+    };
+  }
+
   function buildQuote() {
     var c = el('div', 'center');
     var mark = el('div', 'qmark', '“');
@@ -407,7 +478,7 @@ var DATA = {{.DataJSON}};
 
   var builders = {
     hero: buildHero, bullets: buildBullets, code: buildCode, chart: buildChart,
-    product: buildProduct, quote: buildQuote, outro: buildOutro
+    product: buildProduct, photo: buildPhoto, quote: buildQuote, outro: buildOutro
   };
   var update = (builders[D.template] || buildHero)();
 

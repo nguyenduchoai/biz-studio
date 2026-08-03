@@ -113,15 +113,44 @@ type Character struct {
 // StyleKit — bộ style hình ảnh dùng chung cho mọi cảnh của một video,
 // để hình sinh ra đồng nhất như cùng một bộ phim.
 type StyleKit struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	StylePrompt string    `json:"stylePrompt"` // ghép vào MỌI prompt sinh ảnh
-	Negative    string    `json:"negative"`    // thứ cần tránh
-	Palette     []string  `json:"palette"`     // mã màu hex
-	Theme       string    `json:"theme"`       // vivid | dark | light (nền khung chữ)
-	IsDefault   bool      `json:"isDefault"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+
+	// --- Sinh ảnh ---
+	StylePrompt string   `json:"stylePrompt"` // ghép vào MỌI prompt sinh ảnh
+	Negative    string   `json:"negative"`    // thứ cần tránh
+	Palette     []string `json:"palette"`     // mã màu hex (gợi ý cho model)
+	Theme       string   `json:"theme"`       // vivid | dark | light (nền khung chữ)
+
+	// --- Giao diện video (đổ thẳng vào biến CSS khi render) ---
+	BgDeep    string `json:"bgDeep"`    // màu nền chính
+	TextMain  string `json:"textMain"`  // màu chữ chính
+	Accent    string `json:"accent"`    // màu nhấn
+	FontHead  string `json:"fontHead"`  // font tiêu đề & số lớn (CSS font stack)
+	FontBody  string `json:"fontBody"`  // font nội dung & phụ đề
+	SizeTitle int    `json:"sizeTitle"` // px — cỡ chữ tiêu đề
+	SizeBig   int    `json:"sizeBig"`   // px — cỡ số lớn
+	SizeBody  int    `json:"sizeBody"`  // px — cỡ chữ nội dung
+
+	// --- Nhận diện kênh ---
+	ChannelName string `json:"channelName"`
+	LogoPath    string `json:"logoPath"` // tương đối data dir
+	LogoPos     string `json:"logoPos"`  // left | center | right
+
+	// --- Tư liệu nền chạy lặp dưới lớp chữ ---
+	StockPaths []string `json:"stockPaths"` // tương đối data dir
+
+	// --- Giới hạn độ dài kịch bản AI ---
+	MaxVoiceChars int `json:"maxVoiceChars"` // 0 = không giới hạn
+	MaxImageChars int `json:"maxImageChars"`
+
+	// --- Nền tảng giao diện ---
+	BaseTemplate string `json:"baseTemplate"` // builtin | custom
+	CustomHTML   string `json:"customHtml"`   // dùng khi baseTemplate=custom
+
+	IsDefault bool      `json:"isDefault"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 // T2VSegment — một đoạn kịch bản đọc; Seconds là thời lượng ĐO THẬT sau khi tổng hợp giọng.

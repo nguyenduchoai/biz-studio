@@ -5,12 +5,53 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; overflow: hidden; }
+
+/* Biến giao diện — mặc định BẰNG ĐÚNG giá trị hard-code cũ, Style Kit chỉ ghi
+   đè khi có bộ style, nên video cũ render lại vẫn y hệt. Cỡ chữ là 3 mốc gốc,
+   mọi cỡ chữ khác tính theo tỉ lệ với 3 mốc này để bố cục không đổi. */
+:root {
+  --font-head: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --size-title: calc(var(--u) * 9.2);
+  --size-big: calc(var(--u) * 8.4);
+  --size-body: calc(var(--u) * 3.6);
+}
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family: var(--font-body);
   -webkit-font-smoothing: antialiased;
 }
 #bg { position: fixed; left: -20%; top: -20%; width: 140%; height: 140%; z-index: 0; }
 .orb { position: absolute; left: 0; top: 0; border-radius: 50%; filter: blur(60px); }
+
+/* ---------- tư liệu nền (chạy dưới lớp chữ) ---------- */
+#stockbg { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+#stockimg {
+  position: absolute; left: 50%; top: 50%; width: 100%; height: 100%;
+  object-fit: cover; transform-origin: 50% 50%; will-change: transform;
+}
+#stockveil { position: absolute; inset: 0; }
+
+/* ---------- logo + tên kênh ---------- */
+#brand {
+  position: fixed; left: 0; right: 0; bottom: 3.4%; z-index: 2;
+  display: flex; align-items: center; gap: calc(var(--u) * 1.8);
+  padding: 0 7.5%; pointer-events: none;
+}
+#brand.pos-left { justify-content: flex-start; }
+#brand.pos-center { justify-content: center; }
+#brand.pos-right { justify-content: flex-end; }
+#brandlogo {
+  height: calc(var(--u) * 5.4); width: auto; max-width: 34%;
+  object-fit: contain;
+  filter: drop-shadow(0 calc(var(--u) * .3) calc(var(--u) * 1) rgba(0,0,0,.35));
+}
+#brandname {
+  font-family: var(--font-body); font-weight: 700;
+  font-size: calc(var(--size-body) * 2.6 / 3.6); letter-spacing: .06em;
+  color: var(--fg); white-space: nowrap;
+  text-shadow: 0 calc(var(--u) * .2) calc(var(--u) * .9) rgba(0,0,0,.4);
+}
+
 #stage {
   position: fixed; inset: 0; z-index: 1; padding: 8%;
   display: flex; flex-direction: column; justify-content: center;
@@ -62,31 +103,33 @@ body.theme-light #bg { background: #F7F5FE; }
 .top { display: flex; flex-direction: column; justify-content: center; height: 100%; }
 .badge {
   display: inline-flex; align-items: center; gap: .45em;
-  font-size: calc(var(--u)*2.4); font-weight: 800; letter-spacing: .18em;
+  font-family: var(--font-head);
+  font-size: calc(var(--size-body) * 2.4 / 3.6); font-weight: 800; letter-spacing: .18em;
   padding: calc(var(--u)*1) calc(var(--u)*2.8); border-radius: 999px;
   background: linear-gradient(92deg, var(--a1), var(--a2)); color: #fff;
   box-shadow: 0 calc(var(--u)*.8) calc(var(--u)*3) rgba(0,0,0,.22);
 }
 .sec-title {
-  font-size: calc(var(--u)*6); font-weight: 800; letter-spacing: -.015em;
+  font-family: var(--font-head);
+  font-size: calc(var(--size-title) * 6 / 9.2); font-weight: 800; letter-spacing: -.015em;
   line-height: 1.12; margin-bottom: calc(var(--u)*4.2);
 }
 
 /* ---------- hero ---------- */
-.hero-title { font-size: calc(var(--u)*9.2); font-weight: 800; line-height: 1.06; letter-spacing: -.02em; }
-.hero-sub { font-size: calc(var(--u)*3.6); color: var(--muted); font-weight: 500; max-width: 92%; line-height: 1.4; }
+.hero-title { font-family: var(--font-head); font-size: var(--size-title); font-weight: 800; line-height: 1.06; letter-spacing: -.02em; }
+.hero-sub { font-size: var(--size-body); color: var(--muted); font-weight: 500; max-width: 92%; line-height: 1.4; }
 
 /* ---------- bullets ---------- */
 .bullet {
   display: flex; align-items: flex-start; gap: calc(var(--u)*2.2);
-  font-size: calc(var(--u)*3.7); font-weight: 600; line-height: 1.35;
+  font-size: calc(var(--size-body) * 3.7 / 3.6); font-weight: 600; line-height: 1.35;
   margin-bottom: calc(var(--u)*3);
 }
 .tick {
-  flex: none; width: calc(var(--u)*4.6); height: calc(var(--u)*4.6); border-radius: 50%;
+  flex: none; width: calc(var(--size-body) * 4.6 / 3.6); height: calc(var(--size-body) * 4.6 / 3.6); border-radius: 50%;
   background: linear-gradient(135deg, var(--a1), var(--a2));
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: calc(var(--u)*2.5); font-weight: 800;
+  color: #fff; font-size: calc(var(--size-body) * 2.5 / 3.6); font-weight: 800;
   box-shadow: 0 calc(var(--u)*.6) calc(var(--u)*2.2) rgba(0,0,0,.22);
 }
 .btext { padding-top: calc(var(--u)*.5); }
@@ -102,7 +145,7 @@ body.theme-light #bg { background: #F7F5FE; }
 .codebody {
   padding: calc(var(--u)*2.6); min-height: calc(var(--u)*18);
   font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
-  font-size: calc(var(--u)*2.6); line-height: 1.65; color: #E9E5FF;
+  font-size: calc(var(--size-body) * 2.6 / 3.6); line-height: 1.65; color: #E9E5FF;
   white-space: pre-wrap; word-break: break-word;
 }
 .caret { color: var(--a2); font-weight: 400; }
@@ -111,9 +154,9 @@ body.theme-light #bg { background: #F7F5FE; }
 .rows { display: flex; flex-direction: column; gap: calc(var(--u)*3); }
 .rlabel {
   display: flex; justify-content: space-between; align-items: baseline;
-  font-size: calc(var(--u)*2.9); font-weight: 600; margin-bottom: calc(var(--u)*1);
+  font-size: calc(var(--size-body) * 2.9 / 3.6); font-weight: 600; margin-bottom: calc(var(--u)*1);
 }
-.rval { font-weight: 800; font-size: calc(var(--u)*3.1); }
+.rval { font-family: var(--font-head); font-weight: 800; font-size: calc(var(--size-big) * 3.1 / 8.4); }
 .track { height: calc(var(--u)*3); border-radius: 999px; background: var(--track); overflow: hidden; }
 .bar { height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, var(--a1), var(--a2)); }
 
@@ -125,9 +168,9 @@ body.theme-light #bg { background: #F7F5FE; }
   margin-bottom: calc(var(--u)*3.6);
 }
 .pimg { width: 100%; height: 100%; object-fit: cover; transform-origin: center; }
-.ptitle { font-size: calc(var(--u)*6.2); font-weight: 800; letter-spacing: -.015em; line-height: 1.12; }
-.pbig { font-size: calc(var(--u)*8.4); }
-.psub { font-size: calc(var(--u)*3.2); color: var(--muted); font-weight: 500; margin-top: calc(var(--u)*1.6); line-height: 1.4; }
+.ptitle { font-family: var(--font-head); font-size: calc(var(--size-title) * 6.2 / 9.2); font-weight: 800; letter-spacing: -.015em; line-height: 1.12; }
+.pbig { font-size: var(--size-big); }
+.psub { font-size: calc(var(--size-body) * 3.2 / 3.6); color: var(--muted); font-weight: 500; margin-top: calc(var(--u)*1.6); line-height: 1.4; }
 
 /* ---------- photo (ảnh tràn khung, chữ đè 1/3 dưới) ---------- */
 .phwrap { position: absolute; inset: 0; overflow: hidden; }
@@ -152,6 +195,7 @@ body.theme-light #bg { background: #F7F5FE; }
   box-shadow: 0 calc(var(--u)*.4) calc(var(--u)*1.6) rgba(0,0,0,.45);
 }
 .phtitle {
+  font-family: var(--font-head);
   color: #fff; font-weight: 800; letter-spacing: -.012em; line-height: 1.26;
   overflow: hidden; overflow-wrap: break-word;
   text-shadow: 0 calc(var(--u)*.32) calc(var(--u)*1.5) rgba(0,0,0,.66),
@@ -159,9 +203,9 @@ body.theme-light #bg { background: #F7F5FE; }
 }
 
 /* ---------- quote ---------- */
-.qmark { font-family: Georgia, "Times New Roman", serif; font-size: calc(var(--u)*24); line-height: .55; font-weight: 800; }
-.qtext { font-size: calc(var(--u)*5.2); font-weight: 600; font-style: italic; line-height: 1.35; letter-spacing: -.01em; max-width: 94%; }
-.qauthor { font-size: calc(var(--u)*3); color: var(--muted); font-weight: 600; }
+.qmark { font-family: Georgia, "Times New Roman", serif; font-size: calc(var(--size-big) * 24 / 8.4); line-height: .55; font-weight: 800; }
+.qtext { font-family: var(--font-head); font-size: calc(var(--size-title) * 5.2 / 9.2); font-weight: 600; font-style: italic; line-height: 1.35; letter-spacing: -.01em; max-width: 94%; }
+.qauthor { font-size: calc(var(--size-body) * 3 / 3.6); color: var(--muted); font-weight: 600; }
 
 /* ---------- outro ---------- */
 .pulse { position: relative; width: calc(var(--u)*16); height: calc(var(--u)*16); margin-bottom: calc(var(--u)*2); }
@@ -172,25 +216,27 @@ body.theme-light #bg { background: #F7F5FE; }
   display: flex; align-items: center; justify-content: center;
   color: #fff; font-size: calc(var(--u)*4.4);
 }
-.otitle { font-size: calc(var(--u)*7.6); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; max-width: 96%; }
-.osub { font-size: calc(var(--u)*3.4); color: var(--muted); font-weight: 600; }
+.otitle { font-family: var(--font-head); font-size: calc(var(--size-title) * 7.6 / 9.2); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; max-width: 96%; }
+.osub { font-size: calc(var(--size-body) * 3.4 / 3.6); color: var(--muted); font-weight: 600; }
 </style>
 </head>
 <body>
 <div id="bg"></div>
+<div id="stockbg" style="display:none"><img id="stockimg" alt=""><div id="stockveil"></div></div>
 <div id="stage"></div>
+<div id="brand" style="display:none"><img id="brandlogo" alt=""><span id="brandname"></span></div>
 <script>
 var DATA = {{.DataJSON}};
 (function () {
   'use strict';
   var D = DATA, W = D.w, H = D.h, DUR = D.dur;
+  var K = D.kit || null;
   var u = Math.min(W, H) / 100;
   document.documentElement.style.setProperty('--u', u + 'px');
   document.body.className = 'theme-' + D.theme;
-  if (D.accent) {
-    document.body.style.setProperty('--a1', D.accent);
-    if (D.theme !== 'vivid') document.body.style.setProperty('--t1', D.accent);
-  }
+
+  /* template hiệu lực: cảnh photo mà chưa có ảnh thì rơi về hero */
+  var TPL = D.template === 'photo' && !D.image ? 'hero' : D.template;
 
   /* ---------- helpers: mọi trạng thái là hàm thuần của t ---------- */
   function clamp01(x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
@@ -213,12 +259,83 @@ var DATA = {{.DataJSON}};
     return (Math.round(v * 10) / 10).toLocaleString('vi-VN', { maximumFractionDigits: 1 });
   }
 
+  /* ---------- màu: đọc mã hex của bộ style ---------- */
+  function hex2rgb(h) {
+    if (typeof h !== 'string') return null;
+    var s = h.trim().replace('#', '');
+    if (s.length === 3) s = s[0] + s[0] + s[1] + s[1] + s[2] + s[2];
+    if (!/^[0-9a-fA-F]{6}$/.test(s)) return null;
+    return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+  }
+  function rgba(h, a) {
+    var c = hex2rgb(h);
+    return c ? 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')' : h;
+  }
+  function mix(h1, h2, k) {
+    var a = hex2rgb(h1), b = hex2rgb(h2);
+    if (!a || !b) return h1;
+    return 'rgb(' + Math.round(a[0] + (b[0] - a[0]) * k) + ',' +
+      Math.round(a[1] + (b[1] - a[1]) * k) + ',' +
+      Math.round(a[2] + (b[2] - a[2]) * k) + ')';
+  }
+
+  /* ---------- bộ style: font, cỡ chữ, 3 biến màu ---------- */
+  var ACC = (K && K.accent) || '', ACC2 = (K && K.accent2) || ACC;
+  var TS = K && K.rTitle > 0 ? K.rTitle : 1;
+  (function applyKit() {
+    if (!K) return;
+    var root = document.documentElement.style, b = document.body.style;
+    if (K.fontHead) root.setProperty('--font-head', K.fontHead);
+    if (K.fontBody) root.setProperty('--font-body', K.fontBody);
+    root.setProperty('--size-title', (u * 9.2 * TS) + 'px');
+    root.setProperty('--size-big', (u * 8.4 * (K.rBig > 0 ? K.rBig : 1)) + 'px');
+    root.setProperty('--size-body', (u * 3.6 * (K.rBody > 0 ? K.rBody : 1)) + 'px');
+    if (K.textMain) {
+      b.setProperty('--fg', K.textMain);
+      b.setProperty('--muted', rgba(K.textMain, .74));
+      b.setProperty('--t1', K.textMain);
+      b.setProperty('--track', rgba(K.textMain, .18));
+      b.setProperty('--codeline', rgba(K.textMain, .16));
+    }
+    if (ACC) {
+      b.setProperty('--a1', ACC);
+      b.setProperty('--a2', ACC2);
+      b.setProperty('--t2', ACC);
+    }
+    if (K.bgDeep) {
+      b.background = K.bgDeep;
+      b.setProperty('--codebg', mix(K.bgDeep, '#000000', .45));
+    }
+  })();
+
+  /* accent riêng của cảnh vẫn thắng bộ style (override có chủ đích);
+     không có bộ style thì giữ NGUYÊN cách xử lý cũ */
+  if (D.accent) {
+    document.body.style.setProperty('--a1', D.accent);
+    if (K) {
+      document.body.style.setProperty('--t2', D.accent);
+    } else if (D.theme !== 'vivid') {
+      document.body.style.setProperty('--t1', D.accent);
+    }
+  }
+
   /* ---------- nền: gradient + hạt glow trôi theo t ---------- */
   var bgEl = document.getElementById('bg');
   var orbs = [];
   (function buildBg() {
     var cols;
-    if (D.theme === 'light') {
+    if (K) {
+      /* nền lấy từ bộ style: gradient màu nền chính → pha màu nhấn, hạt glow
+         lấy từ bảng màu để cả khung hình cùng một tông */
+      if (K.bgDeep) {
+        bgEl.style.background = 'linear-gradient(135deg, ' + K.bgDeep + ' 0%, ' +
+          mix(K.bgDeep, ACC || K.bgDeep, .34) + ' 100%)';
+        bgEl.style.backgroundSize = '220% 220%';
+      }
+      cols = [];
+      (K.palette || []).forEach(function (c) { if (hex2rgb(c)) cols.push(rgba(c, .40)); });
+      if (!cols.length) cols = [rgba(ACC, .42), rgba(ACC2, .34), rgba(K.textMain, .12), rgba(ACC, .28)];
+    } else if (D.theme === 'light') {
       cols = ['rgba(196,181,253,.75)', 'rgba(249,168,212,.70)', 'rgba(167,243,208,.50)', 'rgba(196,181,253,.60)'];
     } else if (D.theme === 'dark') {
       cols = ['rgba(124,58,237,.50)', 'rgba(236,72,153,.42)', 'rgba(59,130,246,.30)', 'rgba(124,58,237,.40)'];
@@ -243,7 +360,7 @@ var DATA = {{.DataJSON}};
     }
   })();
   function bgUpdate(t) {
-    if (D.theme === 'vivid') {
+    if (D.theme === 'vivid' || (K && K.bgDeep)) {
       bgEl.style.backgroundPosition =
         (20 + 14 * Math.sin(t * 0.35)) + '% ' + (50 + 14 * Math.cos(t * 0.27)) + '%';
     }
@@ -254,6 +371,44 @@ var DATA = {{.DataJSON}};
       o.e.style.transform = 'translate(' + x + 'px,' + y + 'px)';
     }
   }
+
+  /* ---------- tư liệu nền: chỉ cho template KHÔNG có ảnh riêng ----------
+     Dùng khung hình tĩnh (video đã được ffmpeg trích sẵn 1 khung đại diện) và
+     zoom theo t — nhờ vậy nền vẫn tất định, mọi frame tính lại y hệt. */
+  var stockOwn = { hero: 1, bullets: 1, quote: 1, outro: 1 };
+  var stockUpdate = null;
+  (function buildStock() {
+    if (!D.stock || !stockOwn[TPL]) return;
+    var wrap = document.getElementById('stockbg');
+    var img = document.getElementById('stockimg');
+    var veil = document.getElementById('stockveil');
+    img.src = D.stock;
+    var base = (K && K.bgDeep) || '#06040F';
+    veil.style.background = 'linear-gradient(180deg, ' + rgba(base, .58) + ' 0%, ' +
+      rgba(base, .70) + ' 45%, ' + rgba(base, .88) + ' 100%)';
+    wrap.style.display = '';
+    stockUpdate = function (t) {
+      var p = clamp01(DUR > 0 ? t / DUR : 0);
+      img.style.opacity = 0.55 + 0.45 * seg(t, 0, 0.7);
+      img.style.transform = 'translate(-50%,-50%) scale(' + (1 + 0.05 * p) + ')';
+    };
+  })();
+
+  /* ---------- logo + tên kênh ---------- */
+  var brandUpdate = null;
+  (function buildBrand() {
+    if (!K) return;
+    var name = K.channelName || '', logo = D.logo || '';
+    if (!name && !logo) return;
+    var wrap = document.getElementById('brand');
+    var img = document.getElementById('brandlogo');
+    var txt = document.getElementById('brandname');
+    if (logo) { img.src = logo; } else { img.style.display = 'none'; }
+    if (name) { txt.textContent = name; } else { txt.style.display = 'none'; }
+    wrap.className = 'pos-' + (K.logoPos || 'left');
+    wrap.style.display = '';
+    brandUpdate = function (t) { wrap.style.opacity = 0.85 * seg(t, 0.25, 0.6); };
+  })();
 
   /* ---------- template builders: trả về update(t) ---------- */
   var stage = document.getElementById('stage');
@@ -411,7 +566,7 @@ var DATA = {{.DataJSON}};
     var boxW = W * 0.85;
     var n = Math.max((D.title || '').length, 1);
     // ước lượng bề rộng trung bình 1 ký tự ≈ 0.52 lần cỡ chữ → cỡ vừa 3 dòng
-    var px = Math.max(Math.min(maxLines * boxW / (0.52 * n), u * 6.8), u * 3.2);
+    var px = Math.max(Math.min(maxLines * boxW / (0.52 * n), u * 6.8 * TS), u * 3.2 * TS);
     title.style.fontSize = px + 'px';
     for (var g = 0; g < 14 && px > u * 2.6; g++) {
       if (title.getBoundingClientRect().height <= px * lineH * maxLines + 2) break;
@@ -480,13 +635,15 @@ var DATA = {{.DataJSON}};
     hero: buildHero, bullets: buildBullets, code: buildCode, chart: buildChart,
     product: buildProduct, photo: buildPhoto, quote: buildQuote, outro: buildOutro
   };
-  var update = (builders[D.template] || buildHero)();
+  var update = (builders[TPL] || buildHero)();
 
   /* seek(t): đặt TOÀN BỘ trạng thái theo thời điểm t (không animation tự chạy) */
   window.seek = function (t) {
     if (!(t >= 0)) t = 0;
     bgUpdate(t);
+    if (stockUpdate) stockUpdate(t);
     update(t);
+    if (brandUpdate) brandUpdate(t);
   };
   window.seek(0);
 })();

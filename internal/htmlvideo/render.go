@@ -2,6 +2,7 @@ package htmlvideo
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -12,8 +13,8 @@ import (
 	"bizstudio/internal/gemini"
 	"bizstudio/internal/media"
 	"bizstudio/internal/stockmedia"
-	"bizstudio/internal/stylekit"
 	"bizstudio/internal/store"
+	"bizstudio/internal/stylekit"
 	"bizstudio/internal/tts"
 )
 
@@ -21,6 +22,12 @@ const (
 	minVoicedDur = 3.0 // giây — sàn thời lượng cảnh có lời đọc
 	defaultDur   = 5.0 // giây — cảnh không lời đọc, không khai duration
 	voicePadSec  = 0.6 // giây — đệm sau khi lời đọc kết thúc
+
+	maxStockBg    = 6             // số tư liệu nền tối đa dùng luân phiên cho một video
+	maxEmbedBytes = 8 << 20       // trần dung lượng file nhúng base64 vào HTML
+	stockBgWidth  = 1280          // bề rộng khung hình nền sau khi trích (đủ nét, nhẹ)
+	logoNoteTag   = "htmlvideo"   // nhãn nguồn log của engine render
+	seekFuncMark  = "window.seek" // dấu hiệu CustomHTML có tự điều khiển thời gian
 )
 
 // imageTemplates — các template có dùng ảnh trong cảnh.
@@ -65,6 +72,12 @@ func Render(ctx context.Context, st *store.Store, scenes []Scene, cfg Config, wo
 		return "", fmt.Errorf("không tạo được thư mục làm việc %s: %w", tmpDir, err)
 	}
 
+	// Bộ style điều khiển toàn bộ giao diện video — nạp MỘT lần rồi truyền
+	// xuống mọi cảnh (logo/tư liệu nền nhúng base64 để Chrome chạy offline).
+	cfg.Kit = resolveKit(st, cfg.Kit)
+	cfg.logoURI, cfg.stockURIs = prepareStyleAssets(ctx, st, cfg.Kit, tmpDir)
+	cfg.customWarn = warnCustomTemplate(st, cfg.Kit)
+
 	jobs, err := prepareScenes(ctx, st, scenes, cfg, w, h, tmpDir, upd)
 	if err != nil {
 		return "", err
@@ -102,7 +115,7 @@ func prepareScenes(ctx context.Context, st *store.Store, scenes []Scene, cfg Con
 		if err := os.MkdirAll(sceneDir, 0o755); err != nil {
 			return nil, fmt.Errorf("không tạo được thư mục cảnh %s: %w", sceneDir, err)
 		}
-		j, err := prepareScene(ctx, st, sc, cfg, w, h, sceneDir)
+		j, err := prepareScene(ctx, st, sc, cfg, w, h, sceneDir, i)
 		if err != nil {
 			return nil, fmt.Errorf("cảnh %d (%s): %w", i+1, sceneLabel(sc), err)
 		}
@@ -112,8 +125,10 @@ func prepareScenes(ctx context.Context, st *store.Store, scenes []Scene, cfg Con
 }
 
 // prepareScene dựng dữ liệu 1 cảnh: TTS → thời lượng → ảnh (product) → file HTML.
-func prepareScene(ctx context.Context, st *store.Store, sc Scene, cfg Config, w, h int, sceneDir string) (*sceneJob, error) {
+// idx là số thứ tự cảnh, dùng để luân phiên tư liệu nền của bộ style.
+func prepareScene(ctx context.Context, st *store.Store, sc Scene, cfg Config, w, h int, sceneDir string, idx int) (*sceneJob, error) {
 	j := &sceneJob{scene: sc, frameDir: filepath.Join(sceneDir, "frames")}
+	cfg.stockURI = cfg.stockFor(idx)
 
 	text := strings.TrimSpace(sc.VoiceText)
 	if cfg.Narration && text != "" {
@@ -199,6 +214,145 @@ func captureAll(ctx context.Context, chromeBin string, jobs []*sceneJob, w, h, f
 		}
 	}
 	return nil
+}
+
+// ---------- tư liệu của bộ style ----------
+
+// resolveKit chọn bộ style hiệu lực: chỉ định sẵn → dùng luôn; không có → bộ
+// đang mặc định của store; store cũng không có → nil (giữ nguyên giao diện cũ).
+func resolveKit(st *store.Store, k *store.StyleKit) *store.StyleKit {
+	if k != nil {
+		return k
+	}
+	if st == nil {
+		return nil
+	}
+	if active, ok := st.ActiveStyleKit(); ok {
+		return &active
+	}
+	return nil
+}
+
+// prepareStyleAssets nhúng logo + tư liệu nền của bộ style thành data URI để
+// trang HTML chạy được hoàn toàn offline trong Chrome headless. Tư liệu nền là
+// video thì trích MỘT khung hình đại diện bằng ffmpeg rồi dùng như ảnh — nhờ
+// vậy nền vẫn tất định theo seek(t), không tự chạy lệch giữa các frame.
+// Mọi lỗi chỉ ghi log rồi bỏ qua phần đó, KHÔNG bao giờ làm hỏng render.
+func prepareStyleAssets(ctx context.Context, st *store.Store, k *store.StyleKit, tmpDir string) (string, []string) {
+	if k == nil || st == nil {
+		return "", nil
+	}
+	logoURI := ""
+	if p := styleAssetPath(st, k.LogoPath); p != "" {
+		uri, err := imageDataURI(p)
+		if err != nil {
+			st.AddLog("warn", logoNoteTag, fmt.Sprintf("Không nhúng được logo %s: %v — render không logo", k.LogoPath, err))
+		} else {
+			logoURI = uri
+		}
+	}
+	return logoURI, prepareStockURIs(ctx, st, k, tmpDir)
+}
+
+// prepareStockURIs trích khung hình đại diện của tối đa maxStockBg tư liệu nền.
+func prepareStockURIs(ctx context.Context, st *store.Store, k *store.StyleKit, tmpDir string) []string {
+	if tmpDir == "" || len(k.StockPaths) == 0 {
+		return nil
+	}
+	out := make([]string, 0, maxStockBg)
+	for _, rel := range k.StockPaths {
+		if len(out) >= maxStockBg || ctx.Err() != nil {
+			break
+		}
+		src := styleAssetPath(st, rel)
+		if src == "" {
+			continue
+		}
+		dst := filepath.Join(tmpDir, fmt.Sprintf("stockbg-%d.jpg", len(out)))
+		if err := media.Thumbnail(src, dst, 0, stockBgWidth); err != nil {
+			st.AddLog("warn", logoNoteTag, fmt.Sprintf("Không đọc được tư liệu nền %s: %v — bỏ qua", rel, err))
+			continue
+		}
+		uri, err := imageDataURI(dst)
+		if err != nil {
+			st.AddLog("warn", logoNoteTag, fmt.Sprintf("Không nhúng được tư liệu nền %s: %v — bỏ qua", rel, err))
+			continue
+		}
+		out = append(out, uri)
+	}
+	return out
+}
+
+// warnCustomTemplate cảnh báo khi HTML tự viết không định nghĩa window.seek(t):
+// vẫn render được nhưng mọi frame giống nhau (cảnh tĩnh). Trả true nếu thiếu.
+func warnCustomTemplate(st *store.Store, k *store.StyleKit) bool {
+	if !isCustomKit(k) || strings.Contains(k.CustomHTML, seekFuncMark) {
+		return false
+	}
+	if st != nil {
+		st.AddLog("warn", logoNoteTag,
+			fmt.Sprintf("Template tuỳ chỉnh của bộ style %q chưa định nghĩa window.seek(t) — cảnh sẽ render tĩnh (mọi frame giống nhau)", k.Name))
+	}
+	return true
+}
+
+// styleAssetPath đổi đường dẫn tương đối DataDir → tuyệt đối; rỗng/không tồn
+// tại → "" (người dùng có thể đã xoá file bên ngoài app).
+func styleAssetPath(st *store.Store, rel string) string {
+	rel = strings.TrimSpace(rel)
+	if rel == "" || st == nil {
+		return ""
+	}
+	p := rel
+	if !filepath.IsAbs(p) {
+		p = filepath.Join(st.DataDir, filepath.FromSlash(rel))
+	}
+	if !fileExists(p) {
+		return ""
+	}
+	return p
+}
+
+// imageDataURI đọc file ảnh → chuỗi data:<mime>;base64,… nhúng thẳng vào HTML.
+func imageDataURI(path string) (string, error) {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if fi.Size() == 0 {
+		return "", errors.New("file rỗng")
+	}
+	if fi.Size() > maxEmbedBytes {
+		return "", fmt.Errorf("file nặng %.1f MB — vượt trần %d MB khi nhúng vào HTML",
+			float64(fi.Size())/(1<<20), maxEmbedBytes>>20)
+	}
+	mime := imageMIME(filepath.Ext(path))
+	if mime == "" {
+		return "", fmt.Errorf("định dạng ảnh không hỗ trợ: %s", filepath.Ext(path))
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(raw), nil
+}
+
+// imageMIME map đuôi file → kiểu MIME ảnh mà Chrome hiển thị được.
+func imageMIME(ext string) string {
+	switch strings.ToLower(ext) {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".webp":
+		return "image/webp"
+	case ".gif":
+		return "image/gif"
+	case ".svg":
+		return "image/svg+xml"
+	default:
+		return ""
+	}
 }
 
 func firstPositive(vals ...float64) float64 {

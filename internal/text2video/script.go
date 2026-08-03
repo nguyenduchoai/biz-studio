@@ -39,11 +39,15 @@ func WriteScript(ctx context.Context, st *store.Store, src, engine, model string
 		source = string(r[:maxSourceRunes])
 	}
 
-	raw, err := runScriptLLM(ctx, st, engine, model, buildScriptPrompt(source, targetSeconds))
+	// Giới hạn độ dài lời đọc mỗi đoạn lấy từ bộ style đang dùng — đưa vào
+	// prompt để LLM viết đúng cỡ, và vẫn cắt hậu kiểm phòng LLM viết quá tay.
+	maxChars := VoiceCharLimit(st)
+
+	raw, err := runScriptLLM(ctx, st, engine, model, buildScriptPrompt(source, targetSeconds, maxChars))
 	if err != nil {
 		return nil, err
 	}
-	segs := parseScript(raw)
+	segs := parseScript(raw, maxChars)
 	if len(segs) == 0 {
 		return nil, fmt.Errorf("LLM không trả về đoạn kịch bản nào — thử lại hoặc đổi engine viết kịch bản (nội dung nhận được: %s)",
 			shortText(raw, 200))
@@ -52,8 +56,8 @@ func WriteScript(ctx context.Context, st *store.Store, src, engine, model string
 }
 
 // buildScriptPrompt dựng prompt tiếng Việt: văn nói, không markdown, không URL,
-// chia đoạn, trả JSON mảng chuỗi.
-func buildScriptPrompt(source string, targetSeconds int) string {
+// chia đoạn, trả JSON mảng chuỗi. maxChars > 0 thì ràng độ dài từng đoạn.
+func buildScriptPrompt(source string, targetSeconds, maxChars int) string {
 	var b strings.Builder
 	b.WriteString(`Viết kịch bản LỜI ĐỌC (voice-over) tiếng Việt cho video, dựa trên nội dung nguồn bên dưới.
 
@@ -75,6 +79,9 @@ Quy tắc bắt buộc:
 			targetSeconds, chars, charsPerSecond, parts)
 	} else {
 		b.WriteString("- Độ dài vừa đủ truyền tải nội dung, thường từ 6 đến 14 đoạn.\n")
+	}
+	if maxChars > 0 {
+		fmt.Fprintf(&b, "- Mỗi đoạn TỐI ĐA %d ký tự (kể cả dấu cách); đoạn nào dài hơn phải tách thành đoạn mới.\n", maxChars)
 	}
 	b.WriteString(`
 Trả về DUY NHẤT một JSON mảng các chuỗi, mỗi phần tử là một đoạn lời đọc:
@@ -152,7 +159,8 @@ func runClaudeScript(ctx context.Context, bin, model, prompt string) (string, er
 
 // parseScript đọc kết quả LLM thành danh sách đoạn: ưu tiên JSON mảng chuỗi
 // (hoặc mảng object có field text), không parse được thì tách theo dòng trống.
-func parseScript(raw string) []store.T2VSegment {
+// maxChars > 0 thì cắt hậu kiểm từng đoạn theo giới hạn của bộ style.
+func parseScript(raw string, maxChars int) []store.T2VSegment {
 	body := stripFence(raw)
 	lines := parseJSONScript(body)
 	if len(lines) == 0 {
@@ -160,13 +168,51 @@ func parseScript(raw string) []store.T2VSegment {
 	}
 	out := make([]store.T2VSegment, 0, len(lines))
 	for _, ln := range lines {
-		t := cleanSpoken(ln)
+		t := trimSpoken(cleanSpoken(ln), maxChars)
 		if t == "" {
 			continue
 		}
 		out = append(out, store.T2VSegment{Text: t, Chars: utf8.RuneCountInString(t)})
 	}
 	return out
+}
+
+// VoiceCharLimit trả giới hạn ký tự lời đọc mỗi đoạn của bộ style đang dùng
+// (0 = không giới hạn).
+func VoiceCharLimit(st *store.Store) int {
+	if st == nil {
+		return 0
+	}
+	if k, ok := st.ActiveStyleKit(); ok && k.MaxVoiceChars > 0 {
+		return k.MaxVoiceChars
+	}
+	return 0
+}
+
+// trimSpoken cắt một đoạn lời đọc về đúng giới hạn ký tự: ưu tiên dừng ở cuối
+// câu gần nhất (nếu không cắt cụt quá nửa đoạn), không có thì dừng ở khoảng
+// trắng — cắt giữa từ nghe rất gãy.
+func trimSpoken(v string, maxChars int) string {
+	if maxChars <= 0 {
+		return v
+	}
+	head := []rune(v)
+	if len(head) <= maxChars {
+		return v
+	}
+	head = head[:maxChars]
+	keep := maxChars * 6 / 10 // mốc tối thiểu để không cắt mất quá nhiều nội dung
+	for i := len(head) - 1; i >= keep; i-- {
+		if head[i] == '.' || head[i] == '!' || head[i] == '?' || head[i] == '…' {
+			return strings.TrimSpace(string(head[:i+1]))
+		}
+	}
+	for i := len(head) - 1; i > 0; i-- {
+		if head[i] == ' ' {
+			return strings.TrimSpace(string(head[:i])) + "."
+		}
+	}
+	return strings.TrimSpace(string(head))
 }
 
 // parseJSONScript thử đọc mảng JSON: ["…"] hoặc [{"text":"…"}].

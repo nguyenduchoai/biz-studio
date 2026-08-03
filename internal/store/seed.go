@@ -16,14 +16,98 @@ func (s *Store) seedPrompts() {
 			k.ID = s.NewID("sty")
 			k.CreatedAt, k.UpdatedAt = now(), now()
 			k.IsDefault = i == 0
+			applyStyleDefaults(&k)
 			s.d.Styles = append(s.d.Styles, k)
 		}
 		changed = true
+	} else {
+		// Bộ style tạo từ phiên bản cũ chưa có phần giao diện video — bù mặc định,
+		// và trả lại diện mạo riêng cho các bộ MẪU chưa từng được người dùng chỉnh.
+		for i := range s.d.Styles {
+			if s.d.Styles[i].FontHead == "" || s.d.Styles[i].BaseTemplate == "" {
+				changed = true
+			}
+			applyStyleDefaults(&s.d.Styles[i])
+			if restoreSeedLook(&s.d.Styles[i]) {
+				changed = true
+			}
+		}
 	}
 	if changed {
 		_ = s.saveLocked()
 	}
 }
+
+// restoreSeedLook trả lại màu/font riêng cho một bộ MẪU đang mang đúng giá trị
+// mặc định chung (tức người dùng chưa chỉnh gì). Bộ đã chỉnh thì không đụng tới.
+func restoreSeedLook(k *StyleKit) bool {
+	if k.BgDeep != "#0F0A1E" || k.TextMain != "#F8FAFC" || k.FontHead != fontStackModern {
+		return false // đã được chỉnh — giữ nguyên ý người dùng
+	}
+	for _, seed := range defaultStyleKits {
+		if seed.Name != k.Name || seed.BgDeep == "" {
+			continue
+		}
+		k.BgDeep, k.TextMain, k.Accent = seed.BgDeep, seed.TextMain, seed.Accent
+		k.FontHead, k.FontBody = seed.FontHead, seed.FontBody
+		return true
+	}
+	return false
+}
+
+// applyStyleDefaults bù giá trị mặc định cho phần giao diện video, để bộ style
+// tạo từ phiên bản cũ vẫn render được (không có font/cỡ chữ thì chữ sẽ vỡ).
+func applyStyleDefaults(k *StyleKit) {
+	if k.BgDeep == "" {
+		k.BgDeep = "#0F0A1E"
+	}
+	if k.TextMain == "" {
+		k.TextMain = "#F8FAFC"
+	}
+	if k.Accent == "" {
+		if len(k.Palette) > 0 {
+			k.Accent = k.Palette[0]
+		} else {
+			k.Accent = "#F59E0B"
+		}
+	}
+	if k.FontHead == "" {
+		k.FontHead = fontStackModern
+	}
+	if k.FontBody == "" {
+		k.FontBody = fontStackModern
+	}
+	if k.SizeTitle == 0 {
+		k.SizeTitle = 48
+	}
+	if k.SizeBig == 0 {
+		k.SizeBig = 150
+	}
+	if k.SizeBody == 0 {
+		k.SizeBody = 22
+	}
+	if k.LogoPos == "" {
+		k.LogoPos = "left"
+	}
+	if k.BaseTemplate == "" {
+		k.BaseTemplate = "builtin"
+	}
+	if k.MaxVoiceChars == 0 {
+		k.MaxVoiceChars = 180
+	}
+	if k.MaxImageChars == 0 {
+		k.MaxImageChars = 200
+	}
+}
+
+// Font stack chọn sẵn — dùng font CÓ SẴN trên máy để render offline không lỗi.
+const (
+	fontStackModern = `-apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif`
+	fontStackImpact = `"Arial Black", "Helvetica Neue", Impact, sans-serif`
+	fontStackSerif  = `Georgia, "Times New Roman", "Songti SC", serif`
+	fontStackRound  = `"Avenir Next", "Trebuchet MS", "Segoe UI", sans-serif`
+	fontStackMono   = `ui-monospace, "SF Mono", Menlo, Consolas, monospace`
+)
 
 // defaultStyleKits — 6 bộ style mẫu, mỗi bộ là một "chất phim" khác nhau.
 // StylePrompt viết bằng tiếng Anh vì model sinh ảnh hiểu tốt hơn.
@@ -34,6 +118,8 @@ var defaultStyleKits = []StyleKit{
 		Negative:    "photorealistic, 3d render, text, watermark, cluttered background",
 		Palette:     []string{"#F97316", "#FACC15", "#0EA5E9", "#1F2937"},
 		Theme:       "light",
+		BgDeep:      "#1F2937", TextMain: "#FFF7ED", Accent: "#F97316",
+		FontHead: fontStackRound, FontBody: fontStackModern,
 	},
 	{
 		Name:        "📰 Editorial 2D hiện đại",
@@ -41,6 +127,8 @@ var defaultStyleKits = []StyleKit{
 		Negative:    "deformed hands, extra fingers, text, watermark, low detail",
 		Palette:     []string{"#7C3AED", "#EC4899", "#F8FAFC", "#111827"},
 		Theme:       "vivid",
+		BgDeep:      "#140B2E", TextMain: "#F8FAFC", Accent: "#EC4899",
+		FontHead: fontStackModern, FontBody: fontStackModern,
 	},
 	{
 		Name:        "🎬 Điện ảnh chân thực",
@@ -48,6 +136,8 @@ var defaultStyleKits = []StyleKit{
 		Negative:    "cartoon, illustration, text, watermark, oversaturated, distorted faces",
 		Palette:     []string{"#0F172A", "#F59E0B", "#E2E8F0", "#475569"},
 		Theme:       "dark",
+		BgDeep:      "#07070F", TextMain: "#F5F5F7", Accent: "#F59E0B",
+		FontHead: fontStackSerif, FontBody: fontStackModern,
 	},
 	{
 		Name:        "🟦 Phẳng tối giản",
@@ -55,6 +145,8 @@ var defaultStyleKits = []StyleKit{
 		Negative:    "photorealistic, texture, noise, text, watermark, busy details",
 		Palette:     []string{"#2563EB", "#F1F5F9", "#0F172A", "#22C55E"},
 		Theme:       "light",
+		BgDeep:      "#F1F5F9", TextMain: "#0F172A", Accent: "#2563EB",
+		FontHead: fontStackModern, FontBody: fontStackModern,
 	},
 	{
 		Name:        "🌆 Neon tương lai",
@@ -62,6 +154,8 @@ var defaultStyleKits = []StyleKit{
 		Negative:    "daylight, pastel, flat lighting, text, watermark",
 		Palette:     []string{"#22D3EE", "#E879F9", "#0B1220", "#A78BFA"},
 		Theme:       "dark",
+		BgDeep:      "#05060F", TextMain: "#E0F2FE", Accent: "#22D3EE",
+		FontHead: fontStackImpact, FontBody: fontStackMono,
 	},
 	{
 		Name:        "🧊 3D đất sét mềm",
@@ -69,6 +163,8 @@ var defaultStyleKits = []StyleKit{
 		Negative:    "sharp edges, photorealistic, text, watermark, harsh shadows",
 		Palette:     []string{"#FDA4AF", "#A7F3D0", "#FDE68A", "#312E81"},
 		Theme:       "light",
+		BgDeep:      "#312E81", TextMain: "#FFF1F2", Accent: "#FDA4AF",
+		FontHead: fontStackRound, FontBody: fontStackRound,
 	},
 }
 

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"bizstudio/internal/store"
 )
 
 // ChartItem — một thanh dữ liệu trong cảnh chart.
@@ -41,6 +43,39 @@ type Config struct {
 	BgmPath   string  `json:"bgmPath"`
 	BgmVolume float64 `json:"bgmVolume"` // 0..1, mặc định 0.25
 	BurnSub   bool    `json:"burnSub"`
+
+	// Kit — bộ style điều khiển giao diện video (font, cỡ chữ, màu, logo, tư
+	// liệu nền). nil → Render tự lấy bộ đang mặc định của store; vẫn không có
+	// bộ nào → giữ nguyên giao diện mặc định như trước khi có Style Kit.
+	Kit *store.StyleKit `json:"kit,omitempty"`
+
+	// Tư liệu của bộ style đã nhúng sẵn dạng data URI — chuẩn bị MỘT lần trong
+	// Render rồi truyền xuống từng cảnh (Chrome headless không đọc file ngoài).
+	logoURI    string
+	stockURIs  []string
+	stockURI   string // khung hình nền của riêng cảnh đang dựng
+	customWarn bool   // đã cảnh báo CustomHTML thiếu window.seek
+}
+
+// stockFor chọn khung hình tư liệu nền cho cảnh thứ i (xoay vòng danh sách).
+func (c Config) stockFor(i int) string {
+	if len(c.stockURIs) == 0 {
+		return ""
+	}
+	if i < 0 {
+		i = 0
+	}
+	return c.stockURIs[i%len(c.stockURIs)]
+}
+
+// kitOf trả bộ style hiệu lực của cấu hình (có thể nil).
+func (c Config) kitOf() *store.StyleKit { return c.Kit }
+
+// isCustomKit — bộ style dùng HTML tự viết thay cho template dựng sẵn.
+func isCustomKit(k *store.StyleKit) bool {
+	return k != nil &&
+		strings.EqualFold(strings.TrimSpace(k.BaseTemplate), "custom") &&
+		strings.TrimSpace(k.CustomHTML) != ""
 }
 
 // resolveSize map tỉ lệ khung hình → kích thước pixel.

@@ -109,9 +109,10 @@ func BuildSegmentImage(ctx context.Context, st *store.Store, sess *store.T2VSess
 		return fmt.Errorf("không tạo được thư mục phiên %s: %w", workDir, err)
 	}
 
-	p := cleanPrompt(prompt)
+	lim := ImageCharLimit(st)
+	p := cleanPromptLimit(prompt, lim)
 	if p == "" {
-		p = cleanPrompt(sess.Segments[idx].ImagePrompt)
+		p = cleanPromptLimit(sess.Segments[idx].ImagePrompt, lim)
 	}
 	if p == "" {
 		p = suggestOne(ctx, st, sess, idx)
@@ -177,7 +178,7 @@ func CheckImageSource(st *store.Store) error {
 // → Pexels (từ khóa rút từ prompt). Ghi ra file tạm rồi mới thay file đích để
 // ảnh cũ không bị mất khi sinh lỗi. Trả nguồn ảnh: "ai" | "stock".
 func generateShot(ctx context.Context, st *store.Store, prompt string, charIDs []string, w, h int, dst string) (string, error) {
-	scene := cleanPrompt(prompt)
+	scene := cleanPromptLimit(prompt, ImageCharLimit(st))
 	if scene == "" {
 		return "", errors.New("chưa có mô tả cảnh để sinh ảnh")
 	}
@@ -360,6 +361,7 @@ func fillPrompts(ctx context.Context, st *store.Store, sess *store.T2VSession, i
 	if len(need) == 0 {
 		return
 	}
+	lim := ImageCharLimit(st)
 	got := suggestPromptsLLM(ctx, st, sess.ScriptEngine, sess.ScriptModel, asks)
 	for k, i := range need {
 		p := ""
@@ -367,7 +369,7 @@ func fillPrompts(ctx context.Context, st *store.Store, sess *store.T2VSession, i
 			p = got[k]
 		}
 		if p == "" {
-			p = SuggestPrompt(sess.Segments[i])
+			p = cleanPromptLimit(SuggestPrompt(sess.Segments[i]), lim)
 		}
 		sess.Segments[i].ImagePrompt = p
 	}
@@ -379,7 +381,7 @@ func suggestOne(ctx context.Context, st *store.Store, sess *store.T2VSession, id
 	if len(got) > 0 && got[0] != "" {
 		return got[0]
 	}
-	return SuggestPrompt(sess.Segments[idx])
+	return cleanPromptLimit(SuggestPrompt(sess.Segments[idx]), ImageCharLimit(st))
 }
 
 // shotAsk — một đoạn cần mô tả cảnh; withChars = đoạn đã gán nhân vật.
@@ -400,7 +402,10 @@ func suggestPromptsLLM(ctx context.Context, st *store.Store, engine, model strin
 	if len(asks) == 0 {
 		return out
 	}
-	raw, err := runScriptLLM(ctx, st, engine, model, buildShotPrompt(asks))
+	// Giới hạn độ dài mô tả ảnh lấy từ bộ style đang dùng: vừa nói cho LLM biết,
+	// vừa cắt hậu kiểm phòng LLM viết dài quá.
+	lim := ImageCharLimit(st)
+	raw, err := runScriptLLM(ctx, st, engine, model, buildShotPrompt(asks, lim))
 	if err != nil {
 		st.AddLog("warn", "text2video",
 			fmt.Sprintf("Không nhờ được AI mô tả cảnh: %v — dùng mô tả tự suy từ nội dung", err))
@@ -412,7 +417,7 @@ func suggestPromptsLLM(ctx context.Context, st *store.Store, engine, model strin
 	}
 	for i := range out {
 		if i < len(arr) {
-			out[i] = cleanPrompt(arr[i])
+			out[i] = cleanPromptLimit(arr[i], lim)
 		}
 	}
 	return out
@@ -422,7 +427,8 @@ func suggestPromptsLLM(ctx context.Context, st *store.Store, engine, model strin
 const charMark = "[CÓ NHÂN VẬT] "
 
 // buildShotPrompt dựng prompt yêu cầu LLM mô tả cảnh cho từng đoạn lời đọc.
-func buildShotPrompt(asks []shotAsk) string {
+// maxChars > 0 thì ràng độ dài mỗi mô tả theo bộ style đang dùng.
+func buildShotPrompt(asks []shotAsk, maxChars int) string {
 	var b strings.Builder
 	b.WriteString(`Với mỗi đoạn lời đọc tiếng Việt bên dưới, hãy viết MỘT câu mô tả CẢNH QUAY minh họa cho đoạn đó, bằng TIẾNG ANH.
 
@@ -433,6 +439,9 @@ Quy tắc bắt buộc:
 - Không mô tả phong cách vẽ hay chất liệu ảnh (phong cách do bộ style riêng lo).
 - Các cảnh phải liên quan tới nhau như trong cùng một video.
 `)
+	if maxChars > 0 {
+		fmt.Fprintf(&b, "- Mỗi mô tả TỐI ĐA %d ký tự.\n", maxChars)
+	}
 	if anyWithChars(asks) {
 		b.WriteString(`- Đoạn có nhãn ` + strings.TrimSpace(charMark) + `: cảnh PHẢI có nhân vật đó xuất hiện (đang làm gì, ở đâu, cảm xúc ra sao), nhưng TUYỆT ĐỐI không tả ngoại hình (tuổi, giới tính, tóc, khuôn mặt, trang phục, màu da) — ngoại hình đã có hồ sơ nhân vật riêng lo.
 `)
@@ -510,17 +519,36 @@ func stockKeyword(prompt string) string {
 }
 
 // cleanPrompt làm sạch mô tả cảnh: bỏ ký hiệu markdown, gộp khoảng trắng, cắt độ dài.
-func cleanPrompt(v string) string {
+func cleanPrompt(v string) string { return cleanPromptLimit(v, maxPromptRunes) }
+
+// cleanPromptLimit như cleanPrompt nhưng cắt theo giới hạn chỉ định (giới hạn
+// <= 0 → dùng trần mặc định của engine).
+func cleanPromptLimit(v string, max int) string {
 	t := strings.TrimSpace(v)
 	t = reBulletPrefix.ReplaceAllString(t, "")
 	t = reMarkdownChar.ReplaceAllString(t, "")
 	t = strings.Trim(t, "\"' ")
 	t = reSpaceRun.ReplaceAllString(t, " ")
 	t = strings.TrimSpace(t)
-	if r := []rune(t); len(r) > maxPromptRunes {
-		t = strings.TrimSpace(string(r[:maxPromptRunes]))
+	if max <= 0 || max > maxPromptRunes {
+		max = maxPromptRunes
+	}
+	if r := []rune(t); len(r) > max {
+		t = strings.TrimSpace(string(r[:max]))
 	}
 	return t
+}
+
+// ImageCharLimit trả giới hạn độ dài mô tả ảnh của bộ style đang dùng
+// (0 = dùng trần mặc định của engine).
+func ImageCharLimit(st *store.Store) int {
+	if st == nil {
+		return 0
+	}
+	if k, ok := st.ActiveStyleKit(); ok && k.MaxImageChars > 0 {
+		return k.MaxImageChars
+	}
+	return 0
 }
 
 // sceneHints — đoán bối cảnh từ từ khóa tiếng Việt trong lời đọc.

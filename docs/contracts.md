@@ -323,3 +323,34 @@ Runner khởi tạo 1 lần trong server (singleton như aiRunner ở routes_ses
 
 ### FE — trang `ideas` (nav đã đăng ký)
 2 khu: **Sinh ý tưởng** (ô Chủ đề/kênh, số lượng, Đối tượng xem, Tông giọng, chọn khung hình → nút "✨ Sinh ý tưởng") và **Hàng đợi** (trạng thái runner + nút Bắt đầu/Dừng + đếm chờ/đang chạy). Danh sách ý tưởng dạng card: tiêu đề, badge trạng thái, góc tiếp cận, hook, chips keyword; nút theo trạng thái: Duyệt / Bỏ / Đưa vào hàng đợi / Mở phiên (khi có T2VSessionID) / Xem video (khi done) / Sửa / Xoá. Realtime qua `Bus.on('idea')` và `Bus.on('job')`.
+
+## Mở rộng v1.9 — Template thiết kế đầy đủ (nâng Style Kit)
+
+Mục tiêu: Style Kit không chỉ điều khiển prompt sinh ảnh mà điều khiển **toàn bộ giao diện video** — font, cỡ chữ, màu, logo, tên kênh, tư liệu nền — và **xem trước được ngay** trước khi render.
+
+### Store (ĐÃ CÓ — chỉ dùng)
+`store.StyleKit` mở rộng: `BgDeep, TextMain, Accent` (3 biến màu CSS), `FontHead, FontBody` (CSS font stack), `SizeTitle, SizeBig, SizeBody` (px), `ChannelName, LogoPath, LogoPos (left|center|right)`, `StockPaths []string`, `MaxVoiceChars, MaxImageChars`, `BaseTemplate (builtin|custom)`, `CustomHTML`.
+`applyStyleDefaults` trong seed.go tự bù mặc định cho bộ cũ. 5 font stack sẵn có (dùng font hệ thống, render offline không lỗi): `fontStackModern/Impact/Serif/Round/Mono` — FE cho chọn theo nhãn tiếng Việt và cho nhập tự do.
+
+### internal/htmlvideo — nhận Style Kit
+- `Config` thêm `Kit *store.StyleKit` (nil → dùng bộ đang mặc định của store; vẫn nil → giá trị mặc định như hiện tại).
+- `templates/scene.html`: thay màu/font/cỡ chữ hard-code bằng biến CSS `--bg-deep --text-main --accent --font-head --font-body --size-title --size-big --size-body` đổ từ Kit. Thêm 2 lớp mới:
+  - **Logo + tên kênh**: hiện ở đáy khung theo `LogoPos`; ảnh logo nhúng base64 (render offline), tên kênh dùng font body cỡ nhỏ, mờ 0.85. Không có logo/tên thì không render gì.
+  - **Tư liệu nền**: nếu `StockPaths` có ảnh/video, dùng làm nền chạy dưới lớp chữ cho các template KHÔNG có ảnh riêng (hero/bullets/quote/outro) — ảnh thì đặt cover + zoom nhẹ, video thì trích 1 khung hình đại diện (ffmpeg) rồi dùng như ảnh (giữ deterministic theo `seek(t)`).
+- `BaseTemplate=custom`: dùng `CustomHTML` thay cho template dựng sẵn; các biến `{{TITLE}} {{SUBTITLE}} {{CHANNEL_NAME}} {{ACCENT}} {{BG_DEEP}} {{TEXT_MAIN}} {{IMAGE}}` được thay trước khi render; phải tự định nghĩa `window.seek(t)` — nếu thiếu thì render tĩnh (ghi log warn, KHÔNG lỗi).
+
+### internal/text2video — áp giới hạn ký tự
+`WriteScript` và `SuggestPrompt` đọc `MaxVoiceChars`/`MaxImageChars` của bộ style đang dùng để đưa vào prompt LLM và cắt hậu kiểm.
+
+### routes_style.go — 4 endpoint mới
+- `GET /api/styles/{id}/preview.html?template=hero&title=...&subtitle=...` → trả **HTML sống** dựng bằng ĐÚNG template render video (Content-Type text/html). FE nhúng iframe để xem trước — chỉnh gì thấy nấy, không cần render video.
+- `POST /api/styles/{id}/logo` — multipart `files` (1 ảnh) → `data/styles/<id>-logo.png` → LogoPath
+- `POST /api/styles/{id}/stock` — multipart `files` (nhiều) → `data/styles/<id>-stock-<n>.<ext>` → thêm vào StockPaths
+- `DELETE /api/styles/{id}/stock?path=<path>` — gỡ 1 tư liệu nền (xoá file)
+
+### FE — trang stylekit.js dựng lại theo 4 nhóm (như tham chiếu)
+1. **Phong cách chuyển động**: chọn nền tảng (Dựng sẵn / Custom HTML + textarea mã), style prompt, negative
+2. **Khung hình & giới hạn**: cỡ chữ tiêu đề/số lớn/nội dung (slider), giới hạn ký tự thoại + mô tả hình
+3. **Màu sắc & phông chữ**: 4 preset màu bấm phát ăn ngay + 3 ô màu (nền/chữ/nhấn) + palette gợi ý cho AI + 2 select font
+4. **Nhận diện & stock**: tên kênh, logo + vị trí, thư viện tư liệu nền (thêm/xoá)
+Bên phải: **XEM TRƯỚC** iframe `preview.html` cập nhật khi đổi cài đặt (debounce ~400ms), có nút đổi template xem thử (hero/bullets/photo/outro) và nút phóng to.

@@ -18,6 +18,7 @@ import (
 
 	"bizstudio/internal/gemini"
 	"bizstudio/internal/media"
+	"bizstudio/internal/util"
 	"bizstudio/internal/vox"
 )
 
@@ -271,15 +272,13 @@ func runClaudePrompt(ctx context.Context, bin, prompt string) (string, error) {
 	var so, se bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &so, &se
 	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(se.String())
-		if len(msg) > 400 {
-			msg = msg[:400] + "…"
-		}
-		return "", fmt.Errorf("chạy Claude CLI (%s) thất bại: %w — %s", bin, err, msg)
+		return "", fmt.Errorf("chạy Claude CLI (%s) thất bại: %w — %s",
+			bin, err, util.ClaudeFailReason(so.String(), se.String()))
 	}
 	out := strings.TrimSpace(so.String())
 	if out == "" {
-		return "", fmt.Errorf("Claude CLI không trả về nội dung nào")
+		return "", fmt.Errorf("Claude CLI không trả về nội dung nào — %s",
+			util.ClaudeFailReason("", se.String()))
 	}
 	return out, nil
 }

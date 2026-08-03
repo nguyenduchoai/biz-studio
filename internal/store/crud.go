@@ -208,6 +208,49 @@ func (s *Store) SaveJob(j *Job) {
 	})
 }
 
+// ---------- Clone voices ----------
+
+func (s *Store) CloneVoices() []CloneVoice {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := append([]CloneVoice(nil), s.d.Clones...)
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
+	return out
+}
+
+func (s *Store) CloneVoice(id string) (CloneVoice, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, c := range s.d.Clones {
+		if c.ID == id {
+			return c, true
+		}
+	}
+	return CloneVoice{}, false
+}
+
+func (s *Store) SaveCloneVoice(c *CloneVoice) {
+	if c.ID == "" {
+		c.ID = s.NewID("clv")
+		c.CreatedAt = now()
+	}
+	s.write(func(d *db) {
+		for i := range d.Clones {
+			if d.Clones[i].ID == c.ID {
+				d.Clones[i] = *c
+				return
+			}
+		}
+		d.Clones = append(d.Clones, *c)
+	})
+}
+
+func (s *Store) DeleteCloneVoice(id string) {
+	s.write(func(d *db) {
+		d.Clones = filterSlice(d.Clones, func(c CloneVoice) bool { return c.ID != id })
+	})
+}
+
 // ---------- Prompts ----------
 
 func (s *Store) Prompts() []PromptTemplate {

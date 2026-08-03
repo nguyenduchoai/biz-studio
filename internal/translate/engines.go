@@ -11,6 +11,7 @@ import (
 	"bizstudio/internal/gemini"
 	"bizstudio/internal/openaiapi"
 	"bizstudio/internal/store"
+	"bizstudio/internal/util"
 )
 
 const claudeTimeout = 300 * time.Second
@@ -82,15 +83,13 @@ func runClaude(ctx context.Context, st *store.Store, system, text string) (strin
 	cmd.Stdout = &so
 	cmd.Stderr = &se
 	if err := cmd.Run(); err != nil {
-		msg := strings.TrimSpace(se.String())
-		if len(msg) > 500 {
-			msg = msg[:500] + "…"
-		}
-		return "", fmt.Errorf("chạy Claude CLI (%s) thất bại: %w — %s", bin, err, msg)
+		return "", fmt.Errorf("chạy Claude CLI (%s) thất bại: %w — %s",
+			bin, err, util.ClaudeFailReason(so.String(), se.String()))
 	}
 	out := strings.TrimSpace(so.String())
 	if out == "" {
-		return "", fmt.Errorf("Claude CLI không trả về nội dung nào")
+		return "", fmt.Errorf("Claude CLI không trả về nội dung nào — %s",
+			util.ClaudeFailReason("", se.String()))
 	}
 	return out, nil
 }

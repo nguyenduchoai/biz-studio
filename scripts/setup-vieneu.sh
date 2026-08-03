@@ -20,6 +20,15 @@ python3 -m venv "$VENV"
 echo "→ pip install vieneu (CPU/ONNX, không cần GPU)…"
 "$VENV/bin/pip" install vieneu
 
+# torch/torchaudio chỉ cần cho Clone voice (trích đặc trưng giọng từ clip mẫu).
+# Bỏ qua bằng: SKIP_CLONE=1 ./scripts/setup-vieneu.sh
+if [ "${SKIP_CLONE:-0}" != "1" ]; then
+  echo "→ pip install torch torchaudio (cho tính năng Clone voice, ~300 MB)…"
+  "$VENV/bin/pip" install torch torchaudio
+else
+  echo "→ Bỏ qua torch/torchaudio — Clone voice sẽ không dùng được."
+fi
+
 echo "→ Tải model lần đầu + xuất danh sách giọng (có thể mất vài phút)…"
 DATA_DIR="$DATA" "$VENV/bin/python" - <<'EOF'
 import json, os
@@ -36,3 +45,4 @@ EOF
 echo
 echo "✅ Xong! Mở Biz Studio → TTS / Giọng đọc: nhóm giọng VieNeu nằm đầu danh sách."
 echo "   Engine giọng mặc định giờ tự ưu tiên VieNeu cho mọi tính năng (TTS, Vox, HTML Video)."
+echo "   Clone voice: tab 🧬 trong trang TTS — tải lên clip mẫu 3–8 giây để nhân bản giọng."

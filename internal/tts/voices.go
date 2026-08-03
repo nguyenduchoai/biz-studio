@@ -29,10 +29,12 @@ var geminiVoices = []Voice{
 	{ID: "Aoede", Name: "Aoede", Gender: "Nữ", Lang: "đa ngôn ngữ", Engine: "gemini"},
 }
 
-// VoicesFor liệt kê giọng đọc: VieNeu-TTS (nếu đã cài — xếp ĐẦU, khuyên dùng)
-// + macOS `say -v ?` + 5 giọng Gemini. Giọng vi xếp trước trong từng nhóm.
+// VoicesFor liệt kê giọng đọc: giọng nhân bản (clone — xếp ĐẦU) + VieNeu-TTS
+// (nếu đã cài — khuyên dùng) + macOS `say -v ?` + 5 giọng Gemini.
+// Giọng vi xếp trước trong từng nhóm.
 func VoicesFor(st *store.Store) []Voice {
-	return append(vieneuVoices(st), Voices()...)
+	out := append(cloneVoices(st), vieneuVoices(st)...)
+	return append(out, Voices()...)
 }
 
 // Voices liệt kê giọng đọc: macOS `say -v ?` + 5 giọng Gemini. Giọng vi_VN xếp đầu.

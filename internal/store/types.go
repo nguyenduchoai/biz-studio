@@ -77,6 +77,17 @@ type Job struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+// CloneVoice — giọng nhân bản từ clip mẫu (VieNeu instant voice cloning).
+type CloneVoice struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Path      string    `json:"path"` // tương đối data dir: vieneu/clones/<id>.wav
+	Gender    string    `json:"gender"`
+	Note      string    `json:"note"`
+	Duration  float64   `json:"duration"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
 // PromptTemplate — prompt mẫu.
 type PromptTemplate struct {
 	ID   string `json:"id"`

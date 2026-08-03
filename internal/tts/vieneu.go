@@ -25,6 +25,7 @@ def main():
     ap.add_argument("--list-voices", action="store_true")
     ap.add_argument("--text-file")
     ap.add_argument("--voice", default="")
+    ap.add_argument("--ref-audio", default="")
     ap.add_argument("--style", default="tu_nhien")
     ap.add_argument("--out")
     args = ap.parse_args()
@@ -40,7 +41,10 @@ def main():
     with open(args.text_file, encoding="utf-8") as f:
         text = f.read()
     kwargs = {}
-    if args.voice:
+    if args.ref_audio:
+        # Nhan ban giong tu clip mau (SDK tu denoise).
+        kwargs["ref_audio"] = args.ref_audio
+    elif args.voice:
         kwargs["voice"] = args.voice
     if args.style:
         kwargs["style"] = args.style
@@ -124,7 +128,8 @@ func vieneuRunnerPath(st *store.Store) (string, error) {
 
 // speakVieNeu tổng hợp giọng bằng VieNeu-TTS (48 kHz, on-device).
 // voiceID hỗ trợ dạng "Tên giọng@phong_cách" (tu_nhien | tin_tuc | doc_truyen).
-func speakVieNeu(ctx context.Context, st *store.Store, text, voiceID, dst string) error {
+// refAudio khác rỗng → nhân bản giọng từ clip mẫu (bỏ qua giọng preset).
+func speakVieNeu(ctx context.Context, st *store.Store, text, voiceID, refAudio, dst string) error {
 	py := VieNeuPythonPath(st)
 	if py == "" {
 		return fmt.Errorf("chưa cài VieNeu-TTS — chạy scripts/setup-vieneu.sh (hoặc xem hướng dẫn ở Cấu hình & API)")
@@ -137,6 +142,9 @@ func speakVieNeu(ctx context.Context, st *store.Store, text, voiceID, dst string
 	voice, style := voiceID, "tu_nhien"
 	if i := strings.LastIndex(voiceID, "@"); i >= 0 {
 		voice, style = voiceID[:i], voiceID[i+1:]
+	}
+	if refAudio != "" {
+		voice = "" // giọng nhân bản: dùng clip mẫu, không dùng giọng preset
 	}
 
 	tmpTxt, err := os.CreateTemp("", "bizstudio-vieneu-*.txt")
@@ -158,12 +166,15 @@ func speakVieNeu(ctx context.Context, st *store.Store, text, voiceID, dst string
 	}
 
 	args := []string{runner, "--text-file", tmpTxt.Name(), "--out", outWav, "--style", style}
+	if refAudio != "" {
+		args = append(args, "--ref-audio", refAudio)
+	}
 	if strings.TrimSpace(voice) != "" {
 		args = append(args, "--voice", voice)
 	}
 	bin, argv := vieneuArgv(py, args...)
-	if _, err := util.Run(ctx, bin, argv...); err != nil {
-		return fmt.Errorf("VieNeu-TTS lỗi: %w", err)
+	if _, se, err := util.RunErr(ctx, bin, argv...); err != nil {
+		return fmt.Errorf("VieNeu-TTS lỗi: %w — %s", err, vieneuErrHint(se, refAudio != ""))
 	}
 	if _, err := os.Stat(outWav); err != nil {
 		return fmt.Errorf("VieNeu-TTS không tạo được file audio")
@@ -174,6 +185,30 @@ func speakVieNeu(ctx context.Context, st *store.Store, text, voiceID, dst string
 		}
 	}
 	return nil
+}
+
+// vieneuErrHint rút gọn stderr của runner python: lấy vài dòng CUỐI (nơi chứa
+// dòng lỗi thật của traceback), kèm hướng dẫn khi giọng nhân bản thiếu gói phụ thuộc.
+func vieneuErrHint(stderr string, clone bool) string {
+	s := strings.TrimSpace(stderr)
+	if clone && strings.Contains(s, "No module named 'torch") {
+		return "giọng nhân bản cần thêm gói torch + torchaudio trong venv VieNeu — chạy: " +
+			"data/vieneu/venv/bin/pip install torch torchaudio (khoảng 300 MB) rồi thử lại"
+	}
+	var lines []string
+	for _, ln := range strings.Split(s, "\n") {
+		if t := strings.TrimSpace(ln); t != "" {
+			lines = append(lines, t)
+		}
+	}
+	if len(lines) > 3 {
+		lines = lines[len(lines)-3:]
+	}
+	out := strings.Join(lines, " | ")
+	if r := []rune(out); len(r) > 400 {
+		out = "…" + string(r[len(r)-400:])
+	}
+	return out
 }
 
 // vieneuVoices đọc danh sách giọng preset từ data/vieneu/voices.json

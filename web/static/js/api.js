@@ -97,6 +97,16 @@
   var SSE_EVENTS = ['job', 'session_event', 'session', 'log', 'project'];
   var es = null;
   var reconnectTimer = null;
+  var everConnected = false;
+
+  // Sau khi mất kết nối rồi nối lại, các bản tin job phát trong lúc rớt đã mất.
+  // Kéo lại danh sách job và phát cho các trang tự cập nhật (job dài như lồng
+  // tiếng/render nếu không có bước này sẽ đứng mãi ở trạng thái cũ).
+  function resyncJobs() {
+    API.get('/api/jobs').then(function (jobs) {
+      (jobs || []).slice(0, 30).forEach(function (j) { Bus.emit('job', j); });
+    }).catch(function () { /* im lặng — lần reconnect sau sẽ thử lại */ });
+  }
 
   function scheduleReconnect() {
     if (reconnectTimer) return;
@@ -125,7 +135,11 @@
         Bus.emit(ev, data);
       });
     });
-    es.onopen = function () { Bus.emit('sse_status', { connected: true }); };
+    es.onopen = function () {
+      Bus.emit('sse_status', { connected: true });
+      if (everConnected) resyncJobs();
+      everConnected = true;
+    };
     es.onerror = function () {
       Bus.emit('sse_status', { connected: false });
       if (es) { try { es.close(); } catch (e) { /* bỏ qua */ } es = null; }

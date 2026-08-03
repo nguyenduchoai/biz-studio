@@ -165,3 +165,38 @@ Gọi POST tools/* → nhận Job → hiện progress card, cập nhật qua `Bu
 - Speak engine rỗng: tự chọn vieneu → say → gemini; nếu voiceID thuộc engine khác thì theo engine của giọng. voiceID VieNeu hỗ trợ "Tên@style" (tu_nhien|tin_tuc|doc_truyen).
 - tts.VoicesFor(st) = giọng VieNeu (đọc data/vieneu/voices.json, fallback 5 tên) + Voices() cũ. Route /api/tools/voices dùng VoicesFor.
 - settings/test thêm key "vieneu"; state.tools thêm "vieneu". Cài đặt: scripts/setup-vieneu.sh.
+
+## Mở rộng v1.3 — Dubbing chất lượng & Clone voice
+
+### Store (ĐÃ CÓ SẴN — dùng, không sửa)
+`store.CloneVoice{ID, Name, Path (tương đối DataDir: vieneu/clones/<id>.wav), Gender, Note, Duration, CreatedAt}`
+CRUD: `CloneVoices() []CloneVoice`, `CloneVoice(id) (CloneVoice, bool)`, `SaveCloneVoice(*CloneVoice)`, `DeleteCloneVoice(id)`.
+
+### internal/tts — clone voice
+- Voice ID của giọng clone: **`clone:<cloneID>`** (kèm style: `clone:<id>@tin_tuc`). Engine field = `"clone"`.
+- `VoicesFor(st)` = giọng clone (engine "clone", Lang "vi-VN · nhân bản") + VieNeu + say + gemini.
+- `Speak(ctx, st, text, voiceID, rate, engine, dst)`: voiceID bắt đầu `clone:` → tra store, lấy file ref (abs = DataDir + Path) → gọi runner với `--ref-audio <path>` (KHÔNG truyền --voice). engine rỗng + voiceID clone → tự dùng vieneu.
+- Runner python (const `vieneuRunner` trong tts/vieneu.go) thêm arg `--ref-audio`; khi có thì gọi `v.infer(text, ref_audio=..., style=...)` (SDK tự denoise).
+- SDK thật (đã kiểm chứng): `Vieneu().infer(text, ref_audio=None, voice=None, style="tu_nhien", denoise=True, ...)`, `list_preset_voices() -> [(label, id)]`.
+
+### routes_clone.go
+- `GET /api/tools/clone-voices` → []store.CloneVoice
+- `POST /api/tools/clone-voices` multipart: field `files` (1 file audio/video), `name` (bắt buộc), `gender`, `note` → ffmpeg convert sang wav mono 44100 lưu `data/vieneu/clones/<id>.wav`; ffprobe kiểm tra 2s ≤ duration ≤ 20s (ngoài khoảng → 400 kèm hướng dẫn "clip mẫu nên dài 3–8 giây, giọng rõ, không nhạc nền"); trả CloneVoice.
+- `DELETE /api/tools/clone-voices/{id}` → xoá record + file.
+- `POST /api/tools/clone-voices/{id}/preview` body `{text?}` → Job kind=tts (mặc định text "Xin chào, đây là giọng nhân bản của bạn từ Biz Studio.") → dùng `clone:<id>`.
+
+### internal/dubbing — lồng tiếng video theo SRT
+```go
+type Config struct {
+  Voice, Engine, Style string
+  TargetLang, TranslateEngine string // TargetLang != "" → dịch SRT trước khi đọc
+  KeepOriginal bool; OriginalVolume float64 // default 0.12
+  FitTiming bool; MaxSpeed float64          // default true / 1.6
+}
+type Result struct { VideoPath, AudioPath, SrtPath string }
+func Run(ctx, st *store.Store, videoPath, srtPath string, cfg Config, workDir string, upd func(float64,string)) (Result, error)
+```
+Luồng: (1) srtPath rỗng + videoPath có → ASR bằng gemini.GenerateWithFiles trên wav 16k (media.ExtractAudioWav16k) → .srt; không có Gemini key → lỗi rõ "cần file phụ đề .srt hoặc cấu hình Gemini API key để tự bóc băng". (2) TargetLang != "" → translate.File. (3) Parse SRT (translate.ParseSRT / tự parse) → mỗi cue: tts.Speak → ffprobe duration → nếu FitTiming và dài hơn slot: atempo (chuỗi atempo ≤2.0 mỗi tầng, clamp ≤ MaxSpeed) cho vừa; ngắn hơn → giữ nguyên. (4) Ghép track: **concat tuần tự** silence(khoảng trống) + segment (KHÔNG dùng amix nhiều input) → dub.wav. (5) videoPath có → mux: nếu KeepOriginal thì amix audio gốc volume=OriginalVolume với dub; ffmpeg -c:v copy → dubbed.mp4. videoPath rỗng → chỉ trả AudioPath. upd() theo từng cue.
+
+### routes_dubbing.go
+- `POST /api/tools/dub` body `{videoPath?, srtPath?, voice, engine, style, targetLang, translateEngine, keepOriginal, originalVolume, fitTiming, maxSpeed}` → Job kind=dub; workDir = data/tmp/dub_<jobid>; output = đường dẫn tương đối DataDir của video (hoặc audio nếu không có video). Resolve path bằng s.toolAbsPath/s.toolSrcPath (đã có trong routes_tools.go, cùng package).

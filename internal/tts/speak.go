@@ -17,8 +17,9 @@ const defaultSayRate = 175
 
 // Speak tổng hợp giọng nói ra file dst.
 // engine "vieneu": VieNeu-TTS on-device (48 kHz, tiếng Việt tự nhiên — mặc định nếu đã cài);
+// "clone": giọng nhân bản (cũng chạy bằng VieNeu, voiceID dạng "clone:<id>[@style]");
 // "say": macOS say → ffmpeg convert; "gemini": Gemini TTS (dst nên là .wav);
-// engine rỗng: tự chọn theo thứ tự vieneu → say → gemini.
+// engine rỗng: tự chọn theo thứ tự vieneu → say → gemini (voiceID clone → luôn vieneu).
 func Speak(ctx context.Context, st *store.Store, text, voiceID string, rate float64, engine, dst string) error {
 	if strings.TrimSpace(text) == "" {
 		return fmt.Errorf("nội dung TTS trống")
@@ -34,6 +35,8 @@ func Speak(ctx context.Context, st *store.Store, text, voiceID string, rate floa
 
 	if engine == "" {
 		switch {
+		case IsCloneVoice(voiceID):
+			engine = "vieneu" // giọng nhân bản chỉ chạy được bằng VieNeu-TTS
 		case VieNeuAvailable(st):
 			engine = "vieneu"
 		case util.Exists("say"):
@@ -42,21 +45,25 @@ func Speak(ctx context.Context, st *store.Store, text, voiceID string, rate floa
 			engine = "gemini"
 		}
 		// Giọng đang chọn thuộc engine khác → tôn trọng engine của giọng.
-		if voiceID != "" {
+		if voiceID != "" && !IsCloneVoice(voiceID) {
 			if e := engineOfVoice(st, voiceID); e != "" {
 				engine = e
 			}
 		}
 	}
 	switch engine {
-	case "vieneu":
-		return speakVieNeu(ctx, st, text, voiceID, dst)
+	case "vieneu", "clone":
+		refAudio, err := cloneRefFor(st, voiceID)
+		if err != nil {
+			return err
+		}
+		return speakVieNeu(ctx, st, text, voiceID, refAudio, dst)
 	case "say":
 		return speakSay(ctx, text, voiceID, rate, dst)
 	case "gemini":
 		return gemini.NewFromSettings(st).TTS(ctx, text, voiceID, dst)
 	default:
-		return fmt.Errorf("engine TTS không hỗ trợ: %q (hỗ trợ \"vieneu\", \"say\", \"gemini\")", engine)
+		return fmt.Errorf("engine TTS không hỗ trợ: %q (hỗ trợ \"vieneu\", \"clone\", \"say\", \"gemini\")", engine)
 	}
 }
 

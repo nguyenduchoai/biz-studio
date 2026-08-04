@@ -40,7 +40,7 @@ func ensureDir(dst string) error {
 	return nil
 }
 
-// escapeFilterPath escape ':' và ''' cho path dùng trong filter ffmpeg (subtitles, lut3d).
+// escapeFilterPath escape ':' và ”' cho path dùng trong filter ffmpeg (subtitles, lut3d).
 func escapeFilterPath(p string) string {
 	p = strings.ReplaceAll(p, `'`, `\'`)
 	p = strings.ReplaceAll(p, `:`, `\:`)

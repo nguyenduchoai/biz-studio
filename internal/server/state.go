@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	toolsMu sync.Mutex
-	toolsAt time.Time
+	toolsMu   sync.Mutex
+	toolsAt   time.Time
 	toolsLast map[string]bool
 )
 

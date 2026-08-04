@@ -4,25 +4,25 @@ import "time"
 
 // Project — dự án video (trang điều phối AI edit) hoặc dự án vox/article.
 type Project struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Kind      string    `json:"kind"` // video | vox | article
-	Width     int       `json:"width"`
-	Height    int       `json:"height"`
-	FPS       int       `json:"fps"`
-	Status    string    `json:"status"`   // draft | running | done | error
-	Progress  int       `json:"progress"` // 0..6: Phân tích, Dựng scene, Render draft, Lắp draft, Render final, Hoàn thành
-	Tags      []string  `json:"tags"`
-	BriefDesc string    `json:"briefDesc"`  // Mô tả video gốc
-	EditPrompt string   `json:"editPrompt"` // Yêu cầu edit (prompt)
-	AutoCut   bool      `json:"autoCut"`    // Tự động cắt ngắn video
-	AutoSub   bool      `json:"autoSub"`    // Tạo phụ đề
-	AutoKey   bool      `json:"autoKey"`    // Làm nổi bật key chính
-	Keywords  []string  `json:"keywords"`
-	OutputFile string   `json:"outputFile"` // tương đối data dir
-	ThumbFile  string   `json:"thumbFile"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	ID         string    `json:"id"`
+	Name       string    `json:"name"`
+	Kind       string    `json:"kind"` // video | vox | article
+	Width      int       `json:"width"`
+	Height     int       `json:"height"`
+	FPS        int       `json:"fps"`
+	Status     string    `json:"status"`   // draft | running | done | error
+	Progress   int       `json:"progress"` // 0..6: Phân tích, Dựng scene, Render draft, Lắp draft, Render final, Hoàn thành
+	Tags       []string  `json:"tags"`
+	BriefDesc  string    `json:"briefDesc"`  // Mô tả video gốc
+	EditPrompt string    `json:"editPrompt"` // Yêu cầu edit (prompt)
+	AutoCut    bool      `json:"autoCut"`    // Tự động cắt ngắn video
+	AutoSub    bool      `json:"autoSub"`    // Tạo phụ đề
+	AutoKey    bool      `json:"autoKey"`    // Làm nổi bật key chính
+	Keywords   []string  `json:"keywords"`
+	OutputFile string    `json:"outputFile"` // tương đối data dir
+	ThumbFile  string    `json:"thumbFile"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
 
 // Asset — nguồn media của dự án.
@@ -81,8 +81,8 @@ type Job struct {
 type Idea struct {
 	ID       string   `json:"id"`
 	Title    string   `json:"title"`
-	Angle    string   `json:"angle"`    // góc tiếp cận / tóm tắt nội dung
-	Hook     string   `json:"hook"`     // câu mở đầu giữ chân người xem
+	Angle    string   `json:"angle"` // góc tiếp cận / tóm tắt nội dung
+	Hook     string   `json:"hook"`  // câu mở đầu giữ chân người xem
 	Keywords []string `json:"keywords"`
 	Status   string   `json:"status"` // proposed | approved | rejected | queued | producing | done | error
 
@@ -102,10 +102,10 @@ type Idea struct {
 // được chèn vào prompt sinh ảnh để nhân vật trông giống nhau xuyên suốt video.
 type Character struct {
 	ID        string    `json:"id"`
-	Name      string    `json:"name"`      // tên gọi ngắn, dùng để gán cho cảnh
-	Look      string    `json:"look"`      // mô tả ngoại hình (tiếng Anh cho model hiểu)
-	Role      string    `json:"role"`      // vai trò/tính cách (ghi chú cho người dùng)
-	RefImage  string    `json:"refImage"`  // ảnh tham chiếu, tương đối data dir
+	Name      string    `json:"name"`     // tên gọi ngắn, dùng để gán cho cảnh
+	Look      string    `json:"look"`     // mô tả ngoại hình (tiếng Anh cho model hiểu)
+	Role      string    `json:"role"`     // vai trò/tính cách (ghi chú cho người dùng)
+	RefImage  string    `json:"refImage"` // ảnh tham chiếu, tương đối data dir
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
@@ -232,22 +232,22 @@ type LogEntry struct {
 
 // Settings — cấu hình toàn cục (Cấu hình & API).
 type Settings struct {
-	GeminiAPIKey string `json:"geminiApiKey"`
-	GeminiBase   string `json:"geminiBase"`
-	GeminiModel  string `json:"geminiModel"`
-	ClaudeBin    string `json:"claudeBin"`
-	ClaudeModel  string `json:"claudeModel"`
-	YtdlpBin     string `json:"ytdlpBin"`
-	DownloadDir  string `json:"downloadDir"`
-	CookiesFile  string `json:"cookiesFile"`
-	Quality      string `json:"quality"`
-	Threads      int    `json:"threads"`
-	Theme        string `json:"theme"` // light | dark
-	UIScale      int    `json:"uiScale"`
-	PerfMode     string `json:"perfMode"`
-	GradientBg   bool   `json:"gradientBg"`
-	RememberTranslations bool `json:"rememberTranslations"`
-	CacheTTS     bool   `json:"cacheTts"`
+	GeminiAPIKey         string `json:"geminiApiKey"`
+	GeminiBase           string `json:"geminiBase"`
+	GeminiModel          string `json:"geminiModel"`
+	ClaudeBin            string `json:"claudeBin"`
+	ClaudeModel          string `json:"claudeModel"`
+	YtdlpBin             string `json:"ytdlpBin"`
+	DownloadDir          string `json:"downloadDir"`
+	CookiesFile          string `json:"cookiesFile"`
+	Quality              string `json:"quality"`
+	Threads              int    `json:"threads"`
+	Theme                string `json:"theme"` // light | dark
+	UIScale              int    `json:"uiScale"`
+	PerfMode             string `json:"perfMode"`
+	GradientBg           bool   `json:"gradientBg"`
+	RememberTranslations bool   `json:"rememberTranslations"`
+	CacheTTS             bool   `json:"cacheTts"`
 
 	// API Trực Tiếp — endpoint OpenAI-compatible (OpenAI, LM Studio, Ollama, OpenRouter…)
 	OpenAIBase  string `json:"openaiBase"`

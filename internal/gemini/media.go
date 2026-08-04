@@ -94,13 +94,13 @@ func writeWAV(path string, pcm []byte) error {
 	le(&buf, uint32(36+len(pcm)))
 	buf.WriteString("WAVE")
 	buf.WriteString("fmt ")
-	le(&buf, uint32(16))              // kích thước chunk fmt
-	le(&buf, uint16(1))               // PCM
-	le(&buf, uint16(wavChannels))     // mono
-	le(&buf, uint32(wavSampleRate))   // 24000 Hz
-	le(&buf, uint32(byteRate))        // 48000 B/s
-	le(&buf, uint16(blockAlign))      // 2
-	le(&buf, uint16(wavBits))         // 16 bit
+	le(&buf, uint32(16))            // kích thước chunk fmt
+	le(&buf, uint16(1))             // PCM
+	le(&buf, uint16(wavChannels))   // mono
+	le(&buf, uint32(wavSampleRate)) // 24000 Hz
+	le(&buf, uint32(byteRate))      // 48000 B/s
+	le(&buf, uint16(blockAlign))    // 2
+	le(&buf, uint16(wavBits))       // 16 bit
 	buf.WriteString("data")
 	le(&buf, uint32(len(pcm)))
 	buf.Write(pcm)

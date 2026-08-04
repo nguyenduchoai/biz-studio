@@ -13,10 +13,10 @@ import (
 func AugmentPATH() {
 	home, _ := os.UserHomeDir()
 	candidates := []string{
-		filepath.Join(home, ".local", "bin"),   // claude CLI (cài native)
+		filepath.Join(home, ".local", "bin"), // claude CLI (cài native)
 		filepath.Join(home, "bin"),
 		"/opt/homebrew/bin", "/opt/homebrew/sbin", // Homebrew Apple Silicon
-		"/usr/local/bin", "/usr/local/sbin",       // Homebrew Intel / cài tay
+		"/usr/local/bin", "/usr/local/sbin", // Homebrew Intel / cài tay
 		filepath.Join(home, ".bun", "bin"),
 		filepath.Join(home, ".volta", "bin"),
 		filepath.Join(home, "Library", "pnpm"),

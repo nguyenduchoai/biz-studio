@@ -298,4 +298,3 @@ func splitLongPhrase(text string) []string {
 	}
 	return out
 }
-

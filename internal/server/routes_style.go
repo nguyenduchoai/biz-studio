@@ -252,7 +252,12 @@ func (s *Server) handleStylePreviewHTML(w http.ResponseWriter, r *http.Request) 
 	}
 	q := r.URL.Query()
 	sc := previewScene(q)
-	cfg := htmlvideo.Config{Aspect: strings.TrimSpace(q.Get("aspect")), Theme: k.Theme}
+	cfg := htmlvideo.Config{
+		Aspect: strings.TrimSpace(q.Get("aspect")),
+		Theme:  k.Theme,
+		// safe=1 vẽ khung nhắc vùng bị ứng dụng xem video che, để căn bố cục.
+		SafeGuides: q.Get("safe") == "1",
+	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), styleHTMLLimit)
 	defer cancel()
@@ -610,6 +615,9 @@ func previewScene(q map[string][]string) htmlvideo.Scene {
 	switch strings.ToLower(tpl) {
 	case "bullets":
 		sc.Bullets = []string{"Ý chính thứ nhất của cảnh", "Ý chính thứ hai ngắn gọn", "Ý chính thứ ba chốt lại"}
+	case "keys":
+		// keys dùng title làm từ khoá chính, bullets làm các từ khoá liên quan.
+		sc.Bullets = []string{"SJC", "Nhẫn trơn", "Ngân hàng", "Tỷ giá", "Đầu tư"}
 	case "chart":
 		sc.Chart = []htmlvideo.ChartItem{{Label: "Trước", Value: 32}, {Label: "Sau", Value: 78}}
 	case "code":

@@ -20,7 +20,7 @@ type ChartItem struct {
 
 // Scene — một cảnh HTML trong video.
 type Scene struct {
-	Template  string      `json:"template"` // hero | bullets | code | chart | product | quote | outro
+	Template  string      `json:"template"` // hero | bullets | code | chart | product | quote | outro | keys
 	Title     string      `json:"title"`
 	Subtitle  string      `json:"subtitle"`
 	Bullets   []string    `json:"bullets"`
@@ -43,6 +43,10 @@ type Config struct {
 	BgmPath   string  `json:"bgmPath"`
 	BgmVolume float64 `json:"bgmVolume"` // 0..1, mặc định 0.25
 	BurnSub   bool    `json:"burnSub"`
+
+	// SafeGuides vẽ khung nhắc vùng bị ứng dụng xem video che (15% dưới, 12%
+	// phải). Chỉ dùng khi XEM THỬ để căn bố cục — không bật khi render thật.
+	SafeGuides bool `json:"safeGuides"`
 
 	// Kit — bộ style điều khiển giao diện video (font, cỡ chữ, màu, logo, tư
 	// liệu nền). nil → Render tự lấy bộ đang mặc định của store; vẫn không có

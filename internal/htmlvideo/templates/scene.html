@@ -180,6 +180,59 @@ body.theme-light #bg { background: #F7F5FE; }
 .pbig { font-size: var(--size-big); }
 .psub { font-size: calc(var(--size-body) * 3.2 / 3.6); color: var(--muted); font-weight: 500; margin-top: calc(var(--u)*1.6); line-height: 1.4; }
 
+/* ---------- keys (từ khoá chính trên, từ khoá liên quan dưới) ----------
+
+   Bố cục này dành cho video dọc đăng mạng xã hội. Hai điều quyết định vị trí:
+
+   1) VÙNG BỊ CHE. Ứng dụng xem video phủ nút và chú thích lên 15% dưới cùng và
+      12% bên phải. Chữ lọt vào đó là mất chữ, nên hai dải nội dung đều dừng
+      trước ranh giới này.
+   2) Hai dải nằm NGOÀI khối ảnh nền. Ảnh nền có phóng chậm; nếu để chữ chung
+      khối với ảnh thì chữ trôi theo, ra khỏi vùng an toàn lúc nào không biết. */
+.kbg { position: absolute; inset: 0; overflow: hidden; z-index: 0; }
+.kbgimg {
+  position: absolute; left: 50%; top: 50%; width: 100%; height: 100%;
+  object-fit: cover; transform-origin: 50% 50%; will-change: transform;
+}
+.kshade {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(6,4,18,.88) 0%, rgba(6,4,18,.52) 22%, rgba(6,4,18,.18) 40%,
+                    rgba(6,4,18,.34) 60%, rgba(6,4,18,.80) 80%, rgba(6,4,18,.92) 100%);
+}
+/* dải trên: 5%–18% chiều cao — dưới notch, trên phần thân ảnh */
+.kmain {
+  position: absolute; left: 7%; right: 13%; top: 5%; height: 13%; z-index: 2;
+  display: flex; align-items: center;
+}
+.kmaintext {
+  font-family: var(--font-head); font-weight: 800; line-height: 1.04;
+  letter-spacing: -.02em; color: var(--text-main);
+  text-shadow: 0 calc(var(--u)*.3) calc(var(--u)*1.6) rgba(0,0,0,.55);
+}
+/* dải dưới: 67.2%–77.6% — kết thúc cách đáy 22%, thừa 7% so với vùng bị che */
+.krel {
+  position: absolute; left: 7%; right: 13%; top: 67.2%; height: 10.4%; z-index: 2;
+  display: flex; flex-wrap: wrap; align-content: center;
+  gap: calc(var(--u)*1.1) calc(var(--u)*1.3); overflow: hidden;
+}
+.kchip {
+  padding: calc(var(--u)*.9) calc(var(--u)*2); border-radius: 999px;
+  font-family: var(--font-body); font-weight: 700;
+  font-size: calc(var(--size-body) * 3.0 / 3.6); line-height: 1.1;
+  color: var(--text-main); background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.22); backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+/* khung nhắc vùng bị che — chỉ bật khi xem thử, không bao giờ vào video */
+.ksafe { position: absolute; inset: 0; z-index: 5; pointer-events: none; }
+.ksafe i {
+  position: absolute; background: rgba(244,63,94,.14);
+  outline: 2px dashed rgba(244,63,94,.75); outline-offset: -2px;
+}
+.ksafe .sb { left: 0; right: 0; bottom: 0; height: 15%; }
+.ksafe .sr { top: 0; bottom: 0; right: 0; width: 12%; }
+
 /* ---------- photo (ảnh tràn khung, chữ đè 1/3 dưới) ---------- */
 .phwrap { position: absolute; inset: 0; overflow: hidden; }
 .phimg {
@@ -595,6 +648,65 @@ var DATA = {{.DataJSON}};
     };
   }
 
+  /* keys: từ khoá chính ở dải trên, từ khoá liên quan ở dải dưới.
+     title = từ khoá chính, bullets = các từ khoá liên quan. */
+  function buildKeys() {
+    var bg = el('div', 'kbg');
+    if (D.image) {
+      var img = document.createElement('img');
+      img.className = 'kbgimg';
+      img.src = D.image;
+      bg.appendChild(img);
+    }
+    bg.appendChild(el('div', 'kshade'));
+    stage.appendChild(bg);
+
+    var main = el('div', 'kmain');
+    var mainText = el('div', 'kmaintext', D.title || '');
+    main.appendChild(mainText);
+    stage.appendChild(main);
+
+    var rel = el('div', 'krel');
+    var chips = (D.bullets || []).slice(0, 6).map(function (b) {
+      var c = el('div', 'kchip', String(b));
+      rel.appendChild(c);
+      return c;
+    });
+    stage.appendChild(rel);
+
+    if (D.safeGuides) {
+      var g = el('div', 'ksafe');
+      g.appendChild(el('i', 'sb')); g.appendChild(el('i', 'sr'));
+      stage.appendChild(g);
+    }
+
+    /* Co chữ cho vừa ĐÚNG dải trên. Không co thì tiêu đề dài tràn xuống thân
+       ảnh, phá luôn ý nghĩa của việc chia dải. */
+    var bandH = main.getBoundingClientRect().height;
+    var px = u * 7.2 * TS;
+    mainText.style.fontSize = px + 'px';
+    for (var i = 0; i < 18 && px > u * 2.4; i++) {
+      var r = mainText.getBoundingClientRect();
+      if (r.height <= bandH && r.width <= main.getBoundingClientRect().width) break;
+      px *= 0.92;
+      mainText.style.fontSize = px + 'px';
+    }
+
+    return function (t) {
+      var p = clamp01(DUR > 0 ? t / DUR : 0);
+      if (img) {
+        img.style.transform = 'translate(-50%,-50%) scale(' + (1.04 + 0.07 * p) + ')';
+        img.style.opacity = 0.4 + 0.6 * seg(t, 0, 0.5);
+      }
+      var e0 = seg(t, 0.05, 0.6);
+      fx(mainText, e0, 0, (1 - e0) * -26);
+      for (var i = 0; i < chips.length; i++) {
+        var e = seg(t, 0.45 + i * 0.09, 0.5);
+        fx(chips[i], e, 0, (1 - e) * 22);
+      }
+    };
+  }
+
   function buildQuote() {
     var c = el('div', 'center');
     var mark = el('div', 'qmark', '“');
@@ -641,7 +753,8 @@ var DATA = {{.DataJSON}};
 
   var builders = {
     hero: buildHero, bullets: buildBullets, code: buildCode, chart: buildChart,
-    product: buildProduct, photo: buildPhoto, quote: buildQuote, outro: buildOutro
+    product: buildProduct, photo: buildPhoto, quote: buildQuote, outro: buildOutro,
+    keys: buildKeys
   };
   var update = (builders[TPL] || buildHero)();
 

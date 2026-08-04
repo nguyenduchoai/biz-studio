@@ -19,7 +19,7 @@ var sceneTpl = template.Must(template.ParseFS(templateFS, "templates/scene.html"
 
 var validTemplates = map[string]bool{
 	"hero": true, "bullets": true, "code": true, "chart": true,
-	"product": true, "quote": true, "outro": true, "photo": true,
+	"product": true, "quote": true, "outro": true, "photo": true, "keys": true,
 }
 
 // Cỡ chữ mặc định của Style Kit — đổi cỡ chữ được quy về HỆ SỐ so với các mốc
@@ -79,21 +79,22 @@ func buildSceneHTML(sc Scene, cfg Config, w, h int, durS float64, imgURI string)
 		return buildCustomHTML(k, sc, imgURI), nil
 	}
 	payload := map[string]any{
-		"template": normalizeTemplate(sc.Template),
-		"title":    strings.TrimSpace(sc.Title),
-		"subtitle": strings.TrimSpace(sc.Subtitle),
-		"bullets":  sc.Bullets,
-		"code":     sc.Code,
-		"chart":    sc.Chart,
-		"accent":   strings.TrimSpace(sc.Accent),
-		"theme":    cfg.theme(),
-		"w":        w,
-		"h":        h,
-		"dur":      durS,
-		"image":    imgURI,
-		"kit":      kitPayload(k, cfg.dataDir),
-		"logo":     cfg.logoURI,
-		"stock":    cfg.stockURI,
+		"template":   normalizeTemplate(sc.Template),
+		"title":      strings.TrimSpace(sc.Title),
+		"subtitle":   strings.TrimSpace(sc.Subtitle),
+		"bullets":    sc.Bullets,
+		"code":       sc.Code,
+		"chart":      sc.Chart,
+		"accent":     strings.TrimSpace(sc.Accent),
+		"theme":      cfg.theme(),
+		"w":          w,
+		"h":          h,
+		"dur":        durS,
+		"image":      imgURI,
+		"kit":        kitPayload(k, cfg.dataDir),
+		"logo":       cfg.logoURI,
+		"stock":      cfg.stockURI,
+		"safeGuides": cfg.SafeGuides,
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {

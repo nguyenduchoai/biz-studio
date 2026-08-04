@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 VERSION="${1:-1.0.0}"
-LDFLAGS="-s -w"
+LDFLAGS="-s -w -X bizstudio/internal/server.Version=${VERSION}"
 rm -rf dist
 mkdir -p dist
 

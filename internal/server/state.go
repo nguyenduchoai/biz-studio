@@ -10,6 +10,11 @@ import (
 	"bizstudio/internal/whisper"
 )
 
+// Version — số phiên bản hiện trên giao diện. Script đóng gói ghi đè bằng
+// -ldflags "-X bizstudio/internal/server.Version=1.8.0"; chạy từ source thì
+// hiện "dev" chứ không hiện một con số cũ đã lạc hậu.
+var Version = "dev"
+
 var (
 	toolsMu   sync.Mutex
 	toolsAt   time.Time
@@ -47,7 +52,7 @@ func (s *Server) routesState(mux *http.ServeMux) {
 			}
 		}
 		writeJSON(w, 200, map[string]any{
-			"app":    map[string]string{"name": "Biz Studio", "version": "1.0.0"},
+			"app":    map[string]string{"name": "Biz Studio", "version": Version},
 			"host":   util.Stats(),
 			"tools":  s.toolsAvail(),
 			"counts": map[string]int{"projects": len(s.st.Projects()), "jobsRunning": running},

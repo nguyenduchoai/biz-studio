@@ -27,6 +27,20 @@
 
 ## Có gì mới
 
+### v1.8.0 — 04/08/2026 — Sinh video bằng AI (Google Veo)
+
+- 🎥 **Veo — sinh video AI**: mô tả cảnh bằng lời (tiếng Việt cũng được), Google Veo dựng thành clip 4/6/8 giây **có tiếng**, dọc 9:16 hoặc ngang 16:9, 720p/1080p/4K. Dùng được ảnh làm khung hình đầu. Clip xong tự vào thư viện media của dự án.
+- 💵 **Đây là module DUY NHẤT tiêu tiền thật của bạn theo từng lần bấm**, nên toàn bộ thiết kế xoay quanh việc không ai bị trừ tiền ngoài ý muốn: chi phí ước tính hiện sẵn và tính lại mỗi khi đổi tuỳ chọn, bấm tạo thì hiện hộp xác nhận nhắc lại con số, backend từ chối mọi yêu cầu thiếu cờ xác nhận. Không ước tính được giá thì **báo lỗi** chứ không hiện $0.
+- 🔑 **Khách tự gắn khoá của mình** — khoá Veo khai riêng trong Cấu hình & API (Veo đòi dự án Google đã bật thanh toán, không có bậc miễn phí); để trống thì dùng chung khoá Gemini.
+
+| Model | 720p | 1080p | Clip 8 giây |
+|---|---|---|---|
+| Veo 3.1 chuẩn | $0.40/giây | $0.40/giây | **$3.20** |
+| Veo 3.1 nhanh | $0.10/giây | $0.12/giây | **$0.80–0.96** |
+| Veo 3.1 lite | $0.05/giây | $0.08/giây | **$0.40–0.64** |
+
+> Veo 3 đã được Google đánh dấu **ngừng hỗ trợ** — hệ thống vẫn giữ tuỳ chọn cho ai đang phụ thuộc, nhưng mặc định là Veo 3.1.
+
 ### v1.7.0 — 04/08/2026 — Diện mạo & chuyển động
 
 - 🎨 **14 kiểu chỉnh màu** — Trong trẻo, Điện ảnh lạnh/ấm, Hoàng hôn, Xanh biển, Phim nhựa, Đen trắng (2 mức), Pastel, Rực rỡ, Hoài cổ, Cyberpunk, Tài liệu, Đêm đô thị. Không kèm file LUT nên chạy được ngay trên máy trắng. Xem thử chỉ dựng **một khung hình** nên gần như tức thì; ưng rồi mới chạy cả video. Chỉnh được độ mạnh 10–100%.
@@ -222,6 +236,7 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 - **HTML Video** — video-as-code: 3 nguồn (prompt / bài viết / repo GitHub — tự đọc README), AI tách thành cảnh theo 8 template HTML (thêm bố cục Key cho video dọc), chỉnh từng cảnh, render bằng Chrome headless (24/30fps, 3 theme, narration TTS, nhạc nền, phụ đề).
 - **Text → Video** — quy trình 5 bước có lưu phiên: Nguồn (link/văn bản) → Kịch bản đọc (chia đoạn, sửa tay, chọn model) → Giọng đọc (đo thời lượng thật, xuất `voice.wav` + `transcript.json`) → Cấu hình → Dựng video (AI hoặc HTML Video). Danh sách phiên cho phép quay lại sửa và dựng lại bất cứ lúc nào.
 - **Dự án** — trang điều phối trung tâm (chi tiết ở phần Phiên AI phía trên) + QC, thumbnail, gói xuất bản, QR điện thoại, quản lý prompt mẫu (**có sẵn 8 prompt mẫu** cho các thể loại: viral TikTok, TVC sản phẩm, vlog, giáo dục, recap, repo tech, podcast clip, số liệu).
+- **Veo — Sinh video AI** — mô tả cảnh bằng lời → clip 4/6/8 giây có tiếng. Chi phí ước tính hiện sẵn, đổi tuỳ chọn là đổi theo; có bước xác nhận trước khi chạy. Cần khoá Google riêng đã bật thanh toán.
 - **Diện mạo** — 14 kiểu chỉnh màu (xem thử một khung hình trước khi chạy cả video, chỉnh độ mạnh 10–100%), 10 tiếng động tổng hợp tại chỗ và cân cùng độ to (nghe thử, chèn theo mốc giây), và tải font tiếng Việt dùng chung cho mọi máy.
 - **Nhật ký** — log hệ thống realtime, lọc theo mức độ.
 
@@ -242,6 +257,7 @@ Backend là REST thuần — bạn có thể tự động hóa mọi thứ khôn
 | `GET /api/tools/grades` · `POST /api/tools/grade` · `/grade/preview` | 14 kiểu chỉnh màu; xem thử một khung hình |
 | `GET /api/tools/sfx` · `POST /api/tools/sfx/mix` | Thư viện tiếng động; chèn theo mốc giây |
 | `GET/POST /api/tools/font` | Trạng thái và tải font tiếng Việt |
+| `GET /api/tools/veo` · `POST /api/tools/veo/estimate` · `POST /api/tools/veo` | Veo: model + bảng giá, ước tính chi phí (miễn phí), tạo video (bắt buộc cờ `confirmed`) |
 | `POST /api/ideas/{id}/retry` · `/retry-failed` · `/queue-pending` | Thử lại ý tưởng hỏng, xếp hàng ý tưởng đã duyệt |
 | `POST /api/tools/htmlvideo/plan` · `POST /api/tools/htmlvideo` | HTML Video: tách cảnh từ prompt/bài viết/repo → render MP4 |
 | `GET /api/tools/voices` · `GET /api/jobs` · `GET /api/logs` · CRUD `/api/prompts` | Tra cứu |

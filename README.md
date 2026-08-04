@@ -27,6 +27,22 @@
 
 ## Có gì mới
 
+### v1.7.0 — 04/08/2026 — Diện mạo & chuyển động
+
+- 🎨 **14 kiểu chỉnh màu** — Trong trẻo, Điện ảnh lạnh/ấm, Hoàng hôn, Xanh biển, Phim nhựa, Đen trắng (2 mức), Pastel, Rực rỡ, Hoài cổ, Cyberpunk, Tài liệu, Đêm đô thị. Không kèm file LUT nên chạy được ngay trên máy trắng. Xem thử chỉ dựng **một khung hình** nên gần như tức thì; ưng rồi mới chạy cả video. Chỉnh được độ mạnh 10–100%.
+- 🔔 **10 tiếng động** — Vút qua, Bụp, Ting, Tách, Vút lên, Dộng, Dựng cao trào, Gõ chữ, Lấp lánh, Hụt xuống. Tất cả được **tổng hợp tại chỗ** bằng ffmpeg (không mang theo thư viện âm thanh của ai) và cân về cùng một độ to nên chèn vào là nghe đều tay. Chèn theo mốc giây, nghe thử ngay trên trang.
+- 🔤 **Font tiếng Việt Be Vietnam Pro** — font hệ điều hành thiếu chữ có dấu chồng tầng nên trình duyệt mượn font khác ngay giữa từ: *“Ưu điểm vượt trội”* hiện ra **hai kiểu chữ trong cùng một dòng**. Tải font một lần (~400 KB, giấy phép SIL Open Font) là mọi máy render ra cùng một kiểu chữ.
+- 📐 **Bố cục Key cho video dọc** — từ khoá chính ở dải trên, từ khoá liên quan ở dải dưới, cả hai đều dừng trước vùng bị ứng dụng xem video che (15% dưới, 12% phải). Hai dải không nằm trong khối ảnh nền nên ảnh phóng mà chữ vẫn đứng yên.
+- 🎬 **Chuyển cảnh & chuyển động điện ảnh** — chuyển cảnh nằm **trong** thời lượng của chính cảnh, nên tổng thời lượng video không đổi một phần nghìn giây nào và hình vẫn bám đúng giọng đọc. Ảnh nền trôi đổi hướng theo từng cảnh, lớp chữ trôi ngược tạo chiều sâu.
+- 🎭 **Vai cảnh** — mỗi đoạn nhận vai mở đầu / nội dung / kêu gọi hành động; vai quyết định kiểu trình bày thay vì suy theo vị trí.
+- ↻ **Thử lại hàng đợi hàng loạt** — lỗi hàng đợi thường hỏng theo cụm (hết lượt gọi AI, mất mạng, ổ đầy), nên có nút thử lại tất cả ý tưởng hỏng và nút xếp hàng mọi ý tưởng đã duyệt.
+
+### v1.6.0 — 04/08/2026 — Âm thanh chuẩn xác
+
+- 🎧 **Bóc băng offline có mốc từng từ** (faster-whisper) — chạy hẳn trên máy, không cần khoá API. Xuất được phụ đề karaoke `.ass` sáng theo từng chữ.
+- ✂️ **Cắt khoảng lặng an toàn** — ngưỡng **tự đo theo từng file** thay vì con số cố định, và có transcript làm hàng rào bảo vệ. Đo trên bản thu 19,3 giây: cách cũ xén mất **0,283 giây tiếng nói (4 từ)**, cách mới **0,000 giây**.
+- 🔉 **Nhạc nền tự né giọng** — đang nói thì nhạc lùi **7,8 dB**, hết câu nhạc nâng lại, thay vì để một mức phẳng suốt video.
+
 ### v1.5.0 — 03/08/2026 — Dây chuyền sản xuất nội dung
 Bốn tính năng biến Biz Studio thành xưởng làm video hàng loạt, không chỉ dựng từng video một:
 
@@ -203,9 +219,10 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 - **Bài viết → Video** — quy trình 4 bước; bảng cảnh chỉnh sửa inline từng ô; cấu hình theme, khung hình, giọng, nhạc nền, burn phụ đề.
 - **Vox-Director** — quy trình 5 bước, chọn dự án đích, gán media từng cảnh.
 - **Studio Editor** — chọn dự án → thư viện media, preview, thuộc tính file, timeline theo thời lượng thật; cắt khoảng lặng, render final.
-- **HTML Video** — video-as-code: 3 nguồn (prompt / bài viết / repo GitHub — tự đọc README), AI tách thành cảnh theo 7 template HTML, chỉnh từng cảnh, render bằng Chrome headless (24/30fps, 3 theme, narration TTS, nhạc nền, phụ đề).
+- **HTML Video** — video-as-code: 3 nguồn (prompt / bài viết / repo GitHub — tự đọc README), AI tách thành cảnh theo 8 template HTML (thêm bố cục Key cho video dọc), chỉnh từng cảnh, render bằng Chrome headless (24/30fps, 3 theme, narration TTS, nhạc nền, phụ đề).
 - **Text → Video** — quy trình 5 bước có lưu phiên: Nguồn (link/văn bản) → Kịch bản đọc (chia đoạn, sửa tay, chọn model) → Giọng đọc (đo thời lượng thật, xuất `voice.wav` + `transcript.json`) → Cấu hình → Dựng video (AI hoặc HTML Video). Danh sách phiên cho phép quay lại sửa và dựng lại bất cứ lúc nào.
 - **Dự án** — trang điều phối trung tâm (chi tiết ở phần Phiên AI phía trên) + QC, thumbnail, gói xuất bản, QR điện thoại, quản lý prompt mẫu (**có sẵn 8 prompt mẫu** cho các thể loại: viral TikTok, TVC sản phẩm, vlog, giáo dục, recap, repo tech, podcast clip, số liệu).
+- **Diện mạo** — 14 kiểu chỉnh màu (xem thử một khung hình trước khi chạy cả video, chỉnh độ mạnh 10–100%), 10 tiếng động tổng hợp tại chỗ và cân cùng độ to (nghe thử, chèn theo mốc giây), và tải font tiếng Việt dùng chung cho mọi máy.
 - **Nhật ký** — log hệ thống realtime, lọc theo mức độ.
 
 ## REST API
@@ -222,6 +239,10 @@ Backend là REST thuần — bạn có thể tự động hóa mọi thứ khôn
 | `POST /api/projects/{id}/qc` · `/thumbnail` · `/publish` · `/render-final` | QC, thumbnail, gói xuất bản, render |
 | `POST /api/tools/upload` | Upload file cho OCR/ASR/Dịch (vào `data/uploads/`) |
 | `POST /api/tools/download` · `/asr` · `/ocr` · `/translate` · `/tts` · `/scenes` · `/vox` · `/autocut` | Các công cụ (đều trả Job) |
+| `GET /api/tools/grades` · `POST /api/tools/grade` · `/grade/preview` | 14 kiểu chỉnh màu; xem thử một khung hình |
+| `GET /api/tools/sfx` · `POST /api/tools/sfx/mix` | Thư viện tiếng động; chèn theo mốc giây |
+| `GET/POST /api/tools/font` | Trạng thái và tải font tiếng Việt |
+| `POST /api/ideas/{id}/retry` · `/retry-failed` · `/queue-pending` | Thử lại ý tưởng hỏng, xếp hàng ý tưởng đã duyệt |
 | `POST /api/tools/htmlvideo/plan` · `POST /api/tools/htmlvideo` | HTML Video: tách cảnh từ prompt/bài viết/repo → render MP4 |
 | `GET /api/tools/voices` · `GET /api/jobs` · `GET /api/logs` · CRUD `/api/prompts` | Tra cứu |
 | `GET /api/qr.png?project=ID` · `GET /m/{id}` | QR + trang upload điện thoại |

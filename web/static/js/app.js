@@ -21,6 +21,7 @@
       { id: 'stylekit', label: 'Style Kit', icon: '🎨' },
       { id: 'characters', label: 'Nhân vật', icon: '🧑‍🎤' },
       { id: 'ideas', label: 'Ý tưởng & Hàng đợi', icon: '💡' },
+      { id: 'look', label: 'Diện mạo', icon: '🌈' },
       { id: 'editor', label: 'Studio Editor', icon: '✂️' }
     ]},
     { group: 'HỆ THỐNG', items: [

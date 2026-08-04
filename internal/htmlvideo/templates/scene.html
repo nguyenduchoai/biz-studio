@@ -95,6 +95,13 @@ body.theme-light #bg { background: #F7F5FE; }
   background: linear-gradient(92deg, var(--t1), var(--t2));
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
+  /* Chữ gradient cắt mất phần trên của dấu chồng tầng tiếng Việt (Ẫ Ể Ấ Ữ Ổ)
+     vì dấu vươn ra ngoài hộp tô gradient nên không được vẽ. Đo thực tế: mất
+     17px ở cỡ chữ 150px. line-height 1.0 + padding-top .5em kéo hộp tô lên
+     đủ để chứa dấu; padding-bottom giữ phần chân chữ (ạ ậ ợ) không bị hụt. */
+  line-height: 1.0;
+  padding-top: .5em;
+  padding-bottom: .14em;
 }
 .center {
   display: flex; flex-direction: column; align-items: center; justify-content: center;

@@ -137,7 +137,10 @@ func AutoCutGuarded(ctx context.Context, src, dst string, tr *whisper.Transcript
 
 	keeps, cutSil := keepsFromCuts(cuts, info.Duration, opt.MinKeep)
 	rep.Cuts, rep.CutSilence = len(cuts), cutSil
-	if len(cuts) == 0 || len(keeps) <= 1 {
+	// Chỉ bỏ qua khi KHÔNG còn đoạn nào để giữ. Một đoạn giữ duy nhất vẫn là
+	// kết quả hợp lệ và rất hay gặp: bản thu thừa khoảng lặng ở đầu và cuối,
+	// cắt xong còn đúng phần giữa. concat=n=1 của ffmpeg xử lý được ca này.
+	if len(cuts) == 0 || len(keeps) == 0 {
 		upd(90, "Không có khoảng lặng nào cắt được an toàn — giữ nguyên bản gốc")
 		rep.Cuts, rep.CutSilence = 0, 0
 		return rep, copyFile(src, dst)

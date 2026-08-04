@@ -14,3 +14,6 @@ plans/
 .DS_Store
 *.log
 node_modules/
+
+# Repo tham khảo của bên thứ ba — không đưa lên
+AIEV-main/

@@ -16,6 +16,7 @@ import (
 	"bizstudio/internal/store"
 	"bizstudio/internal/tts"
 	"bizstudio/internal/util"
+	"bizstudio/internal/whisper"
 )
 
 // toolCheck — kết quả kiểm tra 1 công cụ trong POST /api/settings/test.
@@ -51,14 +52,15 @@ func (s *Server) handleSettingsTest(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	res := map[string]toolCheck{
-		"ffmpeg": checkBinVersion(ctx, "ffmpeg", "-version"),
-		"claude": checkBinVersion(ctx, binOrDefault(cfg.ClaudeBin, "claude"), "--version"),
-		"ytdlp":  checkBinVersion(ctx, binOrDefault(cfg.YtdlpBin, "yt-dlp"), "--version"),
-		"gemini": checkGeminiKey(cfg),
-		"openai": checkOpenAI(cfg),
-		"pexels": checkPexels(cfg),
-		"chrome": checkChrome(ctx, cfg),
-		"vieneu": s.checkVieNeu(ctx),
+		"ffmpeg":  checkBinVersion(ctx, "ffmpeg", "-version"),
+		"claude":  checkBinVersion(ctx, binOrDefault(cfg.ClaudeBin, "claude"), "--version"),
+		"ytdlp":   checkBinVersion(ctx, binOrDefault(cfg.YtdlpBin, "yt-dlp"), "--version"),
+		"gemini":  checkGeminiKey(cfg),
+		"openai":  checkOpenAI(cfg),
+		"pexels":  checkPexels(cfg),
+		"chrome":  checkChrome(ctx, cfg),
+		"vieneu":  s.checkVieNeu(ctx),
+		"whisper": s.checkWhisper(ctx),
 	}
 	writeJSON(w, http.StatusOK, res)
 }
@@ -123,6 +125,21 @@ func (s *Server) checkVieNeu(ctx context.Context) toolCheck {
 		return toolCheck{OK: false, Detail: "venv có nhưng import lỗi: " + truncateDetail(err.Error(), 200)}
 	}
 	return toolCheck{OK: true, Detail: "VieNeu-TTS v" + strings.TrimSpace(out) + " (on-device, 48 kHz)"}
+}
+
+// checkWhisper kiểm tra venv faster-whisper (import SDK, không nạp model).
+func (s *Server) checkWhisper(ctx context.Context) toolCheck {
+	if !whisper.Available(s.st) {
+		return toolCheck{OK: false, Detail: "chưa cài — chạy: ./scripts/setup-whisper.sh"}
+	}
+	out, err := whisper.Run(ctx, s.st,
+		"-c", "import faster_whisper, importlib.metadata as m; print(m.version('faster-whisper'))")
+	if err != nil {
+		return toolCheck{OK: false, Detail: "venv có nhưng import lỗi: " + truncateDetail(err.Error(), 200)}
+	}
+	cfg := s.st.Settings()
+	return toolCheck{OK: true, Detail: fmt.Sprintf("faster-whisper v%s · model %s · compute %s (offline, mốc từng từ)",
+		strings.TrimSpace(out), cfg.WhisperModel, cfg.WhisperCompute)}
 }
 
 // checkChrome dò trình duyệt render HTML Video.

@@ -354,3 +354,42 @@ Mục tiêu: Style Kit không chỉ điều khiển prompt sinh ảnh mà điề
 3. **Màu sắc & phông chữ**: 4 preset màu bấm phát ăn ngay + 3 ô màu (nền/chữ/nhấn) + palette gợi ý cho AI + 2 select font
 4. **Nhận diện & stock**: tên kênh, logo + vị trí, thư viện tư liệu nền (thêm/xoá)
 Bên phải: **XEM TRƯỚC** iframe `preview.html` cập nhật khi đổi cài đặt (debounce ~400ms), có nút đổi template xem thử (hero/bullets/photo/outro) và nút phóng to.
+
+## Mở rộng v2.0 — Âm thanh chuẩn xác (mốc từng từ)
+
+Nền tảng: có mốc thời gian TỪNG TỪ thì mới cắt khoảng lặng an toàn, làm phụ đề karaoke, và hạ nhạc đúng lúc có tiếng nói.
+
+### Vì sao (số đo thực tế, đã kiểm chứng ở dự án khác)
+- Ngưỡng cắt im lặng là **thuộc tính của FILE, không phải hằng số**: cùng một file, −40dB tìm 0 khoảng lặng, −30dB tìm 13, −25dB tìm 21. Ngưỡng cứng hoặc vô dụng hoặc nuốt tiếng.
+- Chỉ đo độ to **không phân biệt được "đang ngừng" với "nói nhỏ"**: ở −30dB máy báo 48.6s im lặng nhưng chỉ 18.2s là khoảng nghỉ thật; 30.4s còn lại nằm TRONG từ (âm cuối tiếng Việt c/t/p/ch không hữu thanh). Cắt theo độ to là cắt vào chữ.
+→ Kết luận: khoảng lặng chỉ được cắt khi **nằm ngoài mọi từ** trong transcript.
+
+### internal/whisper (MỚI) — faster-whisper offline
+Cùng khuôn với internal/tts/vieneu.go (venv riêng + runner python nhúng trong binary + `/usr/bin/arch -arm64` trên Apple Silicon):
+- `PythonPath(st) string` — Settings().WhisperPython → `<DataDir>/whisper/venv/bin/python3`; rỗng = chưa cài.
+- `Available(st) bool`
+- `Transcribe(ctx, st, audioOrVideo string, lang string, upd func(float64,string)) (*Transcript, error)`
+- Types: `Word{Text string; Start, End float64}`, `Segment{Index int; Start, End float64; Text string; Words []Word}`, `Transcript{Language string; Duration float64; Segments []Segment}`
+- Runner python: `from faster_whisper import WhisperModel; model=WhisperModel(<model>, device="auto", compute_type=<compute>)`; `segments, info = model.transcribe(path, language=lang or None, word_timestamps=True, vad_filter=True)`; in NDJSON từng segment ra stdout để Go cập nhật tiến độ, dòng cuối in JSON tổng.
+- Ghi kèm `SaveJSON(tr, path)` và `LoadJSON(path)`.
+- Xuất phụ đề: `SRT(tr) string` (theo segment) và `KaraokeASS(tr, style KaraokeStyle) string` — ASS có hiệu ứng \k từng từ, dùng cho burn phụ đề karaoke.
+  `KaraokeStyle{FontName string; FontSize int; Primary, Highlight, Outline string (hex); MarginV int}` — lấy từ Style Kit đang dùng.
+
+### scripts/setup-whisper.sh
+Tạo venv `data/whisper/venv`, `pip install faster-whisper`, tải sẵn model theo `WhisperModel`, in hướng dẫn. Bỏ qua model bằng `SKIP_MODEL=1`.
+
+### internal/media — AutoCut v2
+`AutoCutGuarded(ctx, src, dst string, tr *whisper.Transcript, opt AutoCutOpt, upd) (Report, error)`
+- `AutoCutOpt{SilenceDb float64 (0 = tự đo), MinSilence float64 (0 = 0.6s), PadStart, PadEnd float64 (mặc định 0.12/0.18), MinKeep float64 (0.25s)}`
+- **Ngưỡng tự đo**: chạy `ffmpeg -af volumedetect` lấy `mean_volume`; ngưỡng = `mean_volume - 18dB`, kẹp trong [−45, −20]. Ghi log giá trị đã chọn.
+- **Transcript bảo vệ**: khoảng lặng nào giao với `[word.Start-Pad, word.End+Pad]` của BẤT KỲ từ nào thì KHÔNG cắt. Không có transcript → chỉ cắt khoảng lặng ≥ 2× MinSilence và ghi log cảnh báo "cắt không có transcript bảo vệ".
+- `Report{ThresholdDb float64; Guarded bool; TotalSilence, CutSilence float64; Cuts int; BeforeS, AfterS float64}` — để UI nói rõ đã cắt bao nhiêu.
+- Giữ nguyên `AutoCut` cũ (gọi AutoCutGuarded với tr=nil) để không phá API hiện có.
+
+### internal/media — nhạc nền né giọng
+`MixBgmDucked(ctx, voiceOrVideo, bgm, dst string, vol float64, speech []Span) error` — nhạc chạy `volume=vol`, quanh mỗi đoạn có tiếng nói hạ thêm còn `vol*0.25` với fade 0.4s (dùng `volume` + biểu thức `enable`/`between` hoặc chuỗi `afade`); không có speech ranges → dùng `sidechaincompress` lấy giọng làm tín hiệu điều khiển. Vox và HTML Video chuyển sang dùng hàm này.
+
+### routes_tools.go — ASR dùng whisper khi có
+`POST /api/tools/asr` thêm `engine: "auto"|"whisper"|"gemini"` (mặc định auto = whisper nếu đã cài, ngược lại Gemini) và `karaoke: bool` → khi bật xuất thêm file `.ass` karaoke cạnh `.srt`. Output job vẫn là `.srt`; đường dẫn `.ass` ghi trong `detail`.
+`POST /api/tools/autocut` thêm `transcriptPath?` và `guard: bool` (mặc định true) → dùng AutoCutGuarded; detail job in Report cho người dùng thấy ngưỡng đã chọn và số đoạn cắt.
+`GET /api/state` thêm `tools.whisper`.

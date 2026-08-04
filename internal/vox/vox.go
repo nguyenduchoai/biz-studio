@@ -13,7 +13,6 @@ import (
 
 	"bizstudio/internal/media"
 	"bizstudio/internal/store"
-	"bizstudio/internal/util"
 )
 
 // Scene — một cảnh trong video.
@@ -143,18 +142,9 @@ func assembleFinal(ctx context.Context, merged string, scenes []Scene, durs []fl
 // mixBgm loop nhạc nền vô hạn, hạ volume rồi amix với tiếng thuyết minh
 // (duration=first: kết thúc theo video; normalize=0: giữ nguyên mức tiếng đọc).
 func mixBgm(ctx context.Context, video, bgm string, vol float64, dst string) error {
-	fc := fmt.Sprintf("[1:a]volume=%.3f[bg];[0:a][bg]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[aout]", vol)
-	_, err := util.Run(ctx, "ffmpeg",
-		"-y",
-		"-i", video,
-		"-stream_loop", "-1", "-i", bgm,
-		"-filter_complex", fc,
-		"-map", "0:v", "-map", "[aout]",
-		"-c:v", "copy",
-		"-c:a", "aac", "-b:a", "192k",
-		dst,
-	)
-	return err
+	// Nhạc tự lùi xuống mỗi khi có tiếng nói rồi nâng lại — lời đọc luôn nghe rõ
+	// dù nhạc để to hơn cách trộn phẳng trước đây.
+	return media.MixBgmDucked(ctx, video, bgm, dst, vol, true)
 }
 
 func resolveSize(aspect string) (int, int, error) {

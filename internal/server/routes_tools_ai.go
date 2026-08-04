@@ -18,15 +18,21 @@ import (
 
 	"bizstudio/internal/gemini"
 	"bizstudio/internal/media"
+	"bizstudio/internal/store"
 	"bizstudio/internal/util"
 	"bizstudio/internal/vox"
+	"bizstudio/internal/whisper"
 )
 
-// handleToolASR — job kind=asr: tách audio 16kHz → Gemini bóc băng → <src>.srt.
+// handleToolASR — job kind=asr.
+// engine: "auto" (mặc định — whisper nếu đã cài, ngược lại Gemini) | "whisper" | "gemini".
+// karaoke=true → xuất thêm file .ass tô sáng từng từ (chỉ engine whisper có mốc từng từ).
 func (s *Server) handleToolASR(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Path string `json:"path"`
-		Lang string `json:"lang"`
+		Path    string `json:"path"`
+		Lang    string `json:"lang"`
+		Engine  string `json:"engine"`
+		Karaoke bool   `json:"karaoke"`
 	}
 	if err := readJSON(r, &body); err != nil {
 		httpErr(w, http.StatusBadRequest, "%s", err)
@@ -41,7 +47,33 @@ func (s *Server) handleToolASR(w http.ResponseWriter, r *http.Request) {
 		lang = "tiếng Việt"
 	}
 
-	j := s.Jobs.Submit("asr", "", "Bóc băng: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
+	engine := strings.ToLower(strings.TrimSpace(body.Engine))
+	if engine == "" || engine == "auto" {
+		engine = "gemini"
+		if whisper.Available(s.st) {
+			engine = "whisper"
+		}
+	}
+	switch engine {
+	case "whisper":
+		if !whisper.Available(s.st) {
+			httpErr(w, http.StatusBadRequest, "%s", whisper.ErrChuaCai)
+			return
+		}
+		writeJSON(w, http.StatusOK, s.asrWhisperJob(src, lang, body.Karaoke))
+		return
+	case "gemini":
+		if body.Karaoke {
+			httpErr(w, http.StatusBadRequest,
+				"phụ đề karaoke cần mốc từng từ — chọn engine \"whisper\" (cài bằng scripts/setup-whisper.sh)")
+			return
+		}
+	default:
+		httpErr(w, http.StatusBadRequest, "engine không hợp lệ: %s (auto | whisper | gemini)", engine)
+		return
+	}
+
+	j := s.Jobs.Submit("asr", "", "Bóc băng (Gemini): "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
 
@@ -73,6 +105,48 @@ func (s *Server) handleToolASR(w http.ResponseWriter, r *http.Request) {
 		return s.toolRelPath(dst), nil
 	})
 	writeJSON(w, http.StatusOK, j)
+}
+
+// asrWhisperJob — bóc băng offline bằng faster-whisper (có mốc TỪNG TỪ).
+// Output job là .srt; ghi kèm .words.json (dùng để cắt khoảng lặng an toàn)
+// và .ass karaoke khi được yêu cầu — đường dẫn nằm trong detail của job.
+func (s *Server) asrWhisperJob(src, lang string, karaoke bool) *store.Job {
+	return s.Jobs.Submit("asr", "", "Bóc băng (whisper): "+filepath.Base(src),
+		func(upd func(float64, string)) (string, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), toolJobTimeout)
+			defer cancel()
+
+			tr, err := whisper.Transcribe(ctx, s.st, src, lang, upd)
+			if err != nil {
+				return "", err
+			}
+			srtPath := src + ".srt"
+			if err := os.WriteFile(srtPath, []byte(whisper.SRT(tr)), 0o644); err != nil {
+				return "", fmt.Errorf("ghi file SRT %s: %w", srtPath, err)
+			}
+			jsonPath := src + ".words.json"
+			if err := whisper.SaveJSON(tr, jsonPath); err != nil {
+				return "", err
+			}
+			detail := fmt.Sprintf("%d đoạn · %d từ có mốc · transcript: %s",
+				len(tr.Segments), tr.WordCount(), s.toolRelPath(jsonPath))
+
+			if karaoke {
+				assPath := src + ".ass"
+				w, h := 0, 0
+				if info, err := media.Probe(src); err == nil {
+					w, h = info.Width, info.Height
+				}
+				ass := whisper.KaraokeASS(tr, whisper.StyleFromKit(s.st, w, h))
+				if err := os.WriteFile(assPath, []byte(ass), 0o644); err != nil {
+					return "", fmt.Errorf("ghi file karaoke %s: %w", assPath, err)
+				}
+				detail += " · karaoke: " + s.toolRelPath(assPath)
+			}
+			upd(99, detail)
+			s.Log("info", "asr", "Bóc băng xong "+filepath.Base(src)+" — "+detail)
+			return s.toolRelPath(srtPath), nil
+		})
 }
 
 // ocrCue — 1 dòng chữ bóc được từ khung hình số idx (1-based).

@@ -90,6 +90,12 @@ func (s *Store) applyDefaults() {
 	if c.PerfMode == "" {
 		c.PerfMode = "auto"
 	}
+	if c.WhisperModel == "" {
+		c.WhisperModel = "small"
+	}
+	if c.WhisperCompute == "" {
+		c.WhisperCompute = "auto"
+	}
 	if c.OpenAIBase == "" {
 		c.OpenAIBase = "https://api.openai.com/v1"
 	}

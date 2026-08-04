@@ -15,6 +15,7 @@ import (
 	"bizstudio/internal/translate"
 	"bizstudio/internal/tts"
 	"bizstudio/internal/vox"
+	"bizstudio/internal/whisper"
 )
 
 const toolJobTimeout = 2 * time.Hour
@@ -296,11 +297,16 @@ func (s *Server) handleToolVox(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleToolAutocut — job kind=autocut, output=<src>.cut.mp4 cùng thư mục.
+// guard (mặc định true) → dùng AutoCutGuarded: ngưỡng TỰ ĐO theo file và không
+// cắt vào khoảng lặng nào chạm vào từ trong transcriptPath (file .words.json
+// do bóc băng whisper sinh ra). guard=false → giữ nguyên cách cắt cũ.
 func (s *Server) handleToolAutocut(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Path       string  `json:"path"`
-		SilenceDb  float64 `json:"silenceDb"`
-		MinSilence float64 `json:"minSilence"`
+		Path           string  `json:"path"`
+		SilenceDb      float64 `json:"silenceDb"`
+		MinSilence     float64 `json:"minSilence"`
+		TranscriptPath string  `json:"transcriptPath"`
+		Guard          *bool   `json:"guard"`
 	}
 	if err := readJSON(r, &body); err != nil {
 		httpErr(w, http.StatusBadRequest, "%s", err)
@@ -312,12 +318,45 @@ func (s *Server) handleToolAutocut(w http.ResponseWriter, r *http.Request) {
 	}
 	dst := strings.TrimSuffix(src, filepath.Ext(src)) + ".cut.mp4"
 
-	j := s.Jobs.Submit("autocut", "", "Cắt khoảng lặng: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
+	guard := body.Guard == nil || *body.Guard
+	if !guard {
+		j := s.Jobs.Submit("autocut", "", "Cắt khoảng lặng: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), toolJobTimeout)
+			defer cancel()
+			if err := media.AutoCut(ctx, src, dst, body.SilenceDb, body.MinSilence, upd); err != nil {
+				return "", err
+			}
+			return s.toolRelPath(dst), nil
+		})
+		writeJSON(w, http.StatusOK, j)
+		return
+	}
+
+	// Transcript bảo vệ: đọc ngay để báo lỗi sớm nếu đường dẫn sai.
+	var tr *whisper.Transcript
+	if p := strings.TrimSpace(body.TranscriptPath); p != "" {
+		abs, ok := s.toolSrcPath(w, p)
+		if !ok {
+			return
+		}
+		loaded, err := whisper.LoadJSON(abs)
+		if err != nil {
+			httpErr(w, http.StatusBadRequest, "%v", err)
+			return
+		}
+		tr = loaded
+	}
+
+	opt := media.AutoCutOpt{SilenceDb: body.SilenceDb, MinSilence: body.MinSilence}
+	j := s.Jobs.Submit("autocut", "", "Cắt khoảng lặng an toàn: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), toolJobTimeout)
 		defer cancel()
-		if err := media.AutoCut(ctx, src, dst, body.SilenceDb, body.MinSilence, upd); err != nil {
+		rep, err := media.AutoCutGuarded(ctx, src, dst, tr, opt, upd)
+		if err != nil {
 			return "", err
 		}
+		upd(99, rep.Summary())
+		s.Log("info", "autocut", filepath.Base(src)+" — "+rep.Summary())
 		return s.toolRelPath(dst), nil
 	})
 	writeJSON(w, http.StatusOK, j)

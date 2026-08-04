@@ -7,6 +7,7 @@ import (
 
 	"bizstudio/internal/tts"
 	"bizstudio/internal/util"
+	"bizstudio/internal/whisper"
 )
 
 var (
@@ -31,6 +32,7 @@ func (s *Server) toolsAvail() map[string]bool {
 		"pexelsKey": cfg.PexelsKey != "",
 		"chrome":    findChromeBin(cfg) != "",
 		"vieneu":    tts.VieNeuAvailable(s.st),
+		"whisper":   whisper.Available(s.st),
 	}
 	toolsAt = time.Now()
 	return toolsLast

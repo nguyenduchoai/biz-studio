@@ -259,4 +259,8 @@ type Settings struct {
 	ChromeBin string `json:"chromeBin"`
 	// VieNeu-TTS — python của venv (rỗng = tự dò data/vieneu/venv)
 	VieNeuPython string `json:"vieneuPython"`
+	// faster-whisper — bóc băng offline có mốc TỪNG TỪ
+	WhisperPython  string `json:"whisperPython"`  // rỗng = tự dò data/whisper/venv
+	WhisperModel   string `json:"whisperModel"`   // large-v3 | medium | small (mặc định small)
+	WhisperCompute string `json:"whisperCompute"` // int8 | float16 | auto
 }

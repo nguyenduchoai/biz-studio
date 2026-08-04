@@ -90,6 +90,52 @@
     return host;
   }
 
+  // Các file kèm theo do faster-whisper sinh ra — đọc từ detail của job:
+  // "12 đoạn · 340 từ có mốc · transcript: <path> · karaoke: <path>"
+  var EXTRA_LABELS = {
+    transcript: '🧩 Transcript mốc từng từ (.words.json)',
+    karaoke: '✨ Phụ đề karaoke (.ass)'
+  };
+
+  function extraFiles(detail) {
+    var out = [];
+    String(detail || '').split('·').forEach(function (part) {
+      var m = /^\s*(transcript|karaoke)\s*:\s*(\S.*?)\s*$/i.exec(part);
+      if (m) out.push({ kind: m[1].toLowerCase(), path: m[2] });
+    });
+    return out;
+  }
+
+  function extraFileRow(item) {
+    var row = h('div', { class: 'row', style: { gap: '8px', marginTop: '8px' } },
+      h('span', { style: { fontSize: '12.5px', fontWeight: '600', flex: 'none' } },
+        EXTRA_LABELS[item.kind] || item.kind));
+    if (isRel(item.path)) {
+      row.appendChild(h('a', {
+        class: 'btn btn-ghost btn-sm', href: dataUrl(item.path), download: fileName(item.path)
+      }, '⬇ Tải'));
+    }
+    row.appendChild(h('code', { style: { fontSize: '11.5px', wordBreak: 'break-all', minWidth: '0' } }, item.path));
+    row.appendChild(UI.btn('📋 Copy đường dẫn', {
+      variant: 'ghost', small: true,
+      onclick: function () { copyText(item.path, 'Đã copy đường dẫn'); }
+    }));
+    return row;
+  }
+
+  // Khối "file kèm theo" hiện dưới nội dung .srt; null nếu job không có file nào.
+  function extraResult(j) {
+    var items = extraFiles(j && j.detail);
+    if (!items.length) return null;
+    var box = h('div', {
+      style: { marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '10px' }
+    }, h('div', { class: 'muted', style: { fontSize: '12px' } },
+      'File kèm theo — transcript dùng cho “Cắt khoảng lặng an toàn” bên Studio Editor, ' +
+      'file .ass dùng để burn phụ đề karaoke vào video.'));
+    items.forEach(function (it) { box.appendChild(extraFileRow(it)); });
+    return box;
+  }
+
   function jobCard(job, title) {
     var badge = h('span', { class: 'badge badge-gray' }, '');
     var pctEl = h('span', { class: 'muted', style: { fontWeight: '600', flex: 'none' } }, '0%');
@@ -116,6 +162,8 @@
         card._done = true;
         outHost.innerHTML = '';
         outHost.appendChild(srtResult(j));
+        var extra = extraResult(j);
+        if (extra) outHost.appendChild(extra);
       } else {
         card._done = false;
         outHost.innerHTML = '';
@@ -130,24 +178,51 @@
 
   App.pages.ocr = {
     title: 'OCR / ASR',
-    subtitle: 'Bóc băng phụ đề từ hình ảnh (OCR) hoặc âm thanh (ASR) — cần Gemini API',
+    subtitle: 'Bóc băng phụ đề từ hình ảnh (OCR — cần Gemini) hoặc âm thanh (ASR — chạy offline nếu đã cài faster-whisper)',
     render: function (el) {
       var tab = 'ocr'; // ocr | asr
       var fps = 0.5;
       var lang = 'vi';
+      var engine = 'auto';   // auto | whisper | gemini
+      var karaoke = false;
       var jobEls = {};
 
-      // --- Cảnh báo thiếu Gemini key
+      // Phần tử của tab ASR — null khi đang ở tab OCR (syncEngine tự bỏ qua).
+      var asrStatusEl = null, karaokeRow = null, karaokeNoteEl = null, asrBlockEl = null;
+      var startBtn = null;
+
+      // faster-whisper đã cài chưa (theo /api/state, poll mỗi 5s)
+      function whisperReady() {
+        var st = App.state;
+        return !!(st && st.tools && st.tools.whisper);
+      }
+
+      // Engine thực sự sẽ chạy khi người dùng để "Tự động".
+      function effectiveEngine() {
+        if (engine === 'whisper' || engine === 'gemini') return engine;
+        return whisperReady() ? 'whisper' : 'gemini';
+      }
+
+      // Có cần Gemini API key cho thao tác đang chọn không?
+      function needGeminiKey() {
+        if (tab === 'ocr') return true;             // OCR luôn đọc chữ bằng Gemini
+        return effectiveEngine() === 'gemini';
+      }
+
+      // --- Cảnh báo thiếu Gemini key (chỉ hiện khi thao tác đang chọn thực sự cần)
       var warnHost = h('div');
       function renderWarn() {
         warnHost.innerHTML = '';
         var st = App.state;
-        if (st && st.tools && !st.tools.geminiKey) {
-          warnHost.appendChild(amberWarn('Chưa cấu hình Gemini API key — OCR/ASR sẽ không chạy được.'));
-        }
+        if (!st || !st.tools || st.tools.geminiKey) return;
+        if (!needGeminiKey()) return;
+        warnHost.appendChild(amberWarn(tab === 'ocr'
+          ? 'Chưa cấu hình Gemini API key — OCR (đọc chữ trên khung hình) sẽ không chạy được.'
+          : 'Chưa cấu hình Gemini API key — bóc băng bằng Gemini sẽ không chạy được. ' +
+            'Cài faster-whisper để bóc băng ngay trên máy, không cần API key.'));
       }
       renderWarn();
-      var onState = function () { renderWarn(); };
+      var onState = function () { syncEngine(); };
       Bus.on('state', onState);
       el.appendChild(warnHost);
 
@@ -202,6 +277,8 @@
 
       function renderPane() {
         paneHost.innerHTML = '';
+        asrStatusEl = karaokeRow = karaokeNoteEl = asrBlockEl = null;
+
         if (tab === 'ocr') {
           paneHost.appendChild(UI.slider('Tần suất quét khung hình (FPS)', {
             min: 0.2, max: 2, step: 0.1, value: fps,
@@ -209,13 +286,83 @@
           }));
           paneHost.appendChild(h('div', { class: 'muted', style: { fontSize: '12px' } },
             'FPS càng cao quét càng kỹ nhưng tốn thời gian và chi phí API hơn. Mặc định 0.5 (2 giây/khung).'));
-        } else {
-          paneHost.appendChild(UI.select('Ngôn ngữ âm thanh', [
-            { value: 'vi', label: 'Tiếng Việt' },
-            { value: 'en', label: 'English' },
-            { value: 'zh', label: '中文' },
-            { value: 'ja', label: '日本語' }
-          ], lang, function (v) { lang = v; }));
+          syncEngine();
+          return;
+        }
+
+        // --- Tab ASR: chọn engine bóc băng
+        paneHost.appendChild(UI.select('Engine bóc băng', [
+          { value: 'auto', label: 'Tự động (khuyên dùng)' },
+          { value: 'whisper', label: 'faster-whisper — offline, mốc từng từ' },
+          { value: 'gemini', label: 'Gemini API' }
+        ], engine, function (v) { engine = v; syncEngine(); }));
+
+        asrStatusEl = h('div', {
+          class: 'row', style: { gap: '7px', fontSize: '12.5px', marginTop: '-8px', marginBottom: '14px' }
+        });
+        paneHost.appendChild(asrStatusEl);
+
+        asrBlockEl = h('div', { style: { display: 'none', marginBottom: '14px' } });
+        paneHost.appendChild(asrBlockEl);
+
+        paneHost.appendChild(UI.select('Ngôn ngữ âm thanh', [
+          { value: 'vi', label: 'Tiếng Việt' },
+          { value: 'en', label: 'English' },
+          { value: 'zh', label: '中文' },
+          { value: 'ja', label: '日本語' }
+        ], lang, function (v) { lang = v; }));
+
+        karaokeRow = UI.toggle('Xuất phụ đề karaoke (.ass)', null, karaoke, function (v) { karaoke = v; });
+        paneHost.appendChild(karaokeRow);
+        karaokeNoteEl = h('div', { class: 'muted', style: { fontSize: '12px' } });
+        paneHost.appendChild(karaokeNoteEl);
+
+        syncEngine();
+      }
+
+      // Cập nhật trạng thái phụ thuộc engine + tình trạng cài faster-whisper.
+      // Gọi được cả khi đang ở tab OCR (mọi phần tử ASR đều null → chỉ chạy phần chung).
+      function syncEngine() {
+        renderWarn();
+
+        var ready = whisperReady();
+        var blocked = (tab === 'asr' && engine === 'whisper' && !ready);
+        if (startBtn) startBtn.disabled = blocked;
+
+        if (asrStatusEl) {
+          asrStatusEl.innerHTML = '';
+          var cls = ready ? 'text-green' : 'muted';
+          asrStatusEl.appendChild(h('span', { class: cls, style: { flex: 'none' } }, '●'));
+          asrStatusEl.appendChild(h('span', { class: cls }, ready
+            ? 'faster-whisper đã sẵn sàng — bóc băng ngay trên máy, có mốc từng từ, không tốn API'
+            : 'faster-whisper chưa cài — chạy ./scripts/setup-whisper.sh trong thư mục app'));
+        }
+
+        if (asrBlockEl) {
+          asrBlockEl.innerHTML = '';
+          asrBlockEl.style.display = blocked ? '' : 'none';
+          if (blocked) {
+            asrBlockEl.appendChild(redAlert(
+              'Bạn đang chọn faster-whisper nhưng máy chưa cài. Chạy ./scripts/setup-whisper.sh ' +
+              'rồi thử lại, hoặc chọn “Tự động” / “Gemini API” để bóc băng ngay.'));
+          }
+        }
+
+        // Karaoke cần mốc từng từ → chỉ faster-whisper làm được.
+        var canKaraoke = (effectiveEngine() === 'whisper' && ready);
+        if (karaokeRow) {
+          karaokeRow.input.disabled = !canKaraoke;
+          karaokeRow.style.opacity = canKaraoke ? '' : '.55';
+          karaokeRow.style.cursor = canKaraoke ? '' : 'not-allowed';
+          if (!canKaraoke && karaoke) {
+            karaoke = false;
+            karaokeRow.input.checked = false;
+          }
+        }
+        if (karaokeNoteEl) {
+          karaokeNoteEl.textContent = canKaraoke
+            ? 'Tô sáng từng từ theo giọng nói, dùng để burn vào video.'
+            : 'Cần faster-whisper (mốc từng từ) — Gemini chỉ cho phụ đề theo câu nên không làm karaoke được.';
         }
       }
 
@@ -243,7 +390,7 @@
         else resultHost.appendChild(c);
       }
 
-      var startBtn = UI.btn('▶ Bắt đầu quét', {
+      startBtn = UI.btn('▶ Bắt đầu quét', {
         variant: 'primary', large: true,
         onclick: function () {
           errBox.style.display = 'none';
@@ -252,15 +399,18 @@
           startBtn.disabled = true;
           var req = tab === 'ocr'
             ? API.post('/api/tools/ocr', { path: path, fps: fps })
-            : API.post('/api/tools/asr', { path: path, lang: lang });
+            : API.post('/api/tools/asr', {
+                path: path, lang: lang, engine: engine, karaoke: !!karaoke
+              });
           req.then(function (job) {
             addJobCard(job);
             UI.toast('Đã bắt đầu ' + (tab === 'ocr' ? 'OCR' : 'ASR'));
           }).catch(function (err) {
             showErr(err.message);
-          }).finally(function () { startBtn.disabled = false; });
+          }).finally(function () { syncEngine(); });
         }
       });
+      syncEngine();
 
       el.appendChild(UI.card({
         title: 'Chế độ bóc băng', icon: '⚙️',

@@ -87,6 +87,12 @@
     return UI.field(label, h('div', { style: { display: 'flex', gap: '8px', alignItems: 'center' } }, input, eyeBtn));
   }
 
+  // Field + dòng ghi chú giải thích ngay dưới (gói thành 1 ô của grid)
+  function withNote(fieldEl, note) {
+    return h('div', null, fieldEl,
+      h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '-8px' } }, note));
+  }
+
   // Ô nhập model + datalist gợi ý
   function modelField(label, st, key, placeholder, listId, suggestions) {
     var input = UI.input({
@@ -170,7 +176,8 @@
   // Nhãn đẹp cho từng key trong kết quả POST /api/settings/test; key lạ hiện nguyên.
   var TEST_LABELS = {
     gemini: 'Gemini API', claude: 'Claude CLI', ffmpeg: 'FFmpeg', ytdlp: 'yt-dlp',
-    openai: 'API Trực Tiếp', pexels: 'Pexels', chrome: 'Chrome', vieneu: 'VieNeu-TTS'
+    openai: 'API Trực Tiếp', pexels: 'Pexels', chrome: 'Chrome', vieneu: 'VieNeu-TTS',
+    whisper: 'faster-whisper'
   };
 
   // Tab 1 — API Server Chung
@@ -199,6 +206,24 @@
       textField('File Cookies', st, 'cookiesFile', 'Đường dẫn file cookies.txt (tùy chọn)'),
       textField('Chrome bin (render HTML Video)', st, 'chromeBin', 'tự dò Google Chrome'),
       textField('VieNeu-TTS python (giọng đọc Việt on-device)', st, 'vieneuPython', 'tự dò data/vieneu/venv — cài bằng: ./scripts/setup-vieneu.sh'),
+      withNote(
+        textField('faster-whisper python (bóc băng offline, mốc từng từ)', st, 'whisperPython',
+          'tự dò data/whisper/venv — cài bằng: ./scripts/setup-whisper.sh'),
+        'Bóc băng ngay trên máy, không tốn API key — và cho mốc từng từ để cắt khoảng lặng an toàn, làm phụ đề karaoke.'),
+      withNote(
+        UI.select('Model whisper', [
+          { value: 'small', label: 'small — nhanh, nhẹ (mặc định)' },
+          { value: 'medium', label: 'medium — cân bằng' },
+          { value: 'large-v3', label: 'large-v3 — chính xác nhất' }
+        ], st.whisperModel || 'small', function (v) { st.whisperModel = v; }),
+        'Lớn hơn = chính xác hơn nhưng chậm và nặng hơn (large-v3 tải về vài GB).'),
+      withNote(
+        UI.select('Compute', [
+          { value: 'auto', label: 'auto — để máy tự chọn (mặc định)' },
+          { value: 'int8', label: 'int8 — nhẹ RAM, chạy tốt trên CPU' },
+          { value: 'float16', label: 'float16 — nhanh hơn khi có GPU' }
+        ], st.whisperCompute || 'auto', function (v) { st.whisperCompute = v; }),
+        'Đổi model hoặc compute xong nhớ Lưu cấu hình rồi bấm “Kiểm tra kết nối”.'),
       qualitySel,
       threadsSlider);
   }

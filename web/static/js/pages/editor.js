@@ -303,28 +303,120 @@
     }
 
     // --- Cắt khoảng lặng (modal)
+
+    function hint(text) {
+      return h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '-8px', marginBottom: '14px' } }, text);
+    }
+
     function openAutocut(assets, resultLine) {
       var vids = assets.filter(function (a) { return a.kind === 'video'; });
       if (!vids.length) { UI.toast('Dự án chưa có video nào để cắt.', 'error'); return; }
-      var chosen = vids[0].id, silenceDb = -35, minSilence = 0.8;
+
+      var chosen = vids[0].id;
+      var guard = true;        // bảo vệ bằng transcript — mặc định BẬT
+      var autoDb = true;       // tự đo ngưỡng theo file — mặc định BẬT
+      var silenceDb = -35, minSilence = 0.8;
+
+      function currentAsset() {
+        var asset = null;
+        vids.forEach(function (a) { if (a.id === chosen) asset = a; });
+        return asset;
+      }
+
+      // --- Transcript bảo vệ
+      var trInput = UI.input({
+        placeholder: 'vd: uploads/video.mp4.words.json — để trống vẫn cắt được (an toàn kém hơn)'
+      });
+      var fillBtn = UI.btn('↩ Điền theo video đang chọn', {
+        variant: 'ghost', small: true,
+        onclick: function () {
+          var a = currentAsset();
+          if (!a) { UI.toast('Chưa chọn video nào.', 'error'); return; }
+          trInput.value = a.path + '.words.json';
+          UI.toast('Đã điền đường dẫn transcript theo quy ước của bước bóc băng.');
+        }
+      });
+      var guardHost = h('div');
+      function renderGuard() {
+        guardHost.innerHTML = '';
+        if (!guard) {
+          guardHost.appendChild(hint(
+            '⚠️ Tắt bảo vệ nghĩa là máy cắt thuần theo độ to — dễ cắt vào giữa chữ. ' +
+            'Chỉ nên tắt khi video không có lời thoại.'));
+          return;
+        }
+        guardHost.appendChild(hint(
+          'Âm cuối tiếng Việt (c, t, p, ch) không phát ra tiếng nên máy dễ tưởng là khoảng lặng ' +
+          'và cắt vào giữa chữ. Có transcript thì hệ thống biết chỗ nào đang có người nói để chừa ra.'));
+        guardHost.appendChild(UI.field('Đường dẫn transcript (.words.json) — tuỳ chọn', trInput));
+        guardHost.appendChild(h('div', { class: 'row', style: { marginTop: '-8px', marginBottom: '6px' } },
+          fillBtn,
+          h('a', { class: 'btn btn-ghost btn-sm', href: '#/ocr' }, '🎧 Đi bóc băng để có transcript')));
+        guardHost.appendChild(hint(
+          'Transcript sinh ra ở trang OCR / ASR → tab “Bóc băng Âm thanh”, chọn engine faster-whisper.'));
+      }
+
+      // --- Ngưỡng im lặng (chỉ cách cắt an toàn mới có bước tự đo)
+      var dbSlider = UI.slider('Ngưỡng im lặng (dB)', {
+        min: -50, max: -20, step: 1, value: silenceDb, oninput: function (v) { silenceDb = v; }
+      });
+      var dbHost = h('div');
+      function renderDb() {
+        dbHost.innerHTML = '';
+        if (!guard) {
+          dbHost.appendChild(dbSlider);
+          dbHost.appendChild(hint(
+            'Tắt bảo vệ = cách cắt cũ, ngưỡng cố định do bạn đặt. ' +
+            'Số càng nhỏ (−50) càng ít cắt, càng lớn (−20) càng cắt nhiều.'));
+          return;
+        }
+        dbHost.appendChild(UI.toggle('Tự đo ngưỡng theo file (khuyên dùng)',
+          'Mỗi file một mức ồn khác nhau — để máy tự đo sẽ chuẩn hơn đặt tay.', autoDb,
+          function (v) { autoDb = v; renderDb(); }));
+        if (autoDb) {
+          dbHost.appendChild(hint(
+            'Hệ thống tự đo độ ồn của chính file rồi chọn ngưỡng phù hợp. ' +
+            'Ngưỡng đúng phụ thuộc từng file — cùng một file, −40dB có thể tìm 0 khoảng lặng còn −25dB tìm ra 21.'));
+          return;
+        }
+        dbHost.appendChild(dbSlider);
+        dbHost.appendChild(hint('Đặt tay: số càng nhỏ (−50) càng ít cắt, càng lớn (−20) càng cắt nhiều.'));
+      }
+      renderGuard();
+      renderDb();
+
       var m = UI.modal({
         title: '✂ Cắt khoảng lặng',
         body: h('div', null,
           UI.select('Video cần cắt', vids.map(function (a) { return { value: a.id, label: a.name }; }),
             chosen, function (v) { chosen = v; }),
-          UI.slider('Ngưỡng im lặng (dB)', { min: -50, max: -20, step: 1, value: -35, oninput: function (v) { silenceDb = v; } }),
-          UI.slider('Im lặng tối thiểu (giây)', { min: 0.3, max: 2, step: 0.1, value: 0.8, oninput: function (v) { minSilence = v; } })),
+          UI.toggle('Bảo vệ bằng transcript (khuyên dùng)',
+            'Không cắt vào chỗ đang có người nói.', guard,
+            function (v) { guard = v; renderGuard(); renderDb(); }),
+          guardHost,
+          dbHost,
+          UI.slider('Im lặng tối thiểu (giây)', {
+            min: 0.3, max: 2, step: 0.1, value: minSilence, oninput: function (v) { minSilence = v; }
+          }),
+          hint('Khoảng lặng ngắn hơn mức này thì bỏ qua, không cắt.')),
         actions: [
           UI.btn('Hủy', { variant: 'ghost', onclick: function () { m.close(); } }),
           UI.btn('Bắt đầu cắt', {
             variant: 'primary',
             onclick: async function () {
-              var asset = null;
-              vids.forEach(function (a) { if (a.id === chosen) asset = a; });
+              var asset = currentAsset();
               if (!asset) { UI.toast('Không tìm thấy video đã chọn.', 'error'); return; }
+              var body = {
+                path: asset.path,
+                // 0 = để backend tự đo theo file (chỉ cách cắt an toàn hiểu ý này)
+                silenceDb: (guard && autoDb) ? 0 : silenceDb,
+                minSilence: minSilence,
+                guard: guard
+              };
+              var trPath = trInput.value.trim();
+              if (guard && trPath) body.transcriptPath = trPath;
               try {
-                var job = await API.post('/api/tools/autocut',
-                  { path: asset.path, silenceDb: silenceDb, minSilence: minSilence });
+                var job = await API.post('/api/tools/autocut', body);
                 m.close();
                 UI.toast('Đã bắt đầu cắt khoảng lặng…');
                 watchJob(job, resultLine, 'Cắt khoảng lặng');
@@ -351,7 +443,8 @@
     // --- Theo dõi job qua SSE
     function watchJob(job, host, label) {
       var prog = UI.progress(job.progress || 0);
-      var detail = h('span', { class: 'muted', style: { fontSize: '12px' } }, job.detail || 'Đang chạy…');
+      var lastDetail = job.detail || '';
+      var detail = h('span', { class: 'muted', style: { fontSize: '12px' } }, lastDetail || 'Đang chạy…');
       host.innerHTML = '';
       host.appendChild(h('div', null,
         h('div', { class: 'row' }, UI.spinner(), h('b', null, label + '…'), detail),
@@ -359,7 +452,7 @@
       var fn = Bus.on('job', function (j) {
         if (!j || j.id !== job.id) return;
         prog.set(j.progress || 0);
-        if (j.detail) detail.textContent = j.detail;
+        if (j.detail) { lastDetail = j.detail; detail.textContent = j.detail; }
         if (j.status === 'done') {
           Bus.off('job', fn);
           UI.toast(label + ' hoàn tất!');
@@ -374,6 +467,13 @@
               h('span', null, '✅ ' + label + ' xong:'),
               h('code', { style: { fontSize: '12px', wordBreak: 'break-all' } }, j.output || '(không rõ)'),
               UI.btn('📋', { variant: 'ghost', small: true, onclick: function () { copyText(j.output || ''); } })));
+          }
+          // Báo cáo của backend: ngưỡng đã chọn, số đoạn cắt, thời lượng trước/sau…
+          if (lastDetail) {
+            host.appendChild(h('div', {
+              class: 'muted',
+              style: { fontSize: '12px', marginTop: '6px', wordBreak: 'break-word' }
+            }, '📋 ' + lastDetail));
           }
           if (label === 'Render final' && st.projectId) loadProject(st.projectId);
         } else if (j.status === 'error') {

@@ -55,6 +55,7 @@ type Config struct {
 	stockURIs  []string
 	stockURI   string // khung hình nền của riêng cảnh đang dựng
 	customWarn bool   // đã cảnh báo CustomHTML thiếu window.seek
+	dataDir    string // thư mục data — để tìm font tiếng Việt đã tải
 }
 
 // stockFor chọn khung hình tư liệu nền cho cảnh thứ i (xoay vòng danh sách).

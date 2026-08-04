@@ -67,6 +67,9 @@ func Render(ctx context.Context, st *store.Store, scenes []Scene, cfg Config, wo
 	if err != nil {
 		return "", err
 	}
+	// Font tiếng Việt nhúng sẵn: có thì mọi máy render ra cùng một kiểu chữ và
+	// không lo thiếu dấu; chưa tải thì để trống, trang dùng font hệ điều hành.
+	cfg.dataDir = st.DataDir
 	tmpDir := filepath.Join(workDir, "tmp")
 	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
 		return "", fmt.Errorf("không tạo được thư mục làm việc %s: %w", tmpDir, err)

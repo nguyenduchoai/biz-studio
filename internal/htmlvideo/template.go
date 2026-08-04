@@ -91,7 +91,7 @@ func buildSceneHTML(sc Scene, cfg Config, w, h int, durS float64, imgURI string)
 		"h":        h,
 		"dur":      durS,
 		"image":    imgURI,
-		"kit":      kitPayload(k),
+		"kit":      kitPayload(k, cfg.dataDir),
 		"logo":     cfg.logoURI,
 		"stock":    cfg.stockURI,
 	}
@@ -100,7 +100,10 @@ func buildSceneHTML(sc Scene, cfg Config, w, h int, durS float64, imgURI string)
 		return "", fmt.Errorf("mã hoá dữ liệu cảnh: %w", err)
 	}
 	var b strings.Builder
-	if err := sceneTpl.Execute(&b, map[string]any{"DataJSON": template.JS(raw)}); err != nil {
+	if err := sceneTpl.Execute(&b, map[string]any{
+		"DataJSON": template.JS(raw),
+		"FontCSS":  template.CSS(FontFaceCSS(cfg.dataDir)),
+	}); err != nil {
 		return "", fmt.Errorf("dựng HTML cảnh: %w", err)
 	}
 	return b.String(), nil
@@ -108,7 +111,7 @@ func buildSceneHTML(sc Scene, cfg Config, w, h int, durS float64, imgURI string)
 
 // kitPayload rút phần giao diện của bộ style thành dữ liệu cho trang HTML.
 // nil → nil (trang giữ nguyên giao diện mặc định như trước khi có Style Kit).
-func kitPayload(k *store.StyleKit) map[string]any {
+func kitPayload(k *store.StyleKit, dataDir string) map[string]any {
 	if k == nil {
 		return nil
 	}
@@ -118,8 +121,8 @@ func kitPayload(k *store.StyleKit) map[string]any {
 		"textMain":    strings.TrimSpace(k.TextMain),
 		"accent":      accent,
 		"accent2":     secondAccent(k, accent),
-		"fontHead":    strings.TrimSpace(k.FontHead),
-		"fontBody":    strings.TrimSpace(k.FontBody),
+		"fontHead":    WithVietFont(strings.TrimSpace(k.FontHead), dataDir),
+		"fontBody":    WithVietFont(strings.TrimSpace(k.FontBody), dataDir),
 		"rTitle":      sizeRatio(k.SizeTitle, defSizeTitle),
 		"rBig":        sizeRatio(k.SizeBig, defSizeBig),
 		"rBody":       sizeRatio(k.SizeBody, defSizeBody),
@@ -218,6 +221,7 @@ func PreviewHTML(ctx context.Context, st *store.Store, kit *store.StyleKit, sc S
 		return "", err
 	}
 	cfg.Kit = resolveKit(st, kit)
+	cfg.dataDir = st.DataDir // xem trước phải dùng đúng font như lúc render
 	cfg.logoURI, cfg.stockURIs = prepareStyleAssets(ctx, st, cfg.Kit, tmpDir)
 	cfg.stockURI = cfg.stockFor(0)
 	dur := sc.Duration

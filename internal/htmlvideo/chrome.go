@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 
 	"bizstudio/internal/store"
@@ -94,6 +95,7 @@ func (b *browser) captureScene(htmlPath, frameDir string, durS float64, fps int,
 	if err := chromedp.Run(b.ctx,
 		chromedp.Navigate(fileURL(htmlPath)),
 		chromedp.WaitReady("#stage", chromedp.ByQuery),
+		waitFontsReady(),
 		chromedp.Evaluate("typeof window.seek === 'function'", &hasSeek),
 	); err != nil {
 		return fmt.Errorf("mở trang cảnh thất bại: %w", err)
@@ -120,6 +122,18 @@ func (b *browser) captureScene(htmlPath, frameDir string, durS float64, fps int,
 		}
 	}
 	return nil
+}
+
+// waitFontsReady chờ trình duyệt nạp xong toàn bộ font @font-face TRƯỚC khi
+// chụp frame đầu tiên.
+//
+// Không chờ thì frame đầu vẽ bằng font dự phòng của hệ điều hành, vài frame sau
+// font riêng mới nạp xong — người xem thấy chữ đột ngột đổi kiểu giữa cảnh.
+func waitFontsReady() chromedp.Action {
+	return chromedp.Evaluate(`document.fonts.ready.then(function () { return true; })`, nil,
+		func(p *runtime.EvaluateParams) *runtime.EvaluateParams {
+			return p.WithAwaitPromise(true)
+		})
 }
 
 // frameCount — số frame của cảnh (tối thiểu 1).

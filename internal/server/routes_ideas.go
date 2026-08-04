@@ -48,6 +48,7 @@ func (s *Server) routesIdeas(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/ideas/{id}/approve", s.handleIdeaApprove)
 	mux.HandleFunc("POST /api/ideas/{id}/reject", s.handleIdeaReject)
 	mux.HandleFunc("POST /api/ideas/{id}/queue", s.handleIdeaQueueAdd)
+	s.routesIdeasRetry(mux)
 }
 
 // handleIdeaList — GET /api/ideas (mới nhất trước).

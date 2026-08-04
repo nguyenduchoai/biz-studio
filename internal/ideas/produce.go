@@ -45,8 +45,13 @@ func (r *Runner) produce(lp *loop, idea store.Idea) {
 
 	title := shortText(idea.Title, 60)
 	idea.Status, idea.Error, idea.OutputPath = "producing", "", ""
+	idea.Attempts++
 	r.save(&idea)
-	r.logf("info", fmt.Sprintf("Bắt đầu sản xuất ý tưởng %q", title))
+	if idea.Attempts > 1 {
+		r.logf("info", fmt.Sprintf("Sản xuất lại ý tưởng %q (lần thứ %d)", title, idea.Attempts))
+	} else {
+		r.logf("info", fmt.Sprintf("Bắt đầu sản xuất ý tưởng %q", title))
+	}
 
 	out, err := r.pipeline(ctx, &idea, title)
 	r.finish(lp, idea.ID, err, out)

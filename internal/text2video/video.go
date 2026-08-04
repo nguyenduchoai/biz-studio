@@ -119,11 +119,11 @@ func buildScenes(segs []store.T2VSegment, dataDir string) []htmlvideo.Scene {
 		// Mỗi đoạn là một câu nói: chỉ dùng bullets khi đoạn THỰC SỰ có nhiều câu,
 		// nếu không tiêu đề và gạch đầu dòng sẽ lặp lại cùng một nội dung.
 		sentences := splitSentences(text)
-		switch {
-		case i == 0:
+		switch role := segRole(s, i, n); {
+		case role == roleHook:
 			sc.Template = "hero"
 			sc.Title, sc.Subtitle = headTail(text)
-		case i == n-1 && n > 1:
+		case role == roleCTA:
 			sc.Template = "outro"
 			sc.Title, sc.Subtitle = headTail(text)
 		case len(sentences) >= 2:
@@ -137,6 +137,49 @@ func buildScenes(segs []store.T2VSegment, dataDir string) []htmlvideo.Scene {
 		scenes = append(scenes, sc)
 	}
 	return scenes
+}
+
+// Vai của cảnh trong mạch video.
+const (
+	roleHook = "hook" // câu mở giữ chân người xem
+	roleBody = "body" // nội dung chính
+	roleCTA  = "cta"  // kêu gọi hành động, chốt lại
+)
+
+// RoleOf — bản công khai của segRole, cho lớp trên và bài kiểm tra dùng lại.
+func RoleOf(s store.T2VSegment, i, n int) string { return segRole(s, i, n) }
+
+// segRole trả vai của đoạn. Đoạn chưa gán vai thì suy theo vị trí ĐÚNG NHƯ
+// cách làm trước khi có vai — nhờ vậy các phiên cũ render lại không đổi hình.
+func segRole(s store.T2VSegment, i, n int) string {
+	switch strings.ToLower(strings.TrimSpace(s.Role)) {
+	case roleHook:
+		return roleHook
+	case roleCTA:
+		return roleCTA
+	case roleBody:
+		return roleBody
+	}
+	if i == 0 {
+		return roleHook
+	}
+	if i == n-1 && n > 1 {
+		return roleCTA
+	}
+	return roleBody
+}
+
+// NormalizeRole chuẩn hoá vai do người dùng/AI đặt; không hợp lệ → rỗng (tự suy).
+func NormalizeRole(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case roleHook:
+		return roleHook
+	case roleBody:
+		return roleBody
+	case roleCTA:
+		return roleCTA
+	}
+	return ""
 }
 
 // shotImage trả đường dẫn TUYỆT ĐỐI ảnh storyboard của đoạn; ảnh chưa có hoặc

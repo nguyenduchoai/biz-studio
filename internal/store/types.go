@@ -91,6 +91,10 @@ type Idea struct {
 	Height int `json:"height"`
 	FPS    int `json:"fps"`
 
+	// Attempts đếm số lần đã thử sản xuất — để biết ý tưởng nào hỏng dai dẳng
+	// chứ không phải trục trặc một lần.
+	Attempts int `json:"attempts"`
+
 	T2VSessionID string    `json:"t2vSessionId"` // phiên được tạo khi sản xuất
 	OutputPath   string    `json:"outputPath"`
 	Error        string    `json:"error"`
@@ -167,6 +171,11 @@ type T2VSegment struct {
 
 	// Nhân vật xuất hiện trong cảnh này (ID của store.Character)
 	CharacterIDs []string `json:"characterIds"`
+
+	// Vai của cảnh trong mạch video: hook (câu mở giữ chân) | body (nội dung
+	// chính) | cta (kêu gọi hành động). Rỗng = suy theo vị trí như trước, nhờ
+	// vậy các phiên cũ render lại vẫn ra y hệt.
+	Role string `json:"role"`
 }
 
 // T2VSession — một phiên Text → Video (nguồn → kịch bản → giọng đọc → cấu hình → dựng video).

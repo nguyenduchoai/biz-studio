@@ -505,10 +505,32 @@
       desc: 'Hàng đợi chạy tuần tự từng ý tưởng một. Bấm Dừng thì ý tưởng đang chạy vẫn được làm cho xong.',
       body: h('div', null, line,
         h('div', { class: 'row', style: { marginTop: '14px' } }, startBtn, stopBtn),
+        h('div', { class: 'row', style: { marginTop: '8px' } },
+          bulkBtn(ctx, '↻ Thử lại ý tưởng hỏng', '/api/ideas/retry-failed'),
+          bulkBtn(ctx, '➕ Xếp hàng ý tưởng đã duyệt', '/api/ideas/queue-pending')),
         h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '12px', lineHeight: '1.6' } },
           'Mỗi ý tưởng đi qua: viết kịch bản → giọng đọc → storyboard → dựng video. ' +
-          'Ý tưởng lỗi sẽ được bỏ qua để chạy tiếp ý tưởng sau.'))
+          'Ý tưởng lỗi sẽ được bỏ qua để chạy tiếp ý tưởng sau — lỗi hàng đợi thường ' +
+          'hỏng theo cụm (hết lượt gọi AI, mất mạng), nên có nút thử lại tất cả.'))
     });
+  }
+
+  // bulkBtn — nút gọi một API xử lý hàng loạt rồi tải lại danh sách.
+  function bulkBtn(ctx, label, path) {
+    var btn = UI.btn(label, {
+      variant: 'ghost', small: true,
+      onclick: function () {
+        btn.disabled = true;
+        API.post(path, {}).then(function (res) {
+          UI.toast((res && res.message) || 'Đã xử lý');
+          load(ctx, true);
+          pollQueue(ctx);
+        }).catch(function (err) {
+          UI.toast('Không chạy được: ' + err.message, 'error');
+        }).finally(function () { btn.disabled = false; });
+      }
+    });
+    return btn;
   }
 
   function pollQueue(ctx) {

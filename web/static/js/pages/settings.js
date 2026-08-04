@@ -199,6 +199,16 @@
       passwordField('API Key', st, 'geminiApiKey', 'Dán API key của bạn…'),
       modelField('Model', st, 'geminiModel', 'gemini-2.5-flash', 'gemini-model-list',
         ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview']),
+      withNote(
+        passwordField('Khoá Veo — sinh video AI (TRẢ PHÍ)', st, 'veoApiKey',
+          'Để trống = dùng chung khoá Gemini ở trên'),
+        '⚠️ Veo tính tiền theo GIÂY video và không có bậc miễn phí — dự án Google phải bật thanh toán. ' +
+        'Clip 8 giây tốn khoảng $0.40 (lite) đến $3.20 (chuẩn). Chi phí luôn hiện trước khi bấm tạo.'),
+      withNote(
+        modelField('Model Veo', st, 'veoModel', 'veo-3.1-fast-generate-preview', 'veo-model-list',
+          ['veo-3.1-generate-preview', 'veo-3.1-fast-generate-preview', 'veo-3.1-lite-generate-preview',
+           'veo-3.0-generate-001', 'veo-3.0-fast-generate-001']),
+        'Veo 3 đã được Google đánh dấu ngừng hỗ trợ — nên dùng Veo 3.1.'),
       textField('Claude bin', st, 'claudeBin', 'claude'),
       textField('Claude model (tùy chọn)', st, 'claudeModel', 'VD: claude-sonnet-4-5'),
       textField('yt-dlp bin', st, 'ytdlpBin', 'yt-dlp'),

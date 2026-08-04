@@ -241,7 +241,16 @@ type LogEntry struct {
 
 // Settings — cấu hình toàn cục (Cấu hình & API).
 type Settings struct {
-	GeminiAPIKey         string `json:"geminiApiKey"`
+	GeminiAPIKey string `json:"geminiApiKey"`
+
+	// Veo — sinh video bằng AI. Đây là tính năng TRẢ PHÍ TÍNH THEO GIÂY trên
+	// khoá Google của người dùng, nên tách riêng khoá: người dùng có thể để
+	// khoá Veo ở một dự án Google đã bật thanh toán, khác khoá Gemini thường.
+	// Rỗng = dùng lại GeminiAPIKey.
+	VeoAPIKey            string `json:"veoApiKey"`
+	VeoModel             string `json:"veoModel"`      // rỗng = veo-3.1-fast-generate-preview
+	VeoResolution        string `json:"veoResolution"` // 720p | 1080p | 4k
+	VeoSeconds           int    `json:"veoSeconds"`    // 4 | 6 | 8
 	GeminiBase           string `json:"geminiBase"`
 	GeminiModel          string `json:"geminiModel"`
 	ClaudeBin            string `json:"claudeBin"`

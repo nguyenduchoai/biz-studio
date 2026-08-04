@@ -132,6 +132,7 @@ func prepareScenes(ctx context.Context, st *store.Store, scenes []Scene, cfg Con
 func prepareScene(ctx context.Context, st *store.Store, sc Scene, cfg Config, w, h int, sceneDir string, idx int) (*sceneJob, error) {
 	j := &sceneJob{scene: sc, frameDir: filepath.Join(sceneDir, "frames")}
 	cfg.stockURI = cfg.stockFor(idx)
+	cfg.sceneIndex = idx
 
 	text := strings.TrimSpace(sc.VoiceText)
 	if cfg.Narration && text != "" {

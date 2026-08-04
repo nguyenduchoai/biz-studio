@@ -451,7 +451,9 @@ var DATA = {{.DataJSON}};
     stockUpdate = function (t) {
       var p = clamp01(DUR > 0 ? t / DUR : 0);
       img.style.opacity = 0.55 + 0.45 * seg(t, 0, 0.7);
-      img.style.transform = 'translate(-50%,-50%) scale(' + (1 + 0.05 * p) + ')';
+      var d = drift(p, 2.6);
+      img.style.transform = 'translate(calc(-50% + ' + d[0] + 'px), calc(-50% + ' + d[1] +
+        'px)) scale(' + (1 + 0.05 * p) + ')';
     };
   })();
 
@@ -640,7 +642,9 @@ var DATA = {{.DataJSON}};
       var p = clamp01(DUR > 0 ? t / DUR : 0);
       var e0 = seg(t, 0, 0.5);
       img.style.opacity = 0.35 + 0.65 * e0;
-      img.style.transform = 'translate(-50%,-50%) scale(' + (1 + 0.06 * p) + ') translateY(' + (-0.6 * p) + '%)';
+      var dph = drift(p, 3.0);
+      img.style.transform = 'translate(calc(-50% + ' + dph[0] + 'px), calc(-50% + ' + dph[1] +
+        'px)) scale(' + (1 + 0.06 * p) + ') translateY(' + (-0.6 * p) + '%)';
       shade.style.opacity = 0.72 + 0.28 * e0;
       var e1 = seg(t, 0.22, 0.75); fx(box, e1, 0, (1 - e1) * 40);
       bar.style.transform = 'scaleX(' + (0.2 + 0.8 * seg(t, 0.32, 0.7)) + ')';
@@ -695,7 +699,9 @@ var DATA = {{.DataJSON}};
     return function (t) {
       var p = clamp01(DUR > 0 ? t / DUR : 0);
       if (img) {
-        img.style.transform = 'translate(-50%,-50%) scale(' + (1.04 + 0.07 * p) + ')';
+        var dk = drift(p, 2.8);
+        img.style.transform = 'translate(calc(-50% + ' + dk[0] + 'px), calc(-50% + ' + dk[1] +
+          'px)) scale(' + (1.04 + 0.07 * p) + ')';
         img.style.opacity = 0.4 + 0.6 * seg(t, 0, 0.5);
       }
       var e0 = seg(t, 0.05, 0.6);
@@ -758,6 +764,59 @@ var DATA = {{.DataJSON}};
   };
   var update = (builders[TPL] || buildHero)();
 
+  /* ---------- chuyển cảnh & chuyển động điện ảnh ----------
+
+     Chuyển cảnh KHÔNG dùng kiểu chồng mờ hai clip (xfade): mỗi mối nối như vậy
+     ăn mất một khúc thời lượng, video ngắn lại và hình lệch dần khỏi giọng đọc
+     đã thu. Ở đây mọi hiệu ứng nằm gọn TRONG thời lượng của chính cảnh, nên
+     tổng thời lượng không đổi một phần nghìn giây nào.
+
+     Cả hai đều phải bật rõ ràng; để trống thì cảnh render y hệt như trước. */
+  var TRANS = D.transition || 'none';
+  var MOTION = D.motion || 'basic';
+  var IDX = D.index || 0;
+
+  var transUpdate = null;
+  (function buildTransition() {
+    if (TRANS !== 'fade' && TRANS !== 'dip') return;
+    var v = el('div', null);
+    v.style.cssText = 'position:fixed;inset:0;z-index:9;pointer-events:none;background:#000';
+    document.body.appendChild(v);
+    // dip: tối sâu và lâu hơn (kiểu chuyển đoạn); fade: chỉ chớm để mềm mối nối
+    var d = TRANS === 'dip' ? 0.34 : 0.20;
+    transUpdate = function (t) {
+      var inOp = 1 - clamp01(t / d);                       // vào cảnh: đen → rõ
+      var outOp = DUR > d ? clamp01((t - (DUR - d)) / d) : 0; // ra cảnh: rõ → đen
+      v.style.opacity = Math.max(inOp, outOp);
+    };
+  })();
+
+  /* Ken Burns đổi hướng theo số thứ tự cảnh. Mọi cảnh cùng trôi một hướng thì
+     xem cả video thấy đơn điệu; đổi hướng luân phiên mà vẫn tất định để render
+     lại ra đúng từng frame như cũ. */
+  var PANS = [[0, -1], [0, 1], [-1, 0], [1, 0], [-0.7, -0.7], [0.7, -0.7]];
+  function panOf() { return PANS[IDX % PANS.length]; }
+
+  /* drift: ảnh nền trôi bao nhiêu px tại tiến độ p. Chưa bật chuyển động điện
+     ảnh thì trả 0 — ảnh chỉ phóng như cũ, video cũ render lại không đổi. */
+  function drift(p, amp) {
+    if (MOTION !== 'cinematic') return [0, 0];
+    var pan = panOf();
+    return [(pan[0] * p * u * amp).toFixed(2), (pan[1] * p * u * amp).toFixed(2)];
+  }
+
+  var parallaxUpdate = null;
+  (function buildParallax() {
+    if (MOTION !== 'cinematic') return;
+    var pan = panOf();
+    // Lớp chữ trôi NGƯỢC lớp nền và biên độ nhỏ hơn — mắt đọc ra chiều sâu.
+    parallaxUpdate = function (t) {
+      var p = clamp01(DUR > 0 ? t / DUR : 0);
+      stage.style.transform = 'translate(' + (-pan[0] * p * u * 0.9) + 'px,' +
+        (-pan[1] * p * u * 0.9) + 'px)';
+    };
+  })();
+
   /* seek(t): đặt TOÀN BỘ trạng thái theo thời điểm t (không animation tự chạy) */
   window.seek = function (t) {
     if (!(t >= 0)) t = 0;
@@ -765,6 +824,8 @@ var DATA = {{.DataJSON}};
     if (stockUpdate) stockUpdate(t);
     update(t);
     if (brandUpdate) brandUpdate(t);
+    if (parallaxUpdate) parallaxUpdate(t);
+    if (transUpdate) transUpdate(t);
   };
   window.seek(0);
 })();

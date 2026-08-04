@@ -48,6 +48,17 @@ type Config struct {
 	// phải). Chỉ dùng khi XEM THỬ để căn bố cục — không bật khi render thật.
 	SafeGuides bool `json:"safeGuides"`
 
+	// Transition — cách vào/ra mỗi cảnh: "" hoặc none (cắt thẳng như trước) |
+	// fade (chớm tối ở mối nối) | dip (tối hẳn giữa hai cảnh).
+	// Hiệu ứng nằm TRONG thời lượng của cảnh nên tổng thời lượng không đổi;
+	// nếu chồng mờ hai clip thì mỗi mối nối ăn mất thời lượng và hình sẽ lệch
+	// dần khỏi giọng đọc đã thu.
+	Transition string `json:"transition"`
+
+	// Motion — "" hoặc basic (chỉ phóng nhẹ như trước) | cinematic (ảnh nền
+	// trôi đổi hướng theo từng cảnh, lớp chữ trôi ngược tạo chiều sâu).
+	Motion string `json:"motion"`
+
 	// Kit — bộ style điều khiển giao diện video (font, cỡ chữ, màu, logo, tư
 	// liệu nền). nil → Render tự lấy bộ đang mặc định của store; vẫn không có
 	// bộ nào → giữ nguyên giao diện mặc định như trước khi có Style Kit.
@@ -60,6 +71,7 @@ type Config struct {
 	stockURI   string // khung hình nền của riêng cảnh đang dựng
 	customWarn bool   // đã cảnh báo CustomHTML thiếu window.seek
 	dataDir    string // thư mục data — để tìm font tiếng Việt đã tải
+	sceneIndex int    // số thứ tự cảnh — dùng để đổi hướng trôi ảnh mỗi cảnh
 }
 
 // stockFor chọn khung hình tư liệu nền cho cảnh thứ i (xoay vòng danh sách).

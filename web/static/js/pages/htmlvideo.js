@@ -86,7 +86,7 @@
       tab: 'prompt', prompt: '', content: '', repoUrl: '',
       count: 6, style: STYLES[0].value,
       scenes: [], projectId: '', lastProjectId: '', jobHandler: null,
-      cfg: { aspect: '9:16', theme: 'vivid', fps: 24, narration: true, voice: '', engine: '', bgmPath: '', bgmVolume: 25, burnSub: false }
+      cfg: { aspect: '9:16', theme: 'vivid', fps: 24, narration: true, voice: '', engine: '', bgmPath: '', bgmVolume: 25, burnSub: false, transition: 'none', motion: 'basic' }
     };
     App._cleanup = function () {
       if (st.jobHandler) { Bus.off('job', st.jobHandler); st.jobHandler = null; }
@@ -378,6 +378,18 @@
             { value: '24', label: '24 fps' },
             { value: '30', label: '30 fps' }
           ], String(st.cfg.fps), function (v) { st.cfg.fps = Number(v) || 24; })),
+        h('div', { class: 'grid-2 mt-8' },
+          UI.select('Chuyển cảnh', [
+            { value: 'none', label: 'Cắt thẳng' },
+            { value: 'fade', label: 'Chớm tối ở mối nối' },
+            { value: 'dip', label: 'Tối hẳn giữa hai cảnh' }
+          ], st.cfg.transition, function (v) { st.cfg.transition = v; }),
+          UI.select('Chuyển động', [
+            { value: 'basic', label: 'Phóng nhẹ (mặc định)' },
+            { value: 'cinematic', label: 'Điện ảnh — trôi đổi hướng, có chiều sâu' }
+          ], st.cfg.motion, function (v) { st.cfg.motion = v; })),
+        h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '6px' } },
+          'Chuyển cảnh nằm trong thời lượng của chính cảnh nên tổng thời lượng video không đổi — hình vẫn bám đúng giọng đọc.'),
         h('div', { class: 'mt-8' },
           UI.toggle('Lồng tiếng AI (narration)', 'Đọc voiceText của từng cảnh bằng TTS', st.cfg.narration,
             function (v) { st.cfg.narration = v; syncNarration(); })),

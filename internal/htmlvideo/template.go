@@ -41,6 +41,26 @@ func normalizeTemplate(v string) string {
 	return "hero"
 }
 
+// normalizeTransition chuẩn hoá kiểu chuyển cảnh; không hợp lệ → "none".
+func normalizeTransition(v string) string {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "fade":
+		return "fade"
+	case "dip":
+		return "dip"
+	default:
+		return "none"
+	}
+}
+
+// normalizeMotion chuẩn hoá kiểu chuyển động; không hợp lệ → "basic".
+func normalizeMotion(v string) string {
+	if strings.EqualFold(strings.TrimSpace(v), "cinematic") {
+		return "cinematic"
+	}
+	return "basic"
+}
+
 // normalizeLogoPos chuẩn hoá vị trí logo; không hợp lệ → "left".
 func normalizeLogoPos(v string) string {
 	switch strings.ToLower(strings.TrimSpace(v)) {
@@ -95,6 +115,9 @@ func buildSceneHTML(sc Scene, cfg Config, w, h int, durS float64, imgURI string)
 		"logo":       cfg.logoURI,
 		"stock":      cfg.stockURI,
 		"safeGuides": cfg.SafeGuides,
+		"index":      cfg.sceneIndex,
+		"transition": normalizeTransition(cfg.Transition),
+		"motion":     normalizeMotion(cfg.Motion),
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {

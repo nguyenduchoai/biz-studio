@@ -33,7 +33,10 @@ type Client struct {
 	Key   string
 	Base  string
 	Model string
-	HTTP  *http.Client
+	// Model riêng cho ảnh và giọng đọc — model văn bản không làm được hai việc này.
+	ImageModel string
+	TTSModel   string
+	HTTP       *http.Client
 }
 
 // NewFromSettings tạo client từ Settings trong store (key/base/model).
@@ -48,10 +51,12 @@ func NewFromSettings(st *store.Store) *Client {
 		model = defaultModel
 	}
 	return &Client{
-		Key:   strings.TrimSpace(cfg.GeminiAPIKey),
-		Base:  base,
-		Model: model,
-		HTTP:  &http.Client{Timeout: 180 * time.Second},
+		Key:        strings.TrimSpace(cfg.GeminiAPIKey),
+		Base:       base,
+		Model:      model,
+		ImageModel: strings.TrimSpace(cfg.GeminiImageModel),
+		TTSModel:   strings.TrimSpace(cfg.GeminiTTSModel),
+		HTTP:       &http.Client{Timeout: 180 * time.Second},
 	}
 }
 

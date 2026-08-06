@@ -265,8 +265,16 @@ type Settings struct {
 	LongCatGPUs       int    `json:"longcatGpus"`       // số GPU, 0 = 1
 	LongCatInt8       bool   `json:"longcatInt8"`       // nén INT8 cho đỡ VRAM
 
-	GeminiBase           string `json:"geminiBase"`
-	GeminiModel          string `json:"geminiModel"`
+	GeminiBase  string `json:"geminiBase"`
+	GeminiModel string `json:"geminiModel"`
+
+	// Model sinh ảnh và đọc giọng KHÔNG dùng chung với model văn bản: model
+	// văn bản không sinh được ảnh, model ảnh không đọc được giọng. Trước đây
+	// hai thứ này đóng cứng trong mã nguồn nên người dùng không đổi được, mãi
+	// kẹt ở đời model cũ dù API đã có bản mới.
+	GeminiImageModel string `json:"geminiImageModel"` // rỗng = gemini-2.5-flash-image
+	GeminiTTSModel   string `json:"geminiTtsModel"`   // rỗng = gemini-2.5-flash-preview-tts
+
 	ClaudeBin            string `json:"claudeBin"`
 	ClaudeModel          string `json:"claudeModel"`
 	YtdlpBin             string `json:"ytdlpBin"`

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -30,9 +31,17 @@ func (s *Server) routesSettings(mux *http.ServeMux) {
 		writeJSON(w, http.StatusOK, s.st.Settings())
 	})
 
+	// PUT /api/settings — GỘP vào cấu hình đang có, không thay cả khối.
+	//
+	// Trước đây đây là phép thay toàn bộ: gửi lên `{"veoModel":"x"}` là mọi
+	// trường khác bị xoá sạch, kể cả API key. Giao diện luôn gửi đủ mọi trường
+	// nên không lộ ra, nhưng bất cứ ai gọi API bằng curl/script — hoặc gọi
+	// nhầm — đều mất trắng cấu hình mà không có cách khôi phục (store ghi đè
+	// thẳng, không giữ bản sao lưu). Nay chỉ trường nào CÓ MẶT trong JSON gửi
+	// lên mới bị đổi.
 	mux.HandleFunc("PUT /api/settings", func(w http.ResponseWriter, r *http.Request) {
-		var cfg store.Settings
-		if err := readJSON(r, &cfg); err != nil {
+		cfg, err := mergeSettings(s.st.Settings(), r)
+		if err != nil {
 			httpErr(w, http.StatusBadRequest, "%s", err)
 			return
 		}
@@ -288,4 +297,36 @@ func truncateDetail(v string, n int) string {
 		return v[:n] + "…"
 	}
 	return v
+}
+
+// mergeSettings đọc JSON gửi lên và chỉ ghi đè những trường CÓ MẶT trong đó.
+//
+// Cách làm: mã hoá cấu hình hiện tại thành JSON, trộn với JSON gửi lên ở mức
+// khoá, rồi giải mã lại. Nhờ vậy không phải liệt kê tay hàng chục trường —
+// thêm trường mới vào Settings là tự động hoạt động, không sợ bỏ sót.
+func mergeSettings(cur store.Settings, r *http.Request) (store.Settings, error) {
+	var patch map[string]json.RawMessage
+	if err := readJSON(r, &patch); err != nil {
+		return cur, err
+	}
+	base, err := json.Marshal(cur)
+	if err != nil {
+		return cur, fmt.Errorf("đọc cấu hình hiện tại: %w", err)
+	}
+	var merged map[string]json.RawMessage
+	if err := json.Unmarshal(base, &merged); err != nil {
+		return cur, fmt.Errorf("đọc cấu hình hiện tại: %w", err)
+	}
+	for k, v := range patch {
+		merged[k] = v
+	}
+	raw, err := json.Marshal(merged)
+	if err != nil {
+		return cur, fmt.Errorf("gộp cấu hình: %w", err)
+	}
+	var out store.Settings
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return cur, fmt.Errorf("cấu hình gửi lên không hợp lệ: %w", err)
+	}
+	return out, nil
 }

@@ -93,17 +93,83 @@
       h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '-8px' } }, note));
   }
 
-  // Ô nhập model + datalist gợi ý
-  function modelField(label, st, key, placeholder, listId, suggestions) {
+  // ---------- Chọn model: nạp thẳng từ API thay vì gõ tay ----------
+  //
+  // Danh sách model của Google đổi liên tục — model mới ra, model preview bị
+  // gỡ. Gõ tay hoặc để sẵn gợi ý trong mã nguồn thì chỉ đúng vào ngày viết,
+  // sau đó người dùng chọn phải model không còn tồn tại và nhận lỗi khó hiểu.
+  // Nút "Nạp danh sách" hỏi thẳng API bằng khoá đang khai (lệnh đọc, miễn phí).
+
+  var MODEL_CACHE = null;      // kết quả nạp gần nhất, dùng chung cho mọi ô
+  var MODEL_FIELDS = [];       // các ô đang chờ danh sách
+
+  // Ô model: mặc định là ô gõ tay (để vẫn dùng được khi chưa có khoá / mất
+  // mạng), nạp xong thì biến thành danh sách chọn.
+  function modelField(label, st, key, placeholder, group) {
     var input = UI.input({
       value: st[key] || '', placeholder: placeholder,
       oninput: function (e) { st[key] = e.target.value; }
     });
-    input.setAttribute('list', listId);
-    var list = h('datalist', { id: listId }, suggestions.map(function (m) {
-      return h('option', { value: m });
-    }));
-    return UI.field(label, h('div', null, input, list));
+    var host = h('div', null, input);
+    var note = h('div', { class: 'muted', style: { fontSize: '11.5px', marginTop: '4px' } },
+      'Đang gõ tay — bấm “Nạp danh sách model” ở trên để chọn từ API.');
+
+    var field = { key: key, group: group, host: host, note: note, st: st };
+    MODEL_FIELDS.push(field);
+    if (MODEL_CACHE) applyModels(field, MODEL_CACHE);
+    return UI.field(label, h('div', null, host, note));
+  }
+
+  // applyModels đổi ô gõ tay thành ô chọn, giữ nguyên giá trị đang có.
+  function applyModels(field, groups) {
+    var list = (groups && groups[field.group]) || [];
+    if (!list.length) {
+      field.note.textContent = 'API không trả về model nào cho mục này — giữ ô gõ tay.';
+      return;
+    }
+    var cur = field.st[field.key] || '';
+    var opts = list.map(function (m) {
+      return { value: m.id, label: m.id + (m.name && m.name !== m.id ? ' — ' + m.name : '') };
+    });
+    // Model đang đặt mà không còn trong danh sách: vẫn giữ lại nhưng nói rõ,
+    // KHÔNG âm thầm đổi sang model khác — đó là cấu hình của người dùng.
+    var known = list.some(function (m) { return m.id === cur; });
+    if (cur && !known) {
+      opts.unshift({ value: cur, label: cur + ' — ⚠ không còn trong danh sách API' });
+    }
+    if (!cur) cur = list[0].id;
+    field.st[field.key] = cur;
+
+    var sel = UI.select(null, opts, cur, function (v) { field.st[field.key] = v; });
+    field.host.innerHTML = '';
+    field.host.appendChild(sel);
+    field.note.textContent = cur && !known
+      ? '⚠ Model đang đặt không còn trong danh sách API — nên chọn lại.'
+      : 'Đã nạp ' + list.length + ' model từ API.';
+    field.note.style.color = (cur && !known) ? 'var(--red)' : '';
+  }
+
+  // loadModelsBtn — nút nạp dùng chung cho tất cả các ô model.
+  function loadModelsBtn() {
+    var btn = UI.btn('↻ Nạp danh sách model từ API', {
+      variant: 'ghost',
+      onclick: function () {
+        btn.disabled = true;
+        var old = btn.textContent;
+        btn.textContent = 'Đang hỏi Google…';
+        API.get('/api/tools/models').then(function (g) {
+          MODEL_CACHE = g;
+          MODEL_FIELDS.forEach(function (f) { applyModels(f, g); });
+          UI.toast('Đã nạp ' + g.total + ' model từ API.');
+        }).catch(function (err) {
+          UI.toast('Không nạp được danh sách model: ' + err.message, 'error');
+        }).finally(function () { btn.disabled = false; btn.textContent = old; });
+      }
+    });
+    return h('div', { style: { marginBottom: '12px' } }, btn,
+      h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '6px' } },
+        'Lấy đúng danh sách model khoá của bạn dùng được — đây là lệnh đọc, không tốn tiền. ' +
+        'Gõ tay dễ chọn nhầm model đã bị Google gỡ và nhận lỗi khó hiểu.'));
   }
 
   // ---------- Lưới card cài đặt giao diện ----------
@@ -194,11 +260,18 @@
       oninput: function (v) { st.threads = v; }
     });
 
-    return h('div', { class: 'grid-2 mt-8' },
+    return h('div', { class: 'mt-8' }, loadModelsBtn(), h('div', { class: 'grid-2' },
       textField('Gemini Base', st, 'geminiBase', 'https://generativelanguage.googleapis.com'),
       passwordField('API Key', st, 'geminiApiKey', 'Dán API key của bạn…'),
-      modelField('Model', st, 'geminiModel', 'gemini-2.5-flash', 'gemini-model-list',
-        ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview']),
+      withNote(
+        modelField('Model văn bản', st, 'geminiModel', 'vd: gemini-flash-latest', 'text'),
+        'Dùng cho tách cảnh, dịch thuật, viết kịch bản.'),
+      withNote(
+        modelField('Model sinh ảnh', st, 'geminiImageModel', 'rỗng = gemini-2.5-flash-image', 'image'),
+        'Dùng cho storyboard và thumbnail. Model văn bản KHÔNG sinh được ảnh nên phải chọn riêng.'),
+      withNote(
+        modelField('Model đọc giọng (Gemini TTS)', st, 'geminiTtsModel', 'rỗng = gemini-2.5-flash-preview-tts', 'tts'),
+        'Chỉ dùng khi chọn engine Gemini; giọng VieNeu trên máy không cần model này.'),
       withNote(
         passwordField('Khoá Veo — sinh video AI (TRẢ PHÍ)', st, 'veoApiKey',
           'Để trống = dùng chung khoá Gemini ở trên'),
@@ -219,10 +292,8 @@
       textField('LongCat — thư mục trọng số', st, 'longcatCheckpoint', 'vd: …/weights/LongCat-Video-Avatar-1.5'),
       textField('LongCat — python', st, 'longcatPython', 'rỗng = dò venv cạnh mã nguồn'),
       withNote(
-        modelField('Model Veo', st, 'veoModel', 'veo-3.1-fast-generate-preview', 'veo-model-list',
-          ['veo-3.1-generate-preview', 'veo-3.1-fast-generate-preview', 'veo-3.1-lite-generate-preview',
-           'veo-3.0-generate-001', 'veo-3.0-fast-generate-001']),
-        'Veo 3 đã được Google đánh dấu ngừng hỗ trợ — nên dùng Veo 3.1.'),
+        modelField('Model Veo', st, 'veoModel', 'rỗng = veo-3.1-fast-generate-preview', 'video'),
+        'Bấm nạp danh sách để lấy đúng model Veo đang phục vụ — Google đã gỡ hẳn các model Veo 3.0 cũ.'),
       textField('Claude bin', st, 'claudeBin', 'claude'),
       textField('Claude model (tùy chọn)', st, 'claudeModel', 'VD: claude-sonnet-4-5'),
       textField('yt-dlp bin', st, 'ytdlpBin', 'yt-dlp'),
@@ -249,7 +320,7 @@
         ], st.whisperCompute || 'auto', function (v) { st.whisperCompute = v; }),
         'Đổi model hoặc compute xong nhớ Lưu cấu hình rồi bấm “Kiểm tra kết nối”.'),
       qualitySel,
-      threadsSlider);
+      threadsSlider));
   }
 
   // Tab 2 — API Trực Tiếp (OpenAI-compatible)
@@ -260,8 +331,7 @@
       h('div', { class: 'grid-2' },
         textField('Base URL', st, 'openaiBase', 'https://api.openai.com/v1'),
         passwordField('API Key', st, 'openaiKey', 'Dán API key của bạn…'),
-        modelField('Model', st, 'openaiModel', 'gpt-4o-mini', 'openai-model-list',
-          ['gpt-4o-mini', 'gpt-4o', 'llama3.1', 'qwen2.5'])));
+        textField('Model', st, 'openaiModel', 'vd: gpt-4o-mini, llama3.1, qwen2.5')));
   }
 
   // Tab 3 — Media Xu hướng (Pexels)

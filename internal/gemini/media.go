@@ -13,8 +13,10 @@ import (
 )
 
 const (
-	imageModel = "gemini-2.5-flash-image"
-	ttsModel   = "gemini-2.5-flash-preview-tts"
+	// Mặc định khi người dùng chưa chọn — giữ đúng model cũ để bản cập nhật
+	// không đổi hành vi của dự án đang chạy dở.
+	defaultImageModel = "gemini-2.5-flash-image"
+	defaultTTSModel   = "gemini-2.5-flash-preview-tts"
 
 	// PCM 16-bit 24kHz mono — định dạng audio Gemini TTS trả về.
 	wavSampleRate = 24000
@@ -22,13 +24,28 @@ const (
 	wavBits       = 16
 )
 
+// imageModel / ttsModel — model người dùng chọn, rỗng thì dùng mặc định.
+func (c *Client) imageModel() string {
+	if m := strings.TrimSpace(c.ImageModel); m != "" {
+		return m
+	}
+	return defaultImageModel
+}
+
+func (c *Client) ttsModel() string {
+	if m := strings.TrimSpace(c.TTSModel); m != "" {
+		return m
+	}
+	return defaultTTSModel
+}
+
 // GenerateImage tạo ảnh từ prompt và ghi ra file PNG dstPNG.
 func (c *Client) GenerateImage(ctx context.Context, prompt, dstPNG string) error {
 	req := genRequest{
 		Contents:         []reqContent{{Parts: []reqPart{{Text: prompt}}}},
 		GenerationConfig: map[string]any{"responseModalities": []string{"IMAGE", "TEXT"}},
 	}
-	resp, err := c.generate(ctx, imageModel, req)
+	resp, err := c.generate(ctx, c.imageModel(), req)
 	if err != nil {
 		return err
 	}
@@ -67,7 +84,7 @@ func (c *Client) TTS(ctx context.Context, text, voice, dstWav string) error {
 			},
 		},
 	}
-	resp, err := c.generate(ctx, ttsModel, req)
+	resp, err := c.generate(ctx, c.ttsModel(), req)
 	if err != nil {
 		return err
 	}

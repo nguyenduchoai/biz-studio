@@ -39,19 +39,12 @@ var models = []Model{
 		Desc:      "Rẻ nhất. Hợp để dò prompt trước khi chạy bản chuẩn.",
 		PricePerS: map[string]float64{"720p": 0.05, "1080p": 0.08},
 	},
-	{
-		ID: "veo-3.0-generate-001", Name: "Veo 3 — chuẩn (ngừng hỗ trợ)",
-		Desc:       "Google đã đánh dấu ngừng hỗ trợ; chỉ nên dùng nếu bạn đang phụ thuộc bản này.",
-		Deprecated: true,
-		PricePerS:  map[string]float64{"720p": 0.40, "1080p": 0.40},
-	},
-	{
-		ID: "veo-3.0-fast-generate-001", Name: "Veo 3 — nhanh (ngừng hỗ trợ)",
-		Desc:       "Google đã đánh dấu ngừng hỗ trợ.",
-		Deprecated: true,
-		PricePerS:  map[string]float64{"720p": 0.10, "1080p": 0.12, "4k": 0.30},
-	},
 }
+
+// Không liệt kê veo-3.0-*: đã kiểm bằng cách hỏi thẳng API models.list — Google
+// đã GỠ HẲN hai model đó, chọn vào là nhận lỗi 404 sau khi người dùng đã chờ.
+// Bảng trên chỉ dùng để TRA GIÁ; danh sách model thật lấy từ API để không bao
+// giờ chào một model không còn tồn tại.
 
 // DefaultModel — model dùng khi người dùng chưa chọn.
 const DefaultModel = "veo-3.1-fast-generate-preview"

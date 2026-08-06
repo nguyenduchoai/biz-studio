@@ -27,6 +27,19 @@
 
 ## Có gì mới
 
+### v1.9.0 — 04/08/2026 — Avatar nói (LongCat-Video)
+
+- 🗣️ **Avatar nói**: một tấm ảnh + một file giọng → video nhân vật nói, khẩu hình khớp lời. Dùng **LongCat-Video-Avatar** của Meituan (giấy phép MIT, miễn phí, không thuê bao tháng như các nền tảng avatar AI khác).
+- 🔗 **Nối thẳng vào giọng Việt sẵn có**: gõ chữ → VieNeu đọc bằng giọng Việt (kể cả **giọng bạn đã nhân bản**) → dựng luôn thành video người nói. Không phải đi tìm file giọng ở đâu khác — cả dây chuyền chạy trên máy bạn, không tốn phí API.
+- 🖥️ **Máy nào cũng dùng được.** LongCat là model 13,6 tỉ tham số, **bắt buộc GPU NVIDIA** — không có bản cho Apple Silicon hay CPU. Nên có hai chế độ:
+
+| Chế độ | Khi nào dùng |
+|---|---|
+| `local` | Biz Studio chạy ngay trên máy có GPU NVIDIA |
+| `remote` | Máy bạn không có GPU — cài LongCat trên một máy GPU, chạy `scripts/longcat-worker.py` ở đó, máy bạn làm bàn điều khiển |
+
+Cài trên máy GPU: `./scripts/setup-longcat.sh` → điền đường dẫn (local) hoặc bật xưởng render rồi điền địa chỉ máy GPU (remote) vào Cấu hình & API.
+
 ### v1.8.0 — 04/08/2026 — Sinh video bằng AI (Google Veo)
 
 - 🎥 **Veo — sinh video AI**: mô tả cảnh bằng lời (tiếng Việt cũng được), Google Veo dựng thành clip 4/6/8 giây **có tiếng**, dọc 9:16 hoặc ngang 16:9, 720p/1080p/4K. Dùng được ảnh làm khung hình đầu. Clip xong tự vào thư viện media của dự án.
@@ -236,6 +249,7 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 - **HTML Video** — video-as-code: 3 nguồn (prompt / bài viết / repo GitHub — tự đọc README), AI tách thành cảnh theo 8 template HTML (thêm bố cục Key cho video dọc), chỉnh từng cảnh, render bằng Chrome headless (24/30fps, 3 theme, narration TTS, nhạc nền, phụ đề).
 - **Text → Video** — quy trình 5 bước có lưu phiên: Nguồn (link/văn bản) → Kịch bản đọc (chia đoạn, sửa tay, chọn model) → Giọng đọc (đo thời lượng thật, xuất `voice.wav` + `transcript.json`) → Cấu hình → Dựng video (AI hoặc HTML Video). Danh sách phiên cho phép quay lại sửa và dựng lại bất cứ lúc nào.
 - **Dự án** — trang điều phối trung tâm (chi tiết ở phần Phiên AI phía trên) + QC, thumbnail, gói xuất bản, QR điện thoại, quản lý prompt mẫu (**có sẵn 8 prompt mẫu** cho các thể loại: viral TikTok, TVC sản phẩm, vlog, giáo dục, recap, repo tech, podcast clip, số liệu).
+- **Avatar nói** — ảnh + giọng → video nhân vật nói. Gõ chữ là máy tự đọc bằng giọng Việt rồi dựng luôn. Cần một máy có GPU NVIDIA (chạy tại chỗ hoặc đẩy việc sang qua mạng).
 - **Veo — Sinh video AI** — mô tả cảnh bằng lời → clip 4/6/8 giây có tiếng. Chi phí ước tính hiện sẵn, đổi tuỳ chọn là đổi theo; có bước xác nhận trước khi chạy. Cần khoá Google riêng đã bật thanh toán.
 - **Diện mạo** — 14 kiểu chỉnh màu (xem thử một khung hình trước khi chạy cả video, chỉnh độ mạnh 10–100%), 10 tiếng động tổng hợp tại chỗ và cân cùng độ to (nghe thử, chèn theo mốc giây), và tải font tiếng Việt dùng chung cho mọi máy.
 - **Nhật ký** — log hệ thống realtime, lọc theo mức độ.
@@ -258,6 +272,7 @@ Backend là REST thuần — bạn có thể tự động hóa mọi thứ khôn
 | `GET /api/tools/sfx` · `POST /api/tools/sfx/mix` | Thư viện tiếng động; chèn theo mốc giây |
 | `GET/POST /api/tools/font` | Trạng thái và tải font tiếng Việt |
 | `GET /api/tools/veo` · `POST /api/tools/veo/estimate` · `POST /api/tools/veo` | Veo: model + bảng giá, ước tính chi phí (miễn phí), tạo video (bắt buộc cờ `confirmed`) |
+| `GET /api/tools/avatar` · `POST /api/tools/avatar` · `/avatar/voice` | Avatar nói: trạng thái engine, dựng video, đọc lời thành file giọng |
 | `POST /api/ideas/{id}/retry` · `/retry-failed` · `/queue-pending` | Thử lại ý tưởng hỏng, xếp hàng ý tưởng đã duyệt |
 | `POST /api/tools/htmlvideo/plan` · `POST /api/tools/htmlvideo` | HTML Video: tách cảnh từ prompt/bài viết/repo → render MP4 |
 | `GET /api/tools/voices` · `GET /api/jobs` · `GET /api/logs` · CRUD `/api/prompts` | Tra cứu |

@@ -205,6 +205,20 @@
         '⚠️ Veo tính tiền theo GIÂY video và không có bậc miễn phí — dự án Google phải bật thanh toán. ' +
         'Clip 8 giây tốn khoảng $0.40 (lite) đến $3.20 (chuẩn). Chi phí luôn hiện trước khi bấm tạo.'),
       withNote(
+        UI.select('Avatar nói — engine LongCat', [
+          { value: '', label: 'Tắt' },
+          { value: 'local', label: 'Chạy trên máy này (cần GPU NVIDIA)' },
+          { value: 'remote', label: 'Đẩy sang máy GPU khác' }
+        ], st.longcatMode || '', function (v) { st.longcatMode = v; }),
+        'LongCat-Video-Avatar là model 13,6 tỉ tham số, BẮT BUỘC GPU NVIDIA — không có bản cho Apple Silicon hay CPU. ' +
+        'Máy thường vẫn dùng được bằng chế độ "remote": cài trên máy GPU bằng ./scripts/setup-longcat.sh rồi chạy scripts/longcat-worker.py ở đó.'),
+      withNote(
+        textField('Địa chỉ máy GPU (chế độ remote)', st, 'longcatWorkerUrl', 'http://192.168.1.50:7070'),
+        'Địa chỉ máy đang chạy longcat-worker.py.'),
+      textField('LongCat — thư mục mã nguồn', st, 'longcatRepo', 'vd: data/longcat/LongCat-Video'),
+      textField('LongCat — thư mục trọng số', st, 'longcatCheckpoint', 'vd: …/weights/LongCat-Video-Avatar-1.5'),
+      textField('LongCat — python', st, 'longcatPython', 'rỗng = dò venv cạnh mã nguồn'),
+      withNote(
         modelField('Model Veo', st, 'veoModel', 'veo-3.1-fast-generate-preview', 'veo-model-list',
           ['veo-3.1-generate-preview', 'veo-3.1-fast-generate-preview', 'veo-3.1-lite-generate-preview',
            'veo-3.0-generate-001', 'veo-3.0-fast-generate-001']),

@@ -126,6 +126,10 @@ Bốn tính năng biến Biz Studio thành xưởng làm video hàng loạt, kh�
 | 📱 **Kết nối điện thoại** | Quét QR bằng camera điện thoại (cùng Wi-Fi) → gửi video/ảnh thẳng vào dự án, không cần cáp, không cần Drive. |
 | ⬇️ **Tải video** | Tải hàng loạt từ YouTube/TikTok/Facebook… qua yt-dlp (dán link hoặc file TXT, chọn chất lượng, hỗ trợ cookies). |
 | 🎞 **Studio Editor** | Thư viện media, preview, timeline trực quan, cắt khoảng lặng, render final. |
+| 🗣️ **Avatar nói** | Một tấm ảnh + một file giọng → video nhân vật nói khớp khẩu hình (LongCat-Video-Avatar, giấy phép MIT). Gõ chữ là máy tự đọc bằng giọng Việt rồi dựng luôn. **Cần một máy có GPU NVIDIA** — chạy tại chỗ hoặc đẩy việc sang qua mạng. |
+| 🎥 **Veo — sinh video AI** | Mô tả cảnh bằng lời → clip 4/6/8 giây **có tiếng** (Google Veo 3.1). **Trả phí theo giây trên khoá riêng của bạn** — chi phí hiện sẵn và có bước xác nhận trước mỗi lần tạo. |
+| 🌈 **Diện mạo** | 14 kiểu chỉnh màu (xem thử một khung hình trước khi chạy cả video), 10 tiếng động tổng hợp tại chỗ và cân cùng độ to, font tiếng Việt Be Vietnam Pro dùng chung cho mọi máy. |
+| 🎧 **Bóc băng offline** | faster-whisper chạy trên máy, **không cần khoá API**, cho mốc **từng từ** — nhờ đó cắt khoảng lặng không nuốt chữ và xuất được phụ đề karaoke `.ass`. |
 
 ## Hệ thống vận hành thế nào
 
@@ -226,6 +230,10 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 | Mục | Ý nghĩa |
 |---|---|
 | Gemini Base / API Key / Model | Kết nối Gemini (mặc định `gemini-2.5-flash`) |
+| **Khoá Veo + Model Veo** | Sinh video AI — **trả phí theo giây**, cần dự án Google đã bật thanh toán. Để trống khoá thì dùng chung khoá Gemini. Mặc định `veo-3.1-fast-generate-preview` |
+| **Avatar nói — engine LongCat** | `Tắt` / `local` (máy này có GPU NVIDIA) / `remote` (đẩy sang máy GPU khác) + địa chỉ máy GPU, thư mục mã nguồn, thư mục trọng số, python |
+| **VieNeu-TTS python** | Giọng Việt on-device — cài bằng `./scripts/setup-vieneu.sh` |
+| **faster-whisper** python / model / compute | Bóc băng offline có mốc từng từ — cài bằng `./scripts/setup-whisper.sh` |
 | **API Trực Tiếp** (tab riêng) | Base URL + Key + Model endpoint OpenAI-compatible — thêm 1 engine cho Dịch thuật/tách cảnh |
 | **Media Xu hướng** (tab riêng) | Pexels API key — tự chèn ảnh stock theo từ khóa cảnh |
 | Chrome bin | Đường dẫn trình duyệt render HTML Video (mặc định tự dò) |
@@ -233,7 +241,7 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 | yt-dlp bin / Thư mục tải / Cookies / Chất lượng / Luồng | Cấu hình tải video |
 | Giao diện / Kích thước / Gradient / Hiệu năng | Tuỳ biến UI (sáng/tối, scale…) |
 | Nhớ bản dịch / Cache TTS | Tăng tốc thao tác lặp lại |
-| **Kiểm tra kết nối** | Test 1 chạm: ffmpeg, Claude CLI, Gemini, yt-dlp |
+| **Kiểm tra kết nối** | Test 1 chạm: ffmpeg, Claude CLI, Gemini, yt-dlp, VieNeu, faster-whisper |
 | **Dọn file tạm** | Giải phóng `data/tmp` + tmp của các dự án |
 
 ## Các module chi tiết
@@ -286,10 +294,14 @@ Chi tiết request/response: [`docs/contracts.md`](docs/contracts.md).
 data/                       # sinh khi chạy (không commit)
 ├── db.json                 # store JSON: projects, assets, sessions, jobs, settings, logs
 ├── projects/<id>/          # mỗi dự án một thư mục
-│   ├── assets/  outputs/  publish/  tmp/
+│   ├── assets/  outputs/  publish/  tmp/  veo/  avatar/
 │   ├── qc.json  meta.json  thumb.jpg
 ├── uploads/                # file người dùng upload cho OCR/ASR/Dịch
 ├── downloads/              # video tải về
+├── fonts/                  # font tiếng Việt tải về (Be Vietnam Pro)
+├── sfx/                    # thư viện tiếng động, tổng hợp lần đầu dùng
+├── vieneu/  whisper/       # môi trường Python của giọng đọc & bóc băng
+├── characters/  text2video/
 └── tmp/
 
 cmd/bizstudio/              # entry point
@@ -298,16 +310,29 @@ internal/
 ├── store/                  # JSON store an toàn goroutine
 ├── jobs/                   # job queue nền
 ├── agent/                  # phiên AI: chạy & parse Claude CLI stream-json
-├── media/                  # wrapper ffmpeg: probe, autocut, concat, subs, LUT…
+├── media/                  # wrapper ffmpeg: probe, autocut, ducking, grade, sfx, subs, LUT…
+├── whisper/                # bóc băng offline faster-whisper, mốc từng từ + phụ đề karaoke
 ├── qc/                     # phân tích loudness / black / freeze / silence
 ├── gemini/                 # client REST Gemini (text, vision, audio, image, TTS)
-├── tts/                    # giọng macOS say + Gemini
-├── translate/              # dịch SRT/TXT giữ timing
-├── downloader/             # yt-dlp
+├── veo/                    # sinh video AI Google Veo + bảng giá & ước tính chi phí
+├── avatar/                 # avatar nói LongCat-Video (chế độ local / remote)
+├── tts/  dubbing/          # giọng đọc VieNeu / say / Gemini, lồng tiếng khớp timing
+├── htmlvideo/              # render video bằng HTML/CSS qua headless Chrome
+├── text2video/             # phiên Text → Video (kịch bản, giọng, storyboard)
+├── ideas/                  # đề xuất ý tưởng + hàng đợi sản xuất tuần tự
+├── stylekit/  stockmedia/  # phong cách hình ảnh, ảnh tư liệu Pexels
+├── translate/  downloader/ # dịch SRT/TXT giữ timing, yt-dlp
+├── openaiapi/              # endpoint OpenAI-compatible làm engine thứ 3
 ├── publishpkg/             # gói xuất bản + meta AI
 ├── vox/                    # engine render bài viết → video
-└── util/                   # exec, thống kê máy
+└── util/                   # exec, thống kê máy, vá PATH cho bản đóng gói
 web/static/                 # SPA: index.html, css/, js/pages/*.js (nhúng vào binary)
+scripts/
+├── build-release.sh        # đóng gói dmg / exe / tar.gz
+├── setup-vieneu.sh         # cài giọng đọc Việt on-device
+├── setup-whisper.sh        # cài bóc băng offline
+├── setup-longcat.sh        # cài avatar nói (CHỈ chạy trên máy có GPU NVIDIA)
+└── longcat-worker.py       # xưởng render avatar đặt trên máy GPU
 ```
 
 ## Khắc phục sự cố
@@ -320,6 +345,12 @@ web/static/                 # SPA: index.html, css/, js/pages/*.js (nhúng vào 
 | Video không preview được | Kiểm tra file có trong `data/` và URL bắt đầu bằng `/data/`. |
 | Điện thoại không mở được trang QR | Điện thoại phải cùng mạng Wi-Fi; kiểm tra firewall cho phép cổng 6868. |
 | Muốn đổi cổng / thư mục dữ liệu | `./bizstudio -port 8080 -data /duong/dan/khac` |
+| Avatar nói báo "máy này không có GPU NVIDIA" | Đúng như vậy — LongCat bắt buộc CUDA, không chạy trên Apple Silicon hay CPU. Cài trên một máy có GPU rồi chuyển sang chế độ **remote**. |
+| Avatar nói: "không kết nối được máy GPU" | Máy GPU phải đang chạy `scripts/longcat-worker.py`; kiểm tra firewall mở cổng 7070 và địa chỉ điền đúng dạng `http://<ip>:7070`. |
+| Veo báo lỗi khoá không hợp lệ / 403 | Dự án Google của khoá đó phải **bật thanh toán** — Veo không có bậc miễn phí. Khoá Gemini thường sẽ không chạy được Veo. |
+| Veo báo "model không tìm thấy" | Model preview có thể bị Google đổi tên. Chọn model khác trong **Cấu hình & API → Model Veo**. |
+| Chữ tiếng Việt trong video hiện hai kiểu font lẫn lộn | Font hệ điều hành thiếu chữ có dấu chồng tầng. Vào **Diện mạo** bấm tải font Be Vietnam Pro (~400 KB). |
+| Cắt khoảng lặng bị nuốt chữ | Bật **bảo vệ bằng transcript** trong Studio Editor — bóc băng trước bằng faster-whisper để có mốc từng từ. |
 
 ## Cảm hứng & ghi nhận
 

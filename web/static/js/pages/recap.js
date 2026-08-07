@@ -209,7 +209,34 @@
             function (v) { st.burnSub = v; }))),
       h('div', { class: 'muted', style: { fontSize: '12.5px', margin: '8px 0' } },
         'Lời dài hơn cảnh: giọng tăng tốc tối đa 1.6x, vẫn thiếu thì cảnh tự đóng băng khung cuối kéo dài cho tròn lời — không bao giờ cắt cụt câu.'),
-      runBtn, out);
+      h('div', { class: 'row' }, runBtn, capcutBtn(st, out)), out);
+  }
+
+  // capcutBtn — xuất dự án CapCut (.draft) để dựng tiếp trong CapCut.
+  function capcutBtn(st, out) {
+    var btn = UI.btn('📦 Xuất dự án CapCut', {
+      variant: 'ghost',
+      onclick: function () {
+        btn.disabled = true;
+        saveTexts(st, function () {
+          API.post('/api/tools/recap/capcut', { path: st.manifestPath }).then(function (job) {
+            UI.toast('Đang đóng gói dự án CapCut…');
+            waitJob(job.id, function (path) {
+              out.appendChild(h('div', { class: 'card mt-8', style: { padding: '12px' } },
+                h('div', { style: { fontWeight: '700', marginBottom: '6px' } }, '📦 Dự án CapCut đã sẵn sàng'),
+                h('a', { href: dataURL(path), download: '' }, '⬇ Tải ' + path.split('/').pop()),
+                h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '6px', lineHeight: '1.6' } },
+                  'Giải nén rồi đặt cả thư mục vào kho draft của CapCut. Lưu ý: draft trỏ tới file phim và ' +
+                  'file giọng trên MÁY NÀY — mở trên máy khác thì CapCut sẽ hỏi tìm lại media. ' +
+                  'Định dạng draft do cộng đồng mổ ngược, phiên bản CapCut quá mới có thể đổi cấu trúc.')));
+              UI.toast('Xong!');
+            }, function (err) { UI.toast('Xuất thất bại: ' + err, 'error'); });
+          }).catch(function (err) { UI.toast('Không chạy được: ' + err.message, 'error'); })
+            .finally(function () { btn.disabled = false; });
+        });
+      }
+    });
+    return btn;
   }
 
   // ---------- tiện ích ----------

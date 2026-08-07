@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"bizstudio/internal/capcut"
 	"bizstudio/internal/recap"
 )
 
@@ -27,6 +28,7 @@ func (s *Server) routesRecap(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/tools/recap", s.handleRecapGet)
 	mux.HandleFunc("POST /api/tools/recap/save", s.handleRecapSave)
 	mux.HandleFunc("POST /api/tools/recap/render", s.handleRecapRender)
+	mux.HandleFunc("POST /api/tools/recap/capcut", s.handleRecapCapcut)
 }
 
 // handleRecapAnalyze — POST /api/tools/recap/analyze: job chia cảnh + AI viết lời.
@@ -182,6 +184,52 @@ func (s *Server) handleRecapRender(w http.ResponseWriter, r *http.Request) {
 			s.Log("info", "recap", fmt.Sprintf("Đã dựng video kể chuyện %s — %.1fs, %d cảnh có lời",
 				filepath.Base(res.VideoPath), res.Duration, res.Voiced))
 			return s.toolRelPath(res.VideoPath), nil
+		})
+	writeJSON(w, http.StatusOK, j)
+}
+
+// handleRecapCapcut — POST /api/tools/recap/capcut: xuất phiên thành dự án
+// CapCut (.draft) để dựng tiếp trong trình dựng người dùng quen tay.
+func (s *Server) handleRecapCapcut(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path string `json:"path"`
+	}
+	if err := readJSON(r, &body); err != nil {
+		httpErr(w, http.StatusBadRequest, "%s", err)
+		return
+	}
+	p, ok := s.toolSrcPath(w, body.Path)
+	if !ok {
+		return
+	}
+	m, err := recap.Load(p)
+	if err != nil {
+		httpErr(w, http.StatusBadRequest, "%v", err)
+		return
+	}
+	srcAbs, ok := s.toolSrcPath(w, m.Source)
+	if !ok {
+		return
+	}
+	j := s.Jobs.Submit("recap_capcut", "", "Xuất CapCut: "+m.ID,
+		func(upd func(float64, string)) (string, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer cancel()
+			upd(20, "Dựng dự án CapCut từ danh sách cảnh…")
+			res, err := capcut.FromRecap(ctx, s.DataDir, m, srcAbs)
+			if err != nil {
+				return "", err
+			}
+			note := fmt.Sprintf("%d cảnh có lời", res.Voiced)
+			if res.Overflow > 0 {
+				note += fmt.Sprintf(" · %d lời tràn cảnh nằm ở track lời thứ hai", res.Overflow)
+			}
+			if res.Clamped > 0 {
+				note += fmt.Sprintf(" · %d lời bị dời/cắt hiển thị vì tràn quá dài", res.Clamped)
+			}
+			upd(98, note)
+			s.Log("info", "recap", "Đã xuất dự án CapCut: "+filepath.Base(res.ZipPath)+" — "+note)
+			return s.toolRelPath(res.ZipPath), nil
 		})
 	writeJSON(w, http.StatusOK, j)
 }

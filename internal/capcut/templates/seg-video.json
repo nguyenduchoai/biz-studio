@@ -1,0 +1,56 @@
+{
+ "enable_adjust": true,
+ "enable_color_correct_adjust": false,
+ "enable_color_curves": true,
+ "enable_color_match_adjust": false,
+ "enable_color_wheels": true,
+ "enable_lut": true,
+ "enable_smart_color_adjust": false,
+ "last_nonzero_volume": 1.0,
+ "reverse": false,
+ "track_attribute": 0,
+ "track_render_index": 0,
+ "visible": true,
+ "id": "",
+ "material_id": "",
+ "target_timerange": {
+  "start": 0,
+  "duration": 0
+ },
+ "common_keyframes": [],
+ "keyframe_refs": [],
+ "source_timerange": {
+  "start": 0,
+  "duration": 0
+ },
+ "speed": 1.0,
+ "volume": 1.0,
+ "extra_material_refs": [],
+ "is_tone_modify": false,
+ "clip": {
+  "alpha": 1.0,
+  "flip": {
+   "horizontal": false,
+   "vertical": false
+  },
+  "rotation": 0.0,
+  "scale": {
+   "x": 1.0,
+   "y": 1.0
+  },
+  "transform": {
+   "x": 0.0,
+   "y": 0.0
+  }
+ },
+ "uniform_scale": {
+  "on": true,
+  "value": 1.0
+ },
+ "hdr_settings": {
+  "intensity": 1.0,
+  "mode": 1,
+  "nits": 1000
+ },
+ "render_index": 0
+}

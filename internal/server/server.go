@@ -41,6 +41,7 @@ func New(st *store.Store, dataDir string, port int) *Server {
 	s.routesVeo(s.mux)
 	s.routesAvatar(s.mux)
 	s.routesModels(s.mux)
+	s.routesRecap(s.mux)
 	s.routesHTMLVideo(s.mux)
 	s.routesClone(s.mux)
 	s.routesDubbing(s.mux)

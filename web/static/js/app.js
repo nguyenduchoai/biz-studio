@@ -24,6 +24,7 @@
       { id: 'look', label: 'Diện mạo', icon: '🌈' },
       { id: 'veo', label: 'Veo — Sinh video AI', icon: '🎥' },
       { id: 'avatar', label: 'Avatar nói', icon: '🗣️' },
+      { id: 'recap', label: 'Phim → Kể chuyện', icon: '🎞️' },
       { id: 'editor', label: 'Studio Editor', icon: '✂️' }
     ]},
     { group: 'HỆ THỐNG', items: [

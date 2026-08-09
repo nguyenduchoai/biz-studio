@@ -22,31 +22,96 @@ import (
 const fillSystem = `Bạn là biên kịch dựng hồ sơ nhân vật cho một xưởng phim hoạt hình.
 Chỉ trả về DUY NHẤT một object JSON, không giải thích, không rào markdown.`
 
+// khuonJSON — khuôn trả lời, liệt kê đúng tên MỌI khoá.
+//
+// Phải đưa khuôn đầy đủ chứ không mô tả suông: đo thật thấy khi chỉ viết
+// {"persona":{...}} thì model tự nghĩ ra tên khoá của nó (age thay ageRange,
+// role thay identity) và bỏ trống quá nửa số trường.
+const khuonJSON = `{
+  "persona": {
+    "gender": "Nam hoặc Nữ",
+    "ageRange": "khoảng bao nhiêu tuổi",
+    "identity": "thân phận, nghề nghiệp",
+    "appearance": "ngoại hình đầy đủ, chi tiết hơn mô tả gốc",
+    "personality": ["từ 1", "từ 2", "từ 3"],
+    "temperament": "khí chất, cách ăn nói",
+    "motivation": "điều nhân vật muốn",
+    "arc": "tuyến phát triển",
+    "region": "Bắc hoặc Trung hoặc Nam"
+  },
+  "voice": {
+    "timbre": "âm sắc",
+    "pitch": "cao độ",
+    "pace": "nhịp nói",
+    "accent": "giọng vùng miền",
+    "emotion": "cảm xúc mặc định"
+  },
+  "imagePrompt": "một câu tiếng Anh tả chân dung"
+}`
+
 // LuatPromptAnh — luật viết prompt ảnh, tách riêng để bài kiểm tra soi được.
 const LuatPromptAnh = `TUYỆT ĐỐI KHÔNG viết tên nhân vật, biệt danh, tên tác giả hay tên tác phẩm vào imagePrompt.
 Model sinh ảnh thiên vị rất nặng với tên riêng: gọi tên là nó vẽ nhân vật nó đã học chứ không vẽ nhân vật này.
 Hãy MÔ TẢ con người, đừng gọi tên.`
 
-type fillResult struct {
-	Persona struct {
-		Gender      string   `json:"gender"`
-		AgeRange    string   `json:"ageRange"`
-		Identity    string   `json:"identity"`
-		Appearance  string   `json:"appearance"`
-		Personality []string `json:"personality"`
-		Temperament string   `json:"temperament"`
-		Motivation  string   `json:"motivation"`
-		Arc         string   `json:"arc"`
-		Region      string   `json:"region"`
-	} `json:"persona"`
-	Voice struct {
-		Timbre  string `json:"timbre"`
-		Pitch   string `json:"pitch"`
-		Pace    string `json:"pace"`
-		Accent  string `json:"accent"`
-		Emotion string `json:"emotion"`
-	} `json:"voice"`
-	ImagePrompt string `json:"imagePrompt"`
+// Đọc câu trả lời của AI theo kiểu KHOAN DUNG, không dùng struct cứng: đo thật
+// thấy model trả "personality" là CHUỖI thay vì mảng, và đặt tên trường khác
+// (age thay ageRange, role thay identity). Bắt bẻ đúng schema thì hỏng cả lần
+// gọi vì một dấu ngoặc — trong khi dữ liệu vẫn dùng được.
+
+// pickStr lấy giá trị chuỗi đầu tiên tìm được trong các khoá có thể có.
+func pickStr(m map[string]any, keys ...string) string {
+	for _, k := range keys {
+		if v, ok := m[k]; ok {
+			if s, ok := v.(string); ok && strings.TrimSpace(s) != "" {
+				return strings.TrimSpace(s)
+			}
+		}
+	}
+	return ""
+}
+
+// pickList lấy danh sách, chấp nhận cả mảng lẫn một chuỗi ngăn bằng dấu phẩy.
+func pickList(m map[string]any, keys ...string) []string {
+	for _, k := range keys {
+		v, ok := m[k]
+		if !ok {
+			continue
+		}
+		switch t := v.(type) {
+		case []any:
+			out := make([]string, 0, len(t))
+			for _, it := range t {
+				if s, ok := it.(string); ok && strings.TrimSpace(s) != "" {
+					out = append(out, strings.TrimSpace(s))
+				}
+			}
+			if len(out) > 0 {
+				return out
+			}
+		case string:
+			var out []string
+			for _, part := range strings.Split(t, ",") {
+				if p := strings.TrimSpace(part); p != "" {
+					out = append(out, p)
+				}
+			}
+			if len(out) > 0 {
+				return out
+			}
+		}
+	}
+	return nil
+}
+
+// sub lấy object con; không có thì trả map rỗng để người gọi khỏi kiểm nil.
+func sub(m map[string]any, key string) map[string]any {
+	if v, ok := m[key]; ok {
+		if o, ok := v.(map[string]any); ok {
+			return o
+		}
+	}
+	return map[string]any{}
 }
 
 // Fill nhờ AI dựng hồ sơ đầy đủ cho nhân vật từ tên/ngoại hình/vai trò đang có,
@@ -81,32 +146,53 @@ func Fill(ctx context.Context, st *store.Store, c *store.Character) error {
 	b.WriteString("  tóc con phá đường chân tóc, nếp nhăn đi theo cơ mặt. Vải phải có thớ, có sờn, có nếp đổ nặng.\n")
 	b.WriteString("- Phần nào phải suy đoán vì mô tả gốc không nói, hãy ghi \"(suy đoán)\" ngay sau.\n")
 	b.WriteString("- " + LuatPromptAnh + "\n")
-	b.WriteString("\nTrả về JSON: {\"persona\":{...},\"voice\":{...},\"imagePrompt\":\"...\"}")
+	// Đưa KHUÔN đầy đủ chứ không mô tả suông: đo thật thấy khi chỉ viết
+	// {"persona":{...}} thì model tự nghĩ ra tên khoá của nó (age thay ageRange,
+	// role thay identity) và bỏ trống quá nửa số trường.
+	b.WriteString("\nĐiền đúng khuôn này, giữ nguyên MỌI tên khoá, không thêm không bớt khoá:\n")
+	b.WriteString(khuonJSON)
 
 	out, err := cli.GenerateText(ctx, fillSystem, b.String())
 	if err != nil {
 		return fmt.Errorf("AI dựng hồ sơ thất bại: %w", err)
 	}
-	var r fillResult
-	if err := json.Unmarshal([]byte(stripFence(out)), &r); err != nil {
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(stripFence(out)), &raw); err != nil {
 		return fmt.Errorf("AI trả về không đúng định dạng JSON: %w — nội dung: %.200s", err, out)
+	}
+	pp, vv := sub(raw, "persona"), sub(raw, "voice")
+	if len(pp) == 0 && len(vv) == 0 {
+		return fmt.Errorf("AI không trả về hồ sơ nào — nội dung: %.200s", out)
 	}
 
 	c.Persona = &store.Persona{
-		Gender: r.Persona.Gender, AgeRange: r.Persona.AgeRange, Identity: r.Persona.Identity,
-		Appearance: r.Persona.Appearance, Personality: r.Persona.Personality,
-		Temperament: r.Persona.Temperament, Motivation: r.Persona.Motivation,
-		Arc: r.Persona.Arc, Region: r.Persona.Region,
+		Gender:      pickStr(pp, "gender", "sex", "gioiTinh"),
+		AgeRange:    pickStr(pp, "ageRange", "age", "tuoi"),
+		Identity:    pickStr(pp, "identity", "role", "occupation", "thanPhan"),
+		Appearance:  pickStr(pp, "appearance", "look", "ngoaiHinh"),
+		Personality: pickList(pp, "personality", "traits", "tinhCach"),
+		Temperament: pickStr(pp, "temperament", "khiChat"),
+		Motivation:  pickStr(pp, "motivation", "goal", "dongCo"),
+		Arc:         pickStr(pp, "arc", "development", "tuyenPhatTrien"),
+		Region:      pickStr(pp, "region", "accentRegion", "vungMien"),
 	}
 	c.VoiceSpec = &store.VoiceSpec{
-		Timbre: r.Voice.Timbre, Pitch: r.Voice.Pitch, Pace: r.Voice.Pace,
-		Accent: r.Voice.Accent, Emotion: r.Voice.Emotion,
+		Timbre:  pickStr(vv, "timbre", "tone", "amSac"),
+		Pitch:   pickStr(vv, "pitch", "caoDo"),
+		Pace:    pickStr(vv, "pace", "speed", "nhip"),
+		Accent:  pickStr(vv, "accent", "giongVung"),
+		Emotion: pickStr(vv, "emotion", "mood", "camXuc"),
 	}
 	c.VoiceSpec.Prompt = VoicePrompt(c.Persona, c.VoiceSpec)
-	c.VoiceSpec.VoiceID = MatchVoice(c.Persona, tts.VoicesFor(st))
+	voiceID, regionOK := MatchVoice(c.Persona, tts.VoicesFor(st))
+	c.VoiceSpec.VoiceID = voiceID
+	if voiceID != "" && !regionOK {
+		c.VoiceSpec.Note = fmt.Sprintf("chưa có giọng miền %s trong máy — đã ghép giọng %s, bạn đổi tay được",
+			c.Persona.Region, voiceID)
+	}
 
 	// Chốt chặn cuối: AI vẫn có thể quên luật và nhét tên vào prompt ảnh.
-	c.ImagePrompt = StripNames(r.ImagePrompt, c.Name)
+	c.ImagePrompt = StripNames(pickStr(raw, "imagePrompt", "image_prompt", "prompt"), c.Name)
 	if c.Negative == "" {
 		c.Negative = SheetNegative
 	}

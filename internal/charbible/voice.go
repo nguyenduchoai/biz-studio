@@ -17,17 +17,21 @@ import (
 // MatchVoice chọn giọng hợp nhất trong danh sách cho một hồ sơ nhân vật.
 // Trả rỗng khi không có giọng nào đủ tin cậy — thà để người dùng tự chọn còn
 // hơn gán bừa một giọng sai giới tính.
-func MatchVoice(p *store.Persona, voices []tts.Voice) string {
+//
+// regionOK cho biết có ghép ĐÚNG vùng miền không. Kho giọng thật hiện không có
+// giọng miền Nam nào, nên nhân vật miền Nam sẽ nhận giọng miền khác — người gọi
+// PHẢI nói ra điều đó, không được lặng lẽ thay giọng rồi coi như xong.
+func MatchVoice(p *store.Persona, voices []tts.Voice) (id string, regionOK bool) {
 	if p == nil || len(voices) == 0 {
-		return ""
+		return "", false
 	}
 	wantMale, knowGender := genderOf(p.Gender)
 	if !knowGender {
-		return ""
+		return "", false
 	}
 	wantRegion := regionOf(p.Region)
 
-	best, bestScore := "", -1
+	best, bestScore, bestRegion := "", -1, false
 	for _, v := range voices {
 		// Chỉ ghép giọng Việt on-device: giọng hệ điều hành và giọng nhân bản
 		// không có thuộc tính đủ tin để ghép tự động.
@@ -38,15 +42,19 @@ func MatchVoice(p *store.Persona, voices []tts.Voice) string {
 		if !ok || isMale != wantMale {
 			continue
 		}
-		score := 1
+		score, hitRegion := 1, false
 		if wantRegion != "" && strings.Contains(v.Lang, wantRegion) {
-			score += 2
+			score, hitRegion = score+2, true
 		}
 		if score > bestScore {
-			best, bestScore = v.ID, score
+			best, bestScore, bestRegion = v.ID, score, hitRegion
 		}
 	}
-	return best
+	// Không khai vùng miền thì coi như không có gì để lệch.
+	if wantRegion == "" {
+		bestRegion = true
+	}
+	return best, bestRegion
 }
 
 // genderOf đọc giới tính từ chữ tiếng Việt hoặc tiếng Anh.

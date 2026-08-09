@@ -40,6 +40,11 @@
 
   function dataUrl(p) { return '/data/' + String(p).split('/').map(encodeURIComponent).join('/'); }
 
+  // dataURL — đường dẫn tương đối trong data/ → URL phục vụ file.
+  function dataURL(rel) {
+    return '/data/' + String(rel).split('/').map(encodeURIComponent).join('/');
+  }
+
   function previewUrl(id, bust) {
     var u = '/data/characters/' + encodeURIComponent(id + '-preview.png');
     return bust ? (u + '?t=' + bust) : u;
@@ -190,6 +195,54 @@
 
   // ---------- Card một nhân vật ----------
 
+  // bibleBlock — tóm tắt hồ sơ đầy đủ ngay trên thẻ nhân vật; chưa dựng thì ẩn.
+  function bibleBlock(c) {
+    var p = c.persona, v = c.voiceSpec;
+    if (!p && !v) return h('span');
+    var rows = [];
+    if (p) {
+      var head = [p.gender, p.ageRange, p.identity].filter(Boolean).join(' · ');
+      if (head) rows.push(h('div', { style: { fontWeight: '600' } }, head));
+      if (p.personality && p.personality.length) {
+        rows.push(h('div', null, (p.personality || []).map(function (t) {
+          return h('span', { class: 'badge badge-blue', style: { marginRight: '4px' } }, t);
+        })));
+      }
+      if (p.temperament) rows.push(h('div', { class: 'muted' }, p.temperament));
+      if (p.motivation) rows.push(h('div', { class: 'muted' }, '🎯 ' + p.motivation));
+    }
+    if (v) {
+      var vs = [v.timbre, v.pitch, v.pace, v.accent].filter(Boolean).join(' · ');
+      if (vs) rows.push(h('div', { class: 'muted' }, '🎙 ' + vs));
+      if (v.voiceId) {
+        rows.push(h('div', null, h('span', { class: 'badge badge-blue' }, 'giọng: ' + v.voiceId)));
+      }
+      if (v.note) {
+        rows.push(h('div', { style: { color: 'var(--red)', fontSize: '12px' } }, '⚠ ' + v.note));
+      }
+    }
+    if (c.sheetImage) {
+      rows.push(h('a', { href: dataURL(c.sheetImage), target: '_blank' }, '📐 Xem bản ba góc nhìn'));
+    }
+    return h('div', {
+      style: {
+        fontSize: '12.5px', lineHeight: '1.6', margin: '8px 0',
+        padding: '8px 10px', borderRadius: '8px', background: 'var(--bg)'
+      }
+    }, rows);
+  }
+
+  // watchJob theo dõi một job tới khi xong rồi gọi lại.
+  function watchJob(id, card, done) {
+    var t = setInterval(function () {
+      API.get('/api/jobs/' + id).then(function (j) {
+        card.setJob(j);
+        if (j.status === 'done') { clearInterval(t); done(); }
+        else if (j.status === 'error') { clearInterval(t); }
+      }).catch(function () { clearInterval(t); });
+    }, 3000);
+  }
+
   function charCard(c, ctx) {
     var av = avatarEl(c);
 
@@ -217,7 +270,38 @@
       variant: 'danger', small: true,
       onclick: function () { confirmDelete(c, function () { load(ctx); }); }
     });
-    var btns = [refBtn, previewBtn, editBtn, delBtn];
+    var bibleBtn = UI.btn('📖 Dựng hồ sơ', {
+      variant: 'ghost', small: true,
+      onclick: function () {
+        bibleBtn.disabled = true;
+        card.setJob({ status: 'running', detail: 'AI đang dựng hồ sơ nhân vật…' });
+        API.post('/api/characters/' + encodeURIComponent(c.id) + '/bible', {})
+          .then(function (fresh) {
+            card.setJob(null);
+            var v = fresh.voiceSpec && fresh.voiceSpec.voiceId;
+            UI.toast('Đã dựng hồ sơ' + (v ? ' · ghép giọng ' + v : ''));
+            load(ctx);
+          })
+          .catch(function (err) {
+            card.setJob({ status: 'error', error: err.message });
+          })
+          .finally(function () { bibleBtn.disabled = false; });
+      }
+    });
+    var sheetBtn = UI.btn('📐 Bản ba góc nhìn', {
+      variant: 'ghost', small: true,
+      onclick: function () {
+        sheetBtn.disabled = true;
+        API.post('/api/characters/' + encodeURIComponent(c.id) + '/sheet', { setAsRef: true })
+          .then(function (job) {
+            card.setJob(job);
+            watchJob(job.id, card, function () { load(ctx); });
+          })
+          .catch(function (err) { card.setJob({ status: 'error', error: err.message }); })
+          .finally(function () { sheetBtn.disabled = false; });
+      }
+    });
+    var btns = [bibleBtn, sheetBtn, refBtn, previewBtn, editBtn, delBtn];
 
     fileIn.onchange = function () {
       var f = fileIn.files && fileIn.files[0];
@@ -237,6 +321,7 @@
         h('div', { class: 'ch-id' },
           h('div', { class: 'ch-name' }, c.name || '(chưa đặt tên)'),
           h('div', { class: 'ch-role' }, c.role || 'Chưa ghi vai trò'))),
+      bibleBlock(c),
       h('div', { class: 'ch-look', title: c.look || '' },
         c.look || '(chưa có mô tả ngoại hình — nhân vật sẽ khó giống nhau giữa các cảnh)'),
       thumb,

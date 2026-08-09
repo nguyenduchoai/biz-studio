@@ -36,7 +36,7 @@ func TestMatchVoiceGioiTinhVaVungMien(t *testing.T) {
 		{"Nam", "Huế", "Thái Sơn"},
 	}
 	for _, c := range cases {
-		got := MatchVoice(&store.Persona{Gender: c.gender, Region: c.region}, voicesMau())
+		got, _ := MatchVoice(&store.Persona{Gender: c.gender, Region: c.region}, voicesMau())
 		if got != c.want {
 			t.Errorf("giới %q vùng %q → %q, cần %q", c.gender, c.region, got, c.want)
 		}
@@ -46,7 +46,7 @@ func TestMatchVoiceGioiTinhVaVungMien(t *testing.T) {
 // "female" chứa chuỗi "male" — nếu xét nhánh nam trước thì nữ bị ghép thành nam,
 // nghe là biết ngay. Bài này khoá đúng thứ tự xét.
 func TestMatchVoiceFemaleKhongThanhMale(t *testing.T) {
-	got := MatchVoice(&store.Persona{Gender: "female", Region: "Bắc"}, voicesMau())
+	got, _ := MatchVoice(&store.Persona{Gender: "female", Region: "Bắc"}, voicesMau())
 	if got != "Trúc Ly" {
 		t.Errorf("giới \"female\" phải ra giọng nữ, nhận %q", got)
 	}
@@ -54,13 +54,13 @@ func TestMatchVoiceFemaleKhongThanhMale(t *testing.T) {
 
 // Không rõ giới tính thì THÀ KHÔNG GHÉP còn hơn gán bừa giọng sai giới.
 func TestMatchVoiceKhongDoanBua(t *testing.T) {
-	if got := MatchVoice(&store.Persona{Region: "Bắc"}, voicesMau()); got != "" {
+	if got, _ := MatchVoice(&store.Persona{Region: "Bắc"}, voicesMau()); got != "" {
 		t.Errorf("thiếu giới tính phải trả rỗng, nhận %q", got)
 	}
-	if got := MatchVoice(&store.Persona{Gender: "không rõ"}, voicesMau()); got != "" {
+	if got, _ := MatchVoice(&store.Persona{Gender: "không rõ"}, voicesMau()); got != "" {
 		t.Errorf("giới tính không đọc được phải trả rỗng, nhận %q", got)
 	}
-	if got := MatchVoice(nil, voicesMau()); got != "" {
+	if got, _ := MatchVoice(nil, voicesMau()); got != "" {
 		t.Errorf("hồ sơ nil phải trả rỗng, nhận %q", got)
 	}
 }
@@ -71,14 +71,14 @@ func TestMatchVoiceChiGhepVieNeu(t *testing.T) {
 		{ID: "Alex", Gender: "Nam", Lang: "en-US", Engine: "say"},
 		{ID: "clone:x", Gender: "Nam", Lang: "", Engine: "clone"},
 	}
-	if got := MatchVoice(&store.Persona{Gender: "Nam", Region: "Bắc"}, chiSay); got != "" {
+	if got, _ := MatchVoice(&store.Persona{Gender: "Nam", Region: "Bắc"}, chiSay); got != "" {
 		t.Errorf("chỉ có giọng ngoài VieNeu thì phải trả rỗng, nhận %q", got)
 	}
 }
 
 // Không khai vùng miền vẫn ghép được theo giới tính.
 func TestMatchVoiceThieuVungMien(t *testing.T) {
-	got := MatchVoice(&store.Persona{Gender: "Nữ"}, voicesMau())
+	got, _ := MatchVoice(&store.Persona{Gender: "Nữ"}, voicesMau())
 	if got == "" {
 		t.Fatal("có giới tính thì phải ghép được")
 	}
@@ -224,5 +224,62 @@ func TestLuatPromptAnhCoDuY(t *testing.T) {
 		if !strings.Contains(LuatPromptAnh, must) {
 			t.Errorf("luật thiếu ý %q", must)
 		}
+	}
+}
+
+// Model KHÔNG bám schema: đo thật thấy nó trả personality là CHUỖI và đặt tên
+// trường khác (age thay ageRange, role thay identity). Parser phải chịu được.
+func TestDocKhoanDung(t *testing.T) {
+	m := map[string]any{
+		"age":         "72 (suy đoán)",
+		"role":        "Người lái đò già",
+		"personality": "Ít nói, trầm lặng, kiên nhẫn",
+		"gender":      "Nữ",
+	}
+	if got := pickStr(m, "ageRange", "age"); got != "72 (suy đoán)" {
+		t.Errorf("tên trường thay thế: %q", got)
+	}
+	if got := pickStr(m, "identity", "role"); got != "Người lái đò già" {
+		t.Errorf("identity/role: %q", got)
+	}
+	got := pickList(m, "personality")
+	if len(got) != 3 || got[0] != "Ít nói" || got[2] != "kiên nhẫn" {
+		t.Errorf("chuỗi ngăn phẩy phải tách thành mảng, nhận %v", got)
+	}
+	// mảng thật vẫn chạy
+	if g := pickList(map[string]any{"personality": []any{"a", "b"}}, "personality"); len(g) != 2 {
+		t.Errorf("mảng thật: %v", g)
+	}
+	// thiếu hẳn → nil, không panic
+	if g := pickList(map[string]any{}, "personality"); g != nil {
+		t.Errorf("thiếu trường phải trả nil, nhận %v", g)
+	}
+	if s := pickStr(map[string]any{"x": 123}, "x"); s != "" {
+		t.Errorf("giá trị không phải chuỗi phải bỏ qua, nhận %q", s)
+	}
+}
+
+// Kho giọng thật KHÔNG có giọng miền Nam. Nhân vật miền Nam vẫn phải nhận một
+// giọng dùng được, nhưng regionOK phải là false để giao diện NÓI RA điều đó —
+// không lặng lẽ thay giọng rồi coi như xong.
+func TestMatchVoiceBaoKhiLechVungMien(t *testing.T) {
+	khoThat := []tts.Voice{
+		{ID: "Minh Đức", Gender: "Nam", Lang: "vi-VN · Bắc", Engine: "vieneu"},
+		{ID: "Quang Sơn", Gender: "Nam", Lang: "vi-VN · Trung", Engine: "vieneu"},
+	}
+	id, ok := MatchVoice(&store.Persona{Gender: "Nam", Region: "Nam"}, khoThat)
+	if id == "" {
+		t.Fatal("vẫn phải ghép được một giọng dùng được")
+	}
+	if ok {
+		t.Error("không có giọng miền Nam thì regionOK phải là false")
+	}
+	// khớp đúng vùng thì báo true
+	if _, ok := MatchVoice(&store.Persona{Gender: "Nam", Region: "Trung"}, khoThat); !ok {
+		t.Error("ghép đúng vùng phải báo regionOK=true")
+	}
+	// không khai vùng thì không có gì để lệch
+	if _, ok := MatchVoice(&store.Persona{Gender: "Nam"}, khoThat); !ok {
+		t.Error("không khai vùng miền thì regionOK phải là true")
 	}
 }

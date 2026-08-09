@@ -152,8 +152,9 @@ type VoiceSpec struct {
 	Pace    string `json:"pace"`
 	Accent  string `json:"accent"`
 	Emotion string `json:"emotion"`
-	Prompt  string `json:"prompt"`  // tiếng Anh, cho engine thiết kế giọng
-	VoiceID string `json:"voiceId"` // giọng đã ghép trong máy
+	Prompt  string `json:"prompt"`         // tiếng Anh, cho engine thiết kế giọng
+	VoiceID string `json:"voiceId"`        // giọng đã ghép trong máy
+	Note    string `json:"note,omitempty"` // vì sao giọng ghép chưa khớp hẳn
 }
 
 // StyleKit — bộ style hình ảnh dùng chung cho mọi cảnh của một video,

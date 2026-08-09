@@ -1,0 +1,232 @@
+/* ============================================================
+   Biz Studio — Trang "Xưởng làm sẵn": khuôn theo lĩnh vực,
+   preset nền tảng, tone nhạc, giọng theo ngôn ngữ.
+   Load sau app.js. Không framework / ES modules.
+   ============================================================ */
+(function () {
+  'use strict';
+
+  // Khoá localStorage để trang HTML Video đọc lại khuôn vừa chọn.
+  var PREFILL_KEY = 'biz-template-prefill';
+
+  function dataURL(rel) {
+    return '/data/' + String(rel).split('/').map(encodeURIComponent).join('/');
+  }
+
+  App.pages['studio'] = {
+    title: 'Xưởng làm sẵn',
+    subtitle: 'Chọn khuôn theo lĩnh vực, chuẩn hoá cho từng nền tảng, nhạc nền theo tone',
+    render: render
+  };
+
+  function render(root) {
+    var tabs = ['Khuôn theo lĩnh vực', 'Nền tảng', 'Nhạc nền', 'Giọng theo ngôn ngữ'];
+    var active = 0;
+    var host = h('div', { class: 'mt-16' });
+    var bar = h('div', { class: 'row' }, tabs.map(function (t, i) {
+      var b = UI.btn(t, {
+        variant: i === 0 ? 'primary' : 'ghost', small: true,
+        onclick: function () {
+          active = i;
+          [].forEach.call(bar.children, function (el, k) {
+            el.className = 'btn btn-sm ' + (k === i ? 'btn-primary' : 'btn-ghost');
+          });
+          draw();
+        }
+      });
+      return b;
+    }));
+    root.appendChild(h('div', { class: 'card' }, bar));
+    root.appendChild(host);
+
+    function draw() {
+      host.innerHTML = '';
+      if (active === 0) drawTemplates(host);
+      else if (active === 1) drawPlatforms(host);
+      else if (active === 2) drawMoods(host);
+      else drawLangs(host);
+    }
+    draw();
+  }
+
+  // ---------- khuôn theo lĩnh vực ----------
+
+  function drawTemplates(host) {
+    host.appendChild(h('div', { class: 'card' }, UI.empty('Đang tải khuôn…', '🧰')));
+    API.get('/api/studio/templates').then(function (d) {
+      host.innerHTML = '';
+      host.appendChild(h('div', { class: 'muted', style: { fontSize: '12.5px', marginBottom: '10px' } },
+        d.templates.length + ' khuôn · mỗi khuôn gói sẵn hướng viết kịch bản, phong cách hình, ' +
+        'khung hình, nền tảng, kiểu giọng, tone nhạc và nhịp ba đoạn — đổi gì cũng được sau khi chọn.'));
+      d.categories.forEach(function (cat) {
+        var items = d.templates.filter(function (t) { return t.category === cat; });
+        if (!items.length) return;
+        host.appendChild(h('div', { class: 'card mt-16' },
+          h('div', { class: 'card-title' }, cat),
+          h('div', {
+            style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: '10px' }
+          }, items.map(templateCard))));
+      });
+    }).catch(function (err) {
+      host.innerHTML = '';
+      host.appendChild(h('div', { class: 'card' }, UI.empty('Không tải được khuôn: ' + err.message, '⚠️')));
+    });
+  }
+
+  function templateCard(t) {
+    var open = false;
+    var detail = h('div', { style: { display: 'none', marginTop: '8px' } },
+      row('Hướng viết kịch bản', t.script),
+      row('Mở đầu', t.hook), row('Thân', t.body), row('Chốt', t.cta));
+
+    var moreBtn = UI.btn('Xem công thức', {
+      variant: 'ghost', small: true,
+      onclick: function () {
+        open = !open;
+        detail.style.display = open ? '' : 'none';
+        moreBtn.textContent = open ? 'Thu gọn' : 'Xem công thức';
+      }
+    });
+    var useBtn = UI.btn('Dùng khuôn này', {
+      variant: 'primary', small: true,
+      onclick: function () {
+        try { localStorage.setItem(PREFILL_KEY, JSON.stringify(t)); } catch (e) { /* chế độ riêng tư */ }
+        UI.toast('Đã nạp khuôn "' + t.name + '" — mở HTML Video để dùng.');
+        location.hash = '#/htmlvideo';
+      }
+    });
+
+    var chips = [t.aspect, t.platform, t.seconds + 's', t.voicePace ? 'giọng ' + t.voicePace : '', t.musicMood]
+      .filter(Boolean).map(function (s) {
+        return h('span', { class: 'badge badge-blue', style: { marginRight: '4px' } }, s);
+      });
+
+    return h('div', {
+      style: {
+        border: '1px solid var(--border)', borderRadius: '10px', padding: '12px',
+        minWidth: '0', display: 'flex', flexDirection: 'column', gap: '6px'
+      }
+    },
+      h('div', { style: { fontWeight: '700', fontSize: '14px' } }, t.icon + ' ' + t.name),
+      h('div', { class: 'muted', style: { fontSize: '12px', lineHeight: '1.45' } }, t.desc),
+      h('div', { style: { marginTop: '2px' } }, chips),
+      detail,
+      h('div', { class: 'row', style: { gap: '6px', marginTop: 'auto' } }, moreBtn, useBtn));
+  }
+
+  function row(label, val) {
+    if (!val) return h('span');
+    return h('div', { style: { fontSize: '12px', marginBottom: '5px', lineHeight: '1.5' } },
+      h('span', { style: { fontWeight: '700' } }, label + ': '),
+      h('span', { class: 'muted' }, val));
+  }
+
+  // ---------- nền tảng ----------
+
+  function drawPlatforms(host) {
+    var st = { file: '' };
+    var input = UI.input({
+      value: '', placeholder: 'Đường dẫn video trong data, vd: tmp/abc/final.mp4',
+      oninput: function (e) { st.file = e.target.value.trim(); }
+    });
+    host.appendChild(h('div', { class: 'card' },
+      h('div', { class: 'card-title' }, '🎯 Chuẩn hoá video cho nền tảng'),
+      h('div', { class: 'muted', style: { fontSize: '12.5px', marginBottom: '10px' } },
+        'Đưa về đúng khung hình và độ to chuẩn phát. Lệch tỉ lệ thì thêm viền chứ KHÔNG bóp méo hình. ' +
+        'Video dài quá trần thì hệ thống báo chứ không tự cắt.'),
+      input));
+
+    var grid = h('div', {
+      style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: '10px' }
+    });
+    host.appendChild(h('div', { class: 'card mt-16' }, h('div', { class: 'card-title' }, 'Chọn nền tảng'), grid));
+
+    API.get('/api/studio/platforms').then(function (ps) {
+      ps.forEach(function (p) {
+        grid.appendChild(h('div', {
+          style: { border: '1px solid var(--border)', borderRadius: '10px', padding: '12px', minWidth: '0' }
+        },
+          h('div', { style: { fontWeight: '700' } }, p.name),
+          h('div', { class: 'muted', style: { fontSize: '12px', margin: '4px 0' } },
+            p.width + '×' + p.height + ' · ' + (p.maxSec ? 'tối đa ' + p.maxSec + 's' : 'không giới hạn') +
+            ' · ' + p.lufs + ' LUFS'),
+          h('div', { class: 'muted', style: { fontSize: '11.5px', lineHeight: '1.45', marginBottom: '8px' } }, p.note),
+          UI.btn('Chuẩn hoá', {
+            variant: 'ghost', small: true,
+            onclick: function () {
+              if (!st.file) { UI.toast('Chưa chọn video.', 'error'); return; }
+              API.post('/api/studio/normalize', { path: st.file, platform: p.id })
+                .then(function () { UI.toast('Đã xếp hàng: chuẩn hoá cho ' + p.name); })
+                .catch(function (err) { UI.toast('Không chạy được: ' + err.message, 'error'); });
+            }
+          })));
+      });
+    }).catch(function (err) {
+      grid.appendChild(h('div', { class: 'muted' }, 'Không tải được: ' + err.message));
+    });
+  }
+
+  // ---------- nhạc nền ----------
+
+  function drawMoods(host) {
+    host.appendChild(h('div', { class: 'card' }, UI.empty('Đang chuẩn bị nhạc nền…', '🎵')));
+    API.get('/api/studio/moods').then(function (ms) {
+      host.innerHTML = '';
+      host.appendChild(h('div', { class: 'card' },
+        h('div', { class: 'card-title' }, '🎵 Nhạc nền theo tone — ' + ms.length + ' tone'),
+        h('div', { class: 'muted', style: { fontSize: '12.5px', marginBottom: '10px', lineHeight: '1.6' } },
+          'Tất cả được TỔNG HỢP tại chỗ, không mang theo nhạc của ai — nhạc có bản quyền lọt vào video ' +
+          'là bị nền tảng gỡ tiếng hoặc chặn kiếm tiền. Đây là bè đệm giữ không khí, cố ý không có giai điệu ' +
+          'chính để không giành chỗ với lời đọc. Muốn nhạc thật thì bạn vẫn tự đưa file vào như cũ.'),
+        h('div', {
+          style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(250px,1fr))', gap: '10px' }
+        }, ms.map(function (m) {
+          var audio = h('audio', { src: dataURL(m.path), preload: 'none', loop: 'loop' });
+          return h('div', {
+            style: { border: '1px solid var(--border)', borderRadius: '10px', padding: '12px', minWidth: '0' }
+          },
+            h('div', { style: { fontWeight: '700' } }, m.name),
+            h('div', { class: 'muted', style: { fontSize: '12px', margin: '4px 0 8px', lineHeight: '1.45' } }, m.desc),
+            h('div', { class: 'row', style: { gap: '6px' } },
+              UI.btn('▶ Nghe', { variant: 'ghost', small: true, onclick: function () { audio.currentTime = 0; audio.play(); } }),
+              UI.btn('⏸ Dừng', { variant: 'ghost', small: true, onclick: function () { audio.pause(); } }),
+              h('a', { href: dataURL(m.path), download: '', class: 'btn btn-sm btn-ghost' }, '⬇')),
+            audio);
+        }))));
+    }).catch(function (err) {
+      host.innerHTML = '';
+      host.appendChild(h('div', { class: 'card' }, UI.empty('Không tải được nhạc: ' + err.message, '⚠️')));
+    });
+  }
+
+  // ---------- giọng theo ngôn ngữ ----------
+
+  function drawLangs(host) {
+    host.appendChild(h('div', { class: 'card' }, UI.empty('Đang đọc danh sách giọng…', '🗣')));
+    API.get('/api/studio/voice-langs').then(function (gs) {
+      host.innerHTML = '';
+      var total = gs.reduce(function (a, g) { return a + g.count; }, 0);
+      host.appendChild(h('div', { class: 'card' },
+        h('div', { class: 'card-title' }, '🗣 ' + total + ' giọng · ' + gs.length + ' ngôn ngữ'),
+        h('div', { class: 'muted', style: { fontSize: '12.5px', marginBottom: '10px' } },
+          'Máy bạn đã có sẵn giọng của tất cả các ngôn ngữ này — làm video tiếng Anh, Nhật, Trung… ' +
+          'không cần cài thêm gì. Tiếng Việt dùng VieNeu on-device, chất lượng cao nhất.'),
+        h('div', {
+          style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '8px' }
+        }, gs.map(function (g) {
+          return h('div', {
+            style: { border: '1px solid var(--border)', borderRadius: '8px', padding: '10px', minWidth: '0' }
+          },
+            h('div', { style: { fontWeight: '700', fontSize: '13px' } }, g.name),
+            h('div', { class: 'muted', style: { fontSize: '12px' } }, g.count + ' giọng'),
+            h('div', {
+              class: 'muted',
+              style: { fontSize: '11px', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
+            }, g.voices.slice(0, 3).map(function (v) { return v.name || v.id; }).join(', ')));
+        }))));
+    }).catch(function (err) {
+      host.innerHTML = '';
+      host.appendChild(h('div', { class: 'card' }, UI.empty('Không tải được: ' + err.message, '⚠️')));
+    });
+  }
+})();

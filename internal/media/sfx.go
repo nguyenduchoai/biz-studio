@@ -118,6 +118,11 @@ const sfxPeakDb = -12.0
 
 var reMaxVolume = regexp.MustCompile(`max_volume:\s*(-?[0-9.]+) dB`)
 
+// PeakGainDb — bản công khai của peakGainDb, cho gói khác cân độ to dùng chung.
+func PeakGainDb(ctx context.Context, path string, targetDb float64) (float64, error) {
+	return peakGainDb(ctx, path, targetDb)
+}
+
 // peakGainDb đo đỉnh hiện tại của file rồi trả số dB cần cộng để đạt targetDb.
 func peakGainDb(ctx context.Context, path string, targetDb float64) (float64, error) {
 	_, se, err := util.RunErr(ctx, "ffmpeg", "-hide_banner", "-i", path,

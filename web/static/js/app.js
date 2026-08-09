@@ -10,6 +10,7 @@
       { id: 'dashboard', label: 'Tổng quan', icon: '📊' }
     ]},
     { group: 'MODULE SÁNG TẠO', items: [
+      { id: 'studio', label: 'Xưởng làm sẵn', icon: '🧰' },
       { id: 'download', label: 'Tải Video', icon: '⬇️' },
       { id: 'ocr', label: 'OCR / ASR', icon: '📝' },
       { id: 'translate', label: 'Dịch thuật', icon: '🌐' },

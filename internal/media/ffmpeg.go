@@ -13,6 +13,10 @@ import (
 )
 
 // run chạy ffmpeg, lỗi kèm phần cuối stderr (thông tin lỗi thật của ffmpeg nằm ở cuối).
+// RunFFmpeg chạy ffmpeg với tham số cho trước — bản công khai của run, để các
+// gói khác dùng chung một đường chạy ffmpeg (không qua shell).
+func RunFFmpeg(ctx context.Context, args ...string) error { return run(ctx, args...) }
+
 func run(ctx context.Context, args ...string) error {
 	_, se, err := util.RunErr(ctx, "ffmpeg", args...)
 	if err != nil {

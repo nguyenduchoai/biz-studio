@@ -43,6 +43,7 @@ func New(st *store.Store, dataDir string, port int) *Server {
 	s.routesModels(s.mux)
 	s.routesRecap(s.mux)
 	s.routesCharsBible(s.mux)
+	s.routesStudio(s.mux)
 	s.routesHTMLVideo(s.mux)
 	s.routesClone(s.mux)
 	s.routesDubbing(s.mux)

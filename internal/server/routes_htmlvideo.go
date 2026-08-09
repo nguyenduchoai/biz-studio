@@ -25,11 +25,12 @@ func (s *Server) routesHTMLVideo(mux *http.ServeMux) {
 // từ prompt / content / README GitHub. Ưu tiên engine: openai → gemini → claude CLI.
 func (s *Server) handleHTMLVideoPlan(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Prompt  string `json:"prompt"`
-		Content string `json:"content"`
-		RepoURL string `json:"repoUrl"`
-		Count   int    `json:"count"`
-		Style   string `json:"style"`
+		Prompt        string `json:"prompt"`
+		Content       string `json:"content"`
+		RepoURL       string `json:"repoUrl"`
+		Count         int    `json:"count"`
+		Style         string `json:"style"`
+		TemplateGuide string `json:"templateGuide"`
 	}
 	if err := readJSON(r, &body); err != nil {
 		httpErr(w, http.StatusBadRequest, "%s", err)
@@ -50,6 +51,13 @@ func (s *Server) handleHTMLVideoPlan(w http.ResponseWriter, r *http.Request) {
 	}
 	if p := strings.TrimSpace(body.Prompt); p != "" {
 		sources = append(sources, "Yêu cầu thêm từ người dùng:\n"+p)
+	}
+	// Khuôn đặt SAU yêu cầu của người dùng và nói rõ là hướng dẫn dựng, không
+	// phải nội dung: nếu để lẫn, model dễ đem chính câu chữ trong khuôn ("Mở đầu
+	// bằng một câu gây sốc") vào lời thoại của cảnh.
+	if g := strings.TrimSpace(body.TemplateGuide); g != "" {
+		sources = append(sources, "Khuôn dựng cần theo (đây là HƯỚNG DẪN cách kể, "+
+			"tuyệt đối không đưa nguyên văn mấy dòng này vào lời thoại):\n"+g)
 	}
 	if len(sources) == 0 {
 		httpErr(w, http.StatusBadRequest, "cần ít nhất một nguồn nội dung: prompt, content hoặc repoUrl")

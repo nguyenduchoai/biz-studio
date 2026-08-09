@@ -6,6 +6,33 @@
 (function () {
   'use strict';
 
+  // Khuôn chọn ở trang Xưởng được nạp vào đây: điền sẵn khung hình và ghép
+  // hướng viết kịch bản vào ô prompt. Dùng MỘT LẦN rồi xoá — lần sau vào trang
+  // này mà không chọn khuôn thì phải là trang trắng, không dính khuôn cũ.
+  var PREFILL_KEY = 'biz-template-prefill';
+
+  function takePrefill() {
+    try {
+      var raw = localStorage.getItem(PREFILL_KEY);
+      if (!raw) return null;
+      localStorage.removeItem(PREFILL_KEY);
+      return JSON.parse(raw);
+    } catch (e) { return null; }
+  }
+
+  // applyPrefill điền khuôn vào state; trả về khuôn đã dùng (hoặc null).
+  function applyPrefill(st) {
+    var t = takePrefill();
+    if (!t) return null;
+    if (t.aspect) st.cfg.aspect = t.aspect;
+    if (t.seconds) st.targetSeconds = t.seconds;
+    var guide = [t.script, t.hook && ('Mở đầu: ' + t.hook), t.body && ('Thân: ' + t.body), t.cta && ('Chốt: ' + t.cta)]
+      .filter(Boolean).join('\n');
+    st.templateGuide = guide;
+    st.templateName = t.name;
+    return t;
+  }
+
   var TEMPLATES = [
     { value: 'hero', label: 'Mở đầu (hero)' },
     { value: 'bullets', label: 'Ý chính (bullets)' },
@@ -92,6 +119,26 @@
       if (st.jobHandler) { Bus.off('job', st.jobHandler); st.jobHandler = null; }
     };
 
+    var tpl = applyPrefill(st);
+    if (tpl) {
+      root.appendChild(h('div', {
+        class: 'card',
+        style: { borderLeft: '3px solid var(--blue)' }
+      },
+        h('div', { class: 'card-title' }, '🧰 Đang dùng khuôn: ' + tpl.icon + ' ' + tpl.name),
+        h('div', { class: 'muted', style: { fontSize: '12.5px', lineHeight: '1.6', whiteSpace: 'pre-line' } },
+          st.templateGuide),
+        h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '8px' } },
+          'Khung hình đã đặt ' + st.cfg.aspect + (tpl.seconds ? ' · nhắm ' + tpl.seconds + ' giây' : '') +
+          (tpl.musicMood ? ' · tone nhạc gợi ý: ' + tpl.musicMood : '') +
+          '. Hướng dẫn trên sẽ được ghép vào yêu cầu khi AI tách cảnh.'),
+        // Style của khuôn là tên một bộ Style Kit (dùng cho sinh ẢNH ở Text →
+        // Video), không phải ô "Phong cách" của trang này — hai từ vựng khác
+        // nhau. Nói thẳng ra thay vì gán bừa vào ô sai.
+        tpl.style ? h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '4px' } },
+          'Nếu dựng bằng ảnh AI ở Text → Video, khuôn này hợp bộ Style Kit "' + tpl.style + '".') : null));
+    }
+
     // ---------- Ghi chú đầu trang ----------
     var note = h('div', null,
       h('span', { class: 'badge badge-blue' }, 'ℹ️ Cần Google Chrome trên máy để render HTML Video'));
@@ -170,6 +217,9 @@
         }
         body.repoUrl = st.repoUrl;
       }
+      // Khuôn chỉ ĐI KÈM chứ không thay lời người dùng: gửi thành trường riêng
+      // để AI coi là hướng dẫn dựng, còn prompt vẫn nguyên văn họ gõ.
+      if (st.templateGuide) body.templateGuide = st.templateGuide;
       planBtn.disabled = true;
       planSpin.style.display = '';
       try {

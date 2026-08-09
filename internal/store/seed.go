@@ -178,3 +178,14 @@ var defaultPrompts = []PromptTemplate{
 	{Name: "🎙 Cắt podcast thành clip", Body: "Từ bản ghi dài, chọn ra 1–3 đoạn đắt giá nhất (insight mạnh, câu nói gây tranh luận, câu chuyện cảm động) dựng thành clip dọc 9:16 dưới 90 giây.\n- Mỗi clip phải tự đứng được: có mở – thân – kết, không cần ngữ cảnh ngoài.\n- Phụ đề karaoke từng từ, keyword chính đổi màu.\n- Cắt sạch khoảng lặng và từ đệm; giữ tự nhiên, không cắt gãy câu.\n- Thêm tên người nói + chủ đề ở góc trên trong 5 giây đầu."},
 	{Name: "📊 Video số liệu / báo cáo", Body: "Dựng video trình bày số liệu rõ ràng, đáng tin.\n- Mỗi con số quan trọng được phóng to chiếm màn hình 2–3 giây kèm đơn vị và nguồn.\n- Chart/bảng phải hiển thị đủ lâu để đọc (tối thiểu 4 giây), zoom vào phần đang nói tới.\n- Giọng đọc chậm, rõ; phụ đề đầy đủ.\n- Màu sắc nhất quán: 1 màu chủ đạo cho số liệu chính, 1 màu phụ cho so sánh.\n- Kết video bằng slide tổng kết 3 ý chính."},
 }
+
+// DefaultStyleKitNames trả tên các bộ style mồi. Có mặt để nơi khác kiểm tra
+// chéo được: khuôn video gợi ý người dùng chọn bộ style theo TÊN, đổi tên ở
+// đây mà không ai biết thì khuôn trỏ hụt và lỗi không hiện ra ở đâu cả.
+func DefaultStyleKitNames() []string {
+	out := make([]string, 0, len(defaultStyleKits))
+	for _, k := range defaultStyleKits {
+		out = append(out, k.Name)
+	}
+	return out
+}

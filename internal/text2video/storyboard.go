@@ -258,11 +258,18 @@ func fileExists(p string) bool {
 const characterLead = "Featuring "
 
 // CharacterClause dựng mệnh đề mô tả ngoại hình các nhân vật của một cảnh:
-// "Featuring <Tên>: <Look>. <Tên2>: <Look2>". Nhờ mệnh đề này mà nhân vật ở
-// mọi cảnh trông giống nhau xuyên suốt video.
+// "Featuring <Look>. <Look2>". Nhờ mệnh đề này mà nhân vật ở mọi cảnh trông
+// giống nhau xuyên suốt video.
+//
+// TÊN NHÂN VẬT KHÔNG BAO GIỜ ĐƯỢC VÀO ĐÂY. Model sinh ảnh thiên vị rất nặng
+// với tên riêng: đặt tên nhân vật là "Elsa" hay "Naruto" thì model vẽ đúng
+// nhân vật nó đã học, đè lên mô tả ngoại hình người dùng viết. Ngay cả tên
+// thường cũng kéo theo định kiến sắc tộc/giới tính. Mô tả con người, đừng gọi
+// tên họ — mô tả mới là thứ có thẩm quyền.
 //
 // Nhân vật không còn trong store (đã xoá) được BỎ QUA im lặng — thiếu một nhân
-// vật không đáng làm hỏng cả việc sinh ảnh. Không có nhân vật dùng được → "".
+// vật không đáng làm hỏng cả việc sinh ảnh. Nhân vật chưa tả ngoại hình cũng bị
+// bỏ qua: chỉ có mỗi cái tên thì đưa vào prompt còn hại hơn không đưa.
 func CharacterClause(st *store.Store, ids []string) string {
 	if st == nil || len(ids) == 0 {
 		return ""
@@ -279,14 +286,8 @@ func CharacterClause(st *store.Store, ids []string) string {
 		if !ok {
 			continue
 		}
-		name, look := cleanPrompt(c.Name), cleanPrompt(c.Look)
-		switch {
-		case name != "" && look != "":
-			parts = append(parts, name+": "+look)
-		case look != "":
+		if look := cleanPrompt(c.Look); look != "" {
 			parts = append(parts, look)
-		case name != "":
-			parts = append(parts, name)
 		}
 	}
 	if len(parts) == 0 {

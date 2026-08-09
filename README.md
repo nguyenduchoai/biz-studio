@@ -27,6 +27,14 @@
 
 ## Có gì mới
 
+### v2.1.0 — 08/08/2026 — Hồ sơ nhân vật
+
+- 🐛 **Sửa lỗi làm model vẽ sai người**: prompt sinh ảnh trước đây ghép cả **tên nhân vật** vào (`Featuring Elsa: ...`). Model ảnh thiên vị rất nặng với tên riêng — đặt tên nhân vật là Elsa hay Naruto thì nó vẽ đúng nhân vật nó đã học, **đè lên mô tả ngoại hình bạn viết**. Nay prompt chỉ còn mô tả — thứ duy nhất có thẩm quyền.
+- 📖 **Hồ sơ nhân vật đầy đủ**: giới tính, tuổi, thân phận, ngoại hình chi tiết, các từ tính cách, khí chất, động cơ, tuyến phát triển, vùng miền — AI dựng từ mô tả ngắn bạn đã có, sửa tay được.
+- 📐 **Bản vẽ ba góc nhìn**: chân dung + ba hình chiếu (trước/bên/sau) + dải chi tiết trên một khung 16:9, dùng làm tờ tham chiếu giữ ngoại hình nhất quán cho cả video. Bố cục **khoá cứng tỉ lệ**, ánh sáng chia theo vùng (chân dung có hướng sáng để ra khối; ba hình chiếu ánh sáng phẳng để tách nền và đo tỉ lệ).
+- 🎙 **Ghép giọng theo tính cách**: từ giới tính và vùng miền trong hồ sơ, hệ thống chọn sẵn giọng VieNeu hợp nhất. Không đọc được giới tính thì **không ghép** còn hơn gán bừa; ghép được nhưng lệch vùng miền thì **nói rõ** chứ không lặng lẽ thay giọng.
+- ⚠️ **Sửa một quả mìn hẹn giờ**: model mặc định ghim cứng `gemini-2.5-flash`. Đo trên khoá Gemini vừa tạo — model đó trả **404 "no longer available to new users"**, tức mọi người mới cài đều gặp lỗi ngay lần chạy đầu. Nay mặc định là bí danh `gemini-flash-latest`, Google tự trỏ sang đời mới nhất.
+
 ### v2.0.0 — 07/08/2026 — Phim → Kể chuyện & xuất CapCut
 
 - 🎞️ **Phim → Kể chuyện**: đưa một bộ phim vào, hệ thống **chia cảnh theo chuyển cảnh hình ảnh**, AI **nhìn khung hình thật của từng cảnh** rồi viết lời dẫn theo phong cách (kể chuyện / review / tóm tắt), đọc bằng giọng Việt của máy (kể cả giọng đã nhân bản), dựng lại thành video lời kể đè phim — **tiếng phim tự lùi 14dB khi lời đang nói** (đo thật), hết câu nâng lại. Không có khoá AI vẫn dùng được: hệ thống chia cảnh, bạn tự viết lời.
@@ -291,6 +299,7 @@ Backend là REST thuần — bạn có thể tự động hóa mọi thứ khôn
 | `GET /api/tools/veo` · `POST /api/tools/veo/estimate` · `POST /api/tools/veo` | Veo: model + bảng giá, ước tính chi phí (miễn phí), tạo video (bắt buộc cờ `confirmed`) |
 | `GET /api/tools/avatar` · `POST /api/tools/avatar` · `/avatar/voice` | Avatar nói: trạng thái engine, dựng video, đọc lời thành file giọng |
 | `POST /api/tools/recap/analyze` · `GET /api/tools/recap` · `/save` · `/render` · `/capcut` | Phim → Kể chuyện: chia cảnh + AI viết lời, sửa lời, dựng video, xuất dự án CapCut |
+| `POST /api/characters/{id}/bible` · `/sheet` | Nhân vật: AI dựng hồ sơ đầy đủ + ghép giọng; vẽ bản ba góc nhìn |
 | `POST /api/ideas/{id}/retry` · `/retry-failed` · `/queue-pending` | Thử lại ý tưởng hỏng, xếp hàng ý tưởng đã duyệt |
 | `POST /api/tools/htmlvideo/plan` · `POST /api/tools/htmlvideo` | HTML Video: tách cảnh từ prompt/bài viết/repo → render MP4 |
 | `GET /api/tools/voices` · `GET /api/jobs` · `GET /api/logs` · CRUD `/api/prompts` | Tra cứu |
@@ -328,6 +337,7 @@ internal/
 ├── avatar/                 # avatar nói LongCat-Video (chế độ local / remote)
 ├── recap/                  # phim dài → video kể chuyện (chia cảnh, lời AI, dựng)
 ├── capcut/                 # sinh dự án CapCut (.draft) từ phiên kể chuyện
+├── charbible/              # hồ sơ nhân vật, bản vẽ ba góc nhìn, ghép giọng
 ├── tts/  dubbing/          # giọng đọc VieNeu / say / Gemini, lồng tiếng khớp timing
 ├── htmlvideo/              # render video bằng HTML/CSS qua headless Chrome
 ├── text2video/             # phiên Text → Video (kịch bản, giọng, storyboard)
@@ -374,6 +384,7 @@ Biz Studio học hỏi ý tưởng từ những dự án mã nguồn mở rất 
 | [HTML Video](https://github.com/nexu-io/html-video) | Hướng **"video-as-code"**: dựng frame bằng HTML/CSS thay cho timeline thủ công → module **HTML Video** (AI → JSON cảnh → HTML → MP4, render local bằng headless Chrome) |
 | [AiToEarn](https://github.com/yikart/AiToEarn) | Tư duy hệ sinh thái agent **Create → Publish → Engage → Monetize** → định hướng **Gói xuất bản** (meta/hashtag sẵn sàng đăng đa nền tảng) và roadmap tự động hóa xuất bản |
 | [Pallaidium](https://github.com/tin2tin/Pallaidium) | Mô hình **"AI movie studio" khép kín** một môi trường duy nhất (kịch bản → sinh media → dựng → phân tích ngược) → cách tổ chức workflow Bài viết → Video / Vox-Director / phiên AI trong cùng một studio |
+| [shuohao-skills](https://github.com/eternityspring/shuohao-skills) | Cách **thiết kế prompt cho hồ sơ nhân vật** (Apache-2.0): tuyệt đối không để tên riêng vào prompt sinh ảnh vì model vẽ nhân vật nó đã học; bố cục bản ba góc nhìn phải khoá cứng tỉ lệ và chia ánh sáng theo vùng; prompt cho máy luôn tiếng Anh còn chữ cho người theo ngôn ngữ người dùng → **Hồ sơ nhân vật + bản vẽ ba góc nhìn** của Biz Studio (mã tự viết, không chép) |
 | HyperFrame · OpenDesign | Cảm hứng về motion/storytelling cho short video và thiết kế scene/layout động → bộ template cảnh + theme của HTML Video |
 
 Và những công cụ nền tảng mà Biz Studio đứng trên vai: [FFmpeg](https://ffmpeg.org), [chromedp](https://github.com/chromedp/chromedp), [yt-dlp](https://github.com/yt-dlp/yt-dlp), [Claude Code CLI](https://claude.com/claude-code), [Gemini API](https://ai.google.dev), [Pexels](https://www.pexels.com/api/), [go-qrcode](https://github.com/skip2/go-qrcode).

@@ -104,14 +104,56 @@ type Idea struct {
 
 // Character — nhân vật xuất hiện lặp lại trong nhiều cảnh; mô tả ngoại hình
 // được chèn vào prompt sinh ảnh để nhân vật trông giống nhau xuyên suốt video.
+//
+// Look là mô tả NGẮN dùng cho mọi prompt cảnh — giữ nguyên vai trò cũ. Persona,
+// Voice, Sheet* là hồ sơ đầy đủ, sinh sau và không bắt buộc: nhân vật cũ chỉ có
+// Look vẫn chạy y như trước.
 type Character struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`     // tên gọi ngắn, dùng để gán cho cảnh
-	Look      string    `json:"look"`     // mô tả ngoại hình (tiếng Anh cho model hiểu)
-	Role      string    `json:"role"`     // vai trò/tính cách (ghi chú cho người dùng)
-	RefImage  string    `json:"refImage"` // ảnh tham chiếu, tương đối data dir
+	ID       string `json:"id"`
+	Name     string `json:"name"`     // tên gọi ngắn, dùng để gán cho cảnh
+	Look     string `json:"look"`     // mô tả ngoại hình (tiếng Anh cho model hiểu)
+	Role     string `json:"role"`     // vai trò/tính cách (ghi chú cho người dùng)
+	RefImage string `json:"refImage"` // ảnh tham chiếu, tương đối data dir
+
+	// ---- Hồ sơ nhân vật đầy đủ (tuỳ chọn) ----
+
+	Persona   *Persona   `json:"persona,omitempty"`
+	VoiceSpec *VoiceSpec `json:"voiceSpec,omitempty"`
+
+	// Prompt cho MÁY — luôn tiếng Anh, không theo ngôn ngữ giao diện: model ảnh
+	// và engine giọng ăn tiếng Anh ổn định nhất.
+	ImagePrompt string `json:"imagePrompt,omitempty"`
+	Negative    string `json:"negative,omitempty"`
+	SheetImage  string `json:"sheetImage,omitempty"` // bản vẽ ba góc nhìn, tương đối data dir
+
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// Persona — phần hồ sơ dành cho NGƯỜI đọc, viết bằng ngôn ngữ của người dùng.
+type Persona struct {
+	Gender      string   `json:"gender"`
+	AgeRange    string   `json:"ageRange"`
+	Identity    string   `json:"identity"`    // thân phận / nghề nghiệp
+	Appearance  string   `json:"appearance"`  // ngoại hình đầy đủ (dài hơn Look)
+	Personality []string `json:"personality"` // 3-5 từ
+	Temperament string   `json:"temperament"` // khí chất, cách nói năng
+	Motivation  string   `json:"motivation"`
+	Arc         string   `json:"arc"`      // tuyến phát triển
+	Region      string   `json:"region"`   // vùng miền giọng: Bắc | Trung | Nam
+	Evidence    []string `json:"evidence"` // trích NGUYÊN VĂN từ nguồn, không dịch
+}
+
+// VoiceSpec — thiết kế giọng của nhân vật. Prompt luôn tiếng Anh; VoiceID là
+// giọng trong máy đã ghép được, để đọc luôn không phải chọn tay.
+type VoiceSpec struct {
+	Timbre  string `json:"timbre"`
+	Pitch   string `json:"pitch"`
+	Pace    string `json:"pace"`
+	Accent  string `json:"accent"`
+	Emotion string `json:"emotion"`
+	Prompt  string `json:"prompt"`  // tiếng Anh, cho engine thiết kế giọng
+	VoiceID string `json:"voiceId"` // giọng đã ghép trong máy
 }
 
 // StyleKit — bộ style hình ảnh dùng chung cho mọi cảnh của một video,

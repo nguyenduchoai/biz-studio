@@ -20,8 +20,12 @@ import (
 )
 
 const (
-	defaultBase  = "https://generativelanguage.googleapis.com"
-	defaultModel = "gemini-2.5-flash"
+	defaultBase = "https://generativelanguage.googleapis.com"
+	// Dùng BÍ DANH "latest" thay vì ghim một đời model cụ thể: Google gỡ dần
+	// model cũ khỏi tài khoản mới — đo thật với một khoá vừa tạo, gemini-2.5-flash
+	// trả 404 "no longer available to new users", trong khi gemini-flash-latest
+	// vẫn 200. Ghim số đời là cài sẵn một quả mìn hẹn giờ cho người dùng mới.
+	defaultModel = "gemini-flash-latest"
 	maxInlineMB  = 18
 )
 

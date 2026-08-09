@@ -27,6 +27,13 @@
 
 ## Có gì mới
 
+### v2.2.0 — 09/08/2026 — Xưởng làm sẵn
+
+- 🧰 **22 khuôn theo lĩnh vực / 7 nhóm** (quảng cáo & bán hàng, review, kiến thức, kể chuyện, mạng xã hội, doanh nghiệp, giải trí): mỗi khuôn gói sẵn hướng viết kịch bản, **nhịp ba đoạn** (mở đầu / thân / chốt), phong cách hình, khung hình, nền tảng, kiểu giọng và tone nhạc. Bấm **Dùng khuôn này** là sang HTML Video với khung hình, độ dài và hướng dẫn dựng đã điền sẵn — hướng dẫn đi kèm như một trường riêng nên **lời bạn gõ vẫn nguyên văn**, AI không đem câu chữ trong khuôn vào lời thoại.
+- 🎯 **6 preset xuất theo nền tảng** (TikTok, Instagram Reels, YouTube Shorts, YouTube ngang, Facebook Reels, vuông 1:1): đưa video về đúng khung hình và **−14 LUFS** chuẩn phát. Lệch tỉ lệ thì **thêm viền chứ không bóp méo hình**; dài quá trần thì **báo chứ không tự cắt** — cắt hộ là quyết định của người dựng, không phải của phần mềm. Kèm số liệu vùng an toàn để chữ quan trọng không bị giao diện nền tảng che.
+- 🎵 **7 tone nhạc nền** (hào hứng, vui tươi, nhẹ nhàng, căng thẳng, hùng tráng, u ám, huyền ảo) **tổng hợp tại chỗ bằng ffmpeg**, cân về cùng −24 dB đỉnh, vào/ra mờ dần để nối vòng lặp không nghe thấy chỗ cắt. Không mang theo nhạc của ai — nhạc có bản quyền lọt vào video là bị nền tảng **gỡ tiếng hoặc chặn kiếm tiền**. Cố ý không có giai điệu chính để không giành chỗ với lời đọc; muốn nhạc thật thì vẫn tự đưa file vào như cũ. Hệ thống tự gợi ý tone theo từ khoá trong kịch bản.
+- 🗣 **205 giọng gom thành 41 ngôn ngữ có tên tiếng Việt**: làm video tiếng Anh, Nhật, Trung, Hàn, Pháp… không cần cài thêm gì — máy bạn đã có sẵn. Trước đây danh sách chỉ hiện mã kiểu `ja_JP` nên không ai tìm ra giọng tiếng Nhật.
+
 ### v2.1.0 — 08/08/2026 — Hồ sơ nhân vật
 
 - 🐛 **Sửa lỗi làm model vẽ sai người**: prompt sinh ảnh trước đây ghép cả **tên nhân vật** vào (`Featuring Elsa: ...`). Model ảnh thiên vị rất nặng với tên riêng — đặt tên nhân vật là Elsa hay Naruto thì nó vẽ đúng nhân vật nó đã học, **đè lên mô tả ngoại hình bạn viết**. Nay prompt chỉ còn mô tả — thứ duy nhất có thẩm quyền.
@@ -263,6 +270,7 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 ## Các module chi tiết
 
 - **Tổng quan** — số dự án, tác vụ đang chạy, trạng thái 4 công cụ, dự án & job gần đây.
+- **Xưởng làm sẵn** — 22 khuôn theo lĩnh vực (bấm một cái là sang HTML Video với khung hình, độ dài, hướng viết đã điền sẵn), 6 preset chuẩn hoá cho từng nền tảng, 7 tone nhạc nền nghe thử/tải về được, và danh sách giọng gom theo 41 ngôn ngữ.
 - **Tải Video** — dán links (mỗi dòng 1 link) hoặc thả file TXT; mỗi link một job có progress; chọn chất lượng 1080/720/audio; hỗ trợ cookies để tải nội dung cần đăng nhập.
 - **OCR / ASR** — kéo-thả file video/audio lên thẳng giao diện (hoặc nhập đường dẫn); ASR bóc âm thanh thành SRT, OCR bóc chữ trên khung hình (chọn FPS lấy mẫu); kết quả preview + tải về.
 - **Dịch thuật** — kéo-thả SRT/TXT hoặc dán văn bản; 4 phong cách dịch; giữ nguyên timing SRT; engine Claude CLI hoặc Gemini; văn bản ngắn trả kết quả ngay, file dài chạy job nền theo batch.
@@ -302,6 +310,8 @@ Backend là REST thuần — bạn có thể tự động hóa mọi thứ khôn
 | `POST /api/characters/{id}/bible` · `/sheet` | Nhân vật: AI dựng hồ sơ đầy đủ + ghép giọng; vẽ bản ba góc nhìn |
 | `POST /api/ideas/{id}/retry` · `/retry-failed` · `/queue-pending` | Thử lại ý tưởng hỏng, xếp hàng ý tưởng đã duyệt |
 | `POST /api/tools/htmlvideo/plan` · `POST /api/tools/htmlvideo` | HTML Video: tách cảnh từ prompt/bài viết/repo → render MP4 |
+| `GET /api/studio/templates` · `/platforms` · `/moods` · `/mood-for` · `/voice-langs` | Xưởng: bảng khuôn theo lĩnh vực, preset nền tảng, tone nhạc, gợi ý tone theo kịch bản, giọng gom theo ngôn ngữ |
+| `POST /api/studio/normalize` | Chuẩn hoá một video về khung hình + độ to của nền tảng đã chọn |
 | `GET /api/tools/voices` · `GET /api/jobs` · `GET /api/logs` · CRUD `/api/prompts` | Tra cứu |
 | `GET /api/qr.png?project=ID` · `GET /m/{id}` | QR + trang upload điện thoại |
 
@@ -338,6 +348,7 @@ internal/
 ├── recap/                  # phim dài → video kể chuyện (chia cảnh, lời AI, dựng)
 ├── capcut/                 # sinh dự án CapCut (.draft) từ phiên kể chuyện
 ├── charbible/              # hồ sơ nhân vật, bản vẽ ba góc nhìn, ghép giọng
+├── vtemplate/              # khuôn theo lĩnh vực, preset nền tảng, nhạc nền tổng hợp
 ├── tts/  dubbing/          # giọng đọc VieNeu / say / Gemini, lồng tiếng khớp timing
 ├── htmlvideo/              # render video bằng HTML/CSS qua headless Chrome
 ├── text2video/             # phiên Text → Video (kịch bản, giọng, storyboard)

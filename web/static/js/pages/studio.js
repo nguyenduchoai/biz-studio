@@ -6,8 +6,44 @@
 (function () {
   'use strict';
 
-  // Khoá localStorage để trang HTML Video đọc lại khuôn vừa chọn.
+  // Khoá localStorage để trang đích đọc lại khuôn vừa chọn. Hai khoá riêng vì
+  // hai đường dựng khác hẳn nhau: HTML Video dựng bằng HTML/CSS, Text → Video
+  // dựng bằng ảnh AI theo phiên. Dùng chung một khoá thì bấm sang đường này lại
+  // nạp nhầm khuôn cho đường kia.
   var PREFILL_KEY = 'biz-template-prefill';
+  var PREFILL_KEY_T2V = 'biz-template-prefill-t2v';
+
+  // chooseTarget hỏi dựng bằng đường nào. Không tự đoán: cùng một khuôn dùng
+  // được cả hai, và chọn sai thì người dùng mất công làm lại từ đầu.
+  function chooseTarget(t) {
+    function go(key, hash, label) {
+      try { localStorage.setItem(key, JSON.stringify(t)); } catch (e) { /* chế độ riêng tư */ }
+      m.close();
+      UI.toast('Đã nạp khuôn "' + t.name + '" — ' + label);
+      location.hash = hash;
+    }
+    var m = UI.modal({
+      title: 'Dựng "' + t.name + '" bằng đường nào?',
+      body: h('div', null,
+        h('p', { class: 'muted', style: { fontSize: '13px', lineHeight: '1.6' } },
+          'Cùng khuôn này dùng được cả hai đường — khác nhau ở chỗ hình lấy từ đâu.'),
+        h('div', { style: { marginTop: '10px' } },
+          row('HTML Video', 'Hình dựng bằng HTML/CSS — chữ sắc nét, số liệu và biểu đồ rõ, ' +
+            'không tốn lượt gọi AI sinh ảnh. Hợp nội dung nhiều chữ và số.'),
+          row('Text → Video', 'Hình sinh bằng AI theo bộ Style Kit — hợp kể chuyện, cảnh vật, nhân vật. ' +
+            'Khuôn này hợp bộ "' + (t.style || '—') + '". Có lưu phiên để quay lại sửa.'))),
+      actions: [
+        UI.btn('Hủy', { variant: 'ghost', onclick: function () { m.close(); } }),
+        UI.btn('Text → Video', {
+          variant: 'ghost',
+          onclick: function () { go(PREFILL_KEY_T2V, '#/text2video', 'bấm "Phiên mới" để tạo phiên theo khuôn.'); }
+        }),
+        UI.btn('HTML Video', {
+          onclick: function () { go(PREFILL_KEY, '#/htmlvideo', 'khung hình và hướng viết đã điền sẵn.'); }
+        })
+      ]
+    });
+  }
 
   function dataURL(rel) {
     return '/data/' + String(rel).split('/').map(encodeURIComponent).join('/');
@@ -89,11 +125,7 @@
     });
     var useBtn = UI.btn('Dùng khuôn này', {
       variant: 'primary', small: true,
-      onclick: function () {
-        try { localStorage.setItem(PREFILL_KEY, JSON.stringify(t)); } catch (e) { /* chế độ riêng tư */ }
-        UI.toast('Đã nạp khuôn "' + t.name + '" — mở HTML Video để dùng.');
-        location.hash = '#/htmlvideo';
-      }
+      onclick: function () { chooseTarget(t); }
     });
 
     var chips = [t.aspect, t.platform, t.seconds + 's', t.voicePace ? 'giọng ' + t.voicePace : '', t.musicMood]

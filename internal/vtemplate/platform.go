@@ -139,3 +139,16 @@ func NormalizeForPlatform(ctx context.Context, src, dst, platformID string) (*No
 	}
 	return rep, nil
 }
+
+// AspectSize đổi tỉ lệ khung hình thành kích thước pixel chuẩn. Tỉ lệ lạ thì
+// trả về dọc 1080×1920 — mặc định an toàn nhất vì phần lớn video ngắn là dọc.
+func AspectSize(aspect string) (w, h int) {
+	switch strings.TrimSpace(aspect) {
+	case "16:9":
+		return 1920, 1080
+	case "1:1":
+		return 1080, 1080
+	default: // "9:16" và mọi thứ khác
+		return 1080, 1920
+	}
+}

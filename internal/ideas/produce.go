@@ -94,7 +94,7 @@ func (r *Runner) pipeline(ctx context.Context, idea *store.Idea, title string) (
 
 	// 1. Kịch bản lời đọc.
 	r.logf("info", fmt.Sprintf("Ý tưởng %q: đang viết kịch bản…", title))
-	segs, err := text2video.WriteScript(ctx, r.st, sess.SourceText, sess.ScriptEngine, sess.ScriptModel, sess.TargetSeconds)
+	segs, err := text2video.WriteScript(ctx, r.st, sess.SourceText, sess.ScriptEngine, sess.ScriptModel, sess.TargetSeconds, sess.TemplateID)
 	if err != nil {
 		r.failSession(&sess)
 		return "", fmt.Errorf("viết kịch bản thất bại: %w", err)

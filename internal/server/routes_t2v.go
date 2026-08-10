@@ -14,6 +14,7 @@ import (
 
 	"bizstudio/internal/store"
 	"bizstudio/internal/text2video"
+	"bizstudio/internal/vtemplate"
 )
 
 const (
@@ -61,10 +62,12 @@ func (s *Server) handleT2VList(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleT2VCreate(w http.ResponseWriter, r *http.Request) {
 	var body struct {
-		Name   string `json:"name"`
-		Width  int    `json:"width"`
-		Height int    `json:"height"`
-		FPS    int    `json:"fps"`
+		Name          string `json:"name"`
+		Width         int    `json:"width"`
+		Height        int    `json:"height"`
+		FPS           int    `json:"fps"`
+		TemplateID    string `json:"templateId"`
+		TargetSeconds int    `json:"targetSeconds"`
 	}
 	if r.ContentLength != 0 {
 		if err := readJSON(r, &body); err != nil {
@@ -72,9 +75,30 @@ func (s *Server) handleT2VCreate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	// Khuôn điền hộ các ô còn trống, KHÔNG đè lên thứ người dùng đã gửi: họ mở
+	// khuôn dọc rồi tự sửa thành ngang trước khi bấm tạo thì phải giữ ý họ.
+	var tplName string
+	if tpl, ok := vtemplate.Find(body.TemplateID); ok {
+		tplName = tpl.Name
+		if body.TargetSeconds <= 0 {
+			body.TargetSeconds = tpl.Seconds
+		}
+		if body.Width <= 0 && body.Height <= 0 {
+			body.Width, body.Height = vtemplate.AspectSize(tpl.Aspect)
+		}
+	} else {
+		// id bịa thì bỏ hẳn, đừng lưu một tham chiếu chết vào phiên
+		body.TemplateID = ""
+	}
+
 	name := strings.TrimSpace(body.Name)
 	if name == "" {
-		name = "Phiên " + time.Now().Format("02/01 15:04")
+		if tplName != "" {
+			name = tplName + " " + time.Now().Format("02/01 15:04")
+		} else {
+			name = "Phiên " + time.Now().Format("02/01 15:04")
+		}
 	}
 	if body.Width <= 0 {
 		body.Width = 1080
@@ -89,7 +113,8 @@ func (s *Server) handleT2VCreate(w http.ResponseWriter, r *http.Request) {
 		Name: name, SourceKind: "text",
 		Width: body.Width, Height: body.Height, FPS: body.FPS,
 		Status: "draft", Step: 1, BuildMode: "html",
-		Segments: []store.T2VSegment{},
+		Segments:   []store.T2VSegment{},
+		TemplateID: body.TemplateID, TargetSeconds: body.TargetSeconds,
 	}
 	s.st.SaveT2VSession(&sess)
 	if err := os.MkdirAll(text2video.SessionDir(s.DataDir, sess.ID), 0o755); err != nil {
@@ -128,6 +153,7 @@ func (s *Server) handleT2VUpdate(w http.ResponseWriter, r *http.Request) {
 		FPS           *int                `json:"fps"`
 		Step          *int                `json:"step"`
 		BuildMode     *string             `json:"buildMode"`
+		TemplateID    *string             `json:"templateId"`
 	}
 	if err := readJSON(r, &body); err != nil {
 		httpErr(w, http.StatusBadRequest, "%s", err)
@@ -152,6 +178,18 @@ func (s *Server) handleT2VUpdate(w http.ResponseWriter, r *http.Request) {
 	setStr(&sess.VoiceEngine, body.VoiceEngine)
 	setStr(&sess.VoiceStyle, body.VoiceStyle)
 	setStr(&sess.BuildMode, body.BuildMode)
+	// Đổi khuôn: chuỗi rỗng = gỡ khuôn (hợp lệ), id bịa thì từ chối chứ đừng
+	// lưu tham chiếu chết rồi im lặng bỏ qua lúc viết kịch bản.
+	if body.TemplateID != nil {
+		id := strings.TrimSpace(*body.TemplateID)
+		if id != "" {
+			if _, ok := vtemplate.Find(id); !ok {
+				httpErr(w, http.StatusBadRequest, "không có khuôn %q", id)
+				return
+			}
+		}
+		sess.TemplateID = id
+	}
 	setInt(&sess.TargetSeconds, body.TargetSeconds)
 	setInt(&sess.Width, body.Width)
 	setInt(&sess.Height, body.Height)
@@ -238,7 +276,7 @@ func (s *Server) handleT2VScript(w http.ResponseWriter, r *http.Request) {
 			return "", fmt.Errorf("phiên %q đã bị xoá", id)
 		}
 		upd(10, "Đang nhờ AI viết kịch bản đọc…")
-		segs, err := text2video.WriteScript(ctx, s.st, cur.SourceText, cur.ScriptEngine, cur.ScriptModel, cur.TargetSeconds)
+		segs, err := text2video.WriteScript(ctx, s.st, cur.SourceText, cur.ScriptEngine, cur.ScriptModel, cur.TargetSeconds, cur.TemplateID)
 		if err != nil {
 			s.t2vFail(id, err)
 			return "", err

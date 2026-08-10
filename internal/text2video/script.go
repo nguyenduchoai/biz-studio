@@ -15,6 +15,7 @@ import (
 	"bizstudio/internal/openaiapi"
 	"bizstudio/internal/store"
 	"bizstudio/internal/util"
+	"bizstudio/internal/vtemplate"
 )
 
 // maxSourceRunes — cắt bớt nguồn quá dài trước khi gửi LLM (giữ ngân sách token).
@@ -27,10 +28,12 @@ const scriptSystem = "Bạn là biên tập viên viết kịch bản lời đ�
 // đoạn ngắn (mỗi đoạn 1–3 câu, một ý). targetSeconds > 0 thì canh độ dài kịch
 // bản theo tốc độ đọc ~15 ký tự/giây.
 //
+// templateID: khuôn lĩnh vực (rỗng = không dùng khuôn).
+//
 // engine: "claude" (Claude CLI) | "gemini" | "openai" (API Trực Tiếp);
 // rỗng → tự chọn theo Cấu hình & API: API Trực Tiếp → Gemini → Claude CLI.
 // model: rỗng thì dùng model mặc định của engine.
-func WriteScript(ctx context.Context, st *store.Store, src, engine, model string, targetSeconds int) ([]store.T2VSegment, error) {
+func WriteScript(ctx context.Context, st *store.Store, src, engine, model string, targetSeconds int, templateID string) ([]store.T2VSegment, error) {
 	source := strings.TrimSpace(src)
 	if source == "" {
 		return nil, errors.New("chưa có nội dung nguồn — dán văn bản hoặc lấy nội dung từ link trước khi viết kịch bản")
@@ -43,7 +46,7 @@ func WriteScript(ctx context.Context, st *store.Store, src, engine, model string
 	// prompt để LLM viết đúng cỡ, và vẫn cắt hậu kiểm phòng LLM viết quá tay.
 	maxChars := VoiceCharLimit(st)
 
-	raw, err := runScriptLLM(ctx, st, engine, model, buildScriptPrompt(source, targetSeconds, maxChars))
+	raw, err := runScriptLLM(ctx, st, engine, model, buildScriptPrompt(source, targetSeconds, maxChars, templateID))
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +60,8 @@ func WriteScript(ctx context.Context, st *store.Store, src, engine, model string
 
 // buildScriptPrompt dựng prompt tiếng Việt: văn nói, không markdown, không URL,
 // chia đoạn, trả JSON mảng chuỗi. maxChars > 0 thì ràng độ dài từng đoạn.
-func buildScriptPrompt(source string, targetSeconds, maxChars int) string {
+// tplID rỗng = không dùng khuôn.
+func buildScriptPrompt(source string, targetSeconds, maxChars int, tplID string) string {
 	var b strings.Builder
 	b.WriteString(`Viết kịch bản LỜI ĐỌC (voice-over) tiếng Việt cho video, dựa trên nội dung nguồn bên dưới.
 
@@ -82,6 +86,24 @@ Quy tắc bắt buộc:
 	}
 	if maxChars > 0 {
 		fmt.Fprintf(&b, "- Mỗi đoạn TỐI ĐA %d ký tự (kể cả dấu cách); đoạn nào dài hơn phải tách thành đoạn mới.\n", maxChars)
+	}
+	// Khuôn đặt SAU các quy tắc bắt buộc và TRƯỚC nguồn: nói rõ đây là cách kể,
+	// không phải nội dung — nếu để lẫn, model đem nguyên câu trong khuôn ("Mở
+	// đầu bằng nỗi đau cụ thể") vào chính lời đọc.
+	if tpl, ok := vtemplate.Find(tplID); ok {
+		b.WriteString("\nKhuôn kể chuyện cần theo — đây là HƯỚNG DẪN cách kể, tuyệt đối không đưa nguyên văn mấy dòng này vào lời đọc:\n")
+		if tpl.Script != "" {
+			fmt.Fprintf(&b, "- %s\n", tpl.Script)
+		}
+		if tpl.Hook != "" {
+			fmt.Fprintf(&b, "- Đoạn mở đầu: %s\n", tpl.Hook)
+		}
+		if tpl.Body != "" {
+			fmt.Fprintf(&b, "- Các đoạn giữa: %s\n", tpl.Body)
+		}
+		if tpl.CTA != "" {
+			fmt.Fprintf(&b, "- Đoạn chốt: %s\n", tpl.CTA)
+		}
 	}
 	b.WriteString(`
 Trả về DUY NHẤT một JSON mảng các chuỗi, mỗi phần tử là một đoạn lời đọc:

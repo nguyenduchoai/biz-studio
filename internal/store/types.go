@@ -234,6 +234,11 @@ type T2VSession struct {
 	TargetSeconds int          `json:"targetSeconds"` // 0 = tự động
 	Segments      []T2VSegment `json:"segments"`
 
+	// TemplateID — khuôn lĩnh vực đã chọn (rỗng = không dùng khuôn). Lưu id chứ
+	// không lưu cả nội dung khuôn: sửa lời hướng dẫn trong bảng khuôn là mọi
+	// phiên cũ hưởng ngay, không phải đi vá từng phiên.
+	TemplateID string `json:"templateId"`
+
 	VoiceID     string `json:"voiceId"`
 	VoiceEngine string `json:"voiceEngine"`
 	VoiceStyle  string `json:"voiceStyle"`

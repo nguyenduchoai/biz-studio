@@ -29,7 +29,16 @@
 
 ### v2.2.0 — 09/08/2026 — Xưởng làm sẵn
 
-- 🧰 **22 khuôn theo lĩnh vực / 7 nhóm** (quảng cáo & bán hàng, review, kiến thức, kể chuyện, mạng xã hội, doanh nghiệp, giải trí): mỗi khuôn gói sẵn hướng viết kịch bản, **nhịp ba đoạn** (mở đầu / thân / chốt), phong cách hình, khung hình, nền tảng, kiểu giọng và tone nhạc. Bấm **Dùng khuôn này** là sang HTML Video với khung hình, độ dài và hướng dẫn dựng đã điền sẵn — hướng dẫn đi kèm như một trường riêng nên **lời bạn gõ vẫn nguyên văn**, AI không đem câu chữ trong khuôn vào lời thoại.
+- 🧰 **22 khuôn theo lĩnh vực / 7 nhóm** (quảng cáo & bán hàng, review, kiến thức, kể chuyện, mạng xã hội, doanh nghiệp, giải trí): mỗi khuôn gói sẵn hướng viết kịch bản, **nhịp ba đoạn** (mở đầu / thân / chốt), phong cách hình, khung hình, nền tảng, kiểu giọng và tone nhạc. Bấm **Dùng khuôn này** rồi chọn dựng bằng **HTML Video** (hình bằng HTML/CSS — chữ và số liệu sắc nét, không tốn lượt AI sinh ảnh) hay **Text → Video** (hình sinh bằng AI theo bộ Style Kit, có lưu phiên). Cả hai đường đều nhận sẵn khung hình, độ dài và hướng viết; hướng dẫn đi kèm như một trường riêng nên **lời bạn gõ vẫn nguyên văn**, AI không đem câu chữ trong khuôn vào lời đọc.
+
+  Đo thật với khuôn *Quảng cáo sản phẩm* (khuôn dặn: mở bằng nỗi đau, không nói tên sản phẩm ở câu đầu) — cùng một nguồn, cùng một model:
+
+  | | Đoạn mở đầu AI viết ra |
+  |---|---|
+  | Không khuôn | "**Máy lọc nước Kangaroo KG100** sở hữu chín lõi lọc vượt trội…" |
+  | Có khuôn | "Nguồn nước sinh hoạt hằng ngày **liệu có thực sự an toàn**? Vi khuẩn và kim loại nặng vẫn có thể đang tồn tại ngay trong nước bạn dùng." |
+
+  Phiên Text → Video hiện rõ khuôn đang dùng và **gỡ được bất cứ lúc nào** — khuôn nắn kịch bản một cách lặng lẽ, giấu đi thì mở lại phiên cũ không hiểu vì sao kịch bản ra khác.
 - 🎯 **6 preset xuất theo nền tảng** (TikTok, Instagram Reels, YouTube Shorts, YouTube ngang, Facebook Reels, vuông 1:1): đưa video về đúng khung hình và **−14 LUFS** chuẩn phát. Lệch tỉ lệ thì **thêm viền chứ không bóp méo hình**; dài quá trần thì **báo chứ không tự cắt** — cắt hộ là quyết định của người dựng, không phải của phần mềm. Kèm số liệu vùng an toàn để chữ quan trọng không bị giao diện nền tảng che.
 - 🎵 **7 tone nhạc nền** (hào hứng, vui tươi, nhẹ nhàng, căng thẳng, hùng tráng, u ám, huyền ảo) **tổng hợp tại chỗ bằng ffmpeg**, cân về cùng −24 dB đỉnh, vào/ra mờ dần để nối vòng lặp không nghe thấy chỗ cắt. Không mang theo nhạc của ai — nhạc có bản quyền lọt vào video là bị nền tảng **gỡ tiếng hoặc chặn kiếm tiền**. Cố ý không có giai điệu chính để không giành chỗ với lời đọc; muốn nhạc thật thì vẫn tự đưa file vào như cũ. Hệ thống tự gợi ý tone theo từ khoá trong kịch bản.
 - 🗣 **205 giọng gom thành 41 ngôn ngữ có tên tiếng Việt**: làm video tiếng Anh, Nhật, Trung, Hàn, Pháp… không cần cài thêm gì — máy bạn đã có sẵn. Trước đây danh sách chỉ hiện mã kiểu `ja_JP` nên không ai tìm ra giọng tiếng Nhật.
@@ -279,7 +288,7 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 - **Vox-Director** — quy trình 5 bước, chọn dự án đích, gán media từng cảnh.
 - **Studio Editor** — chọn dự án → thư viện media, preview, thuộc tính file, timeline theo thời lượng thật; cắt khoảng lặng, render final.
 - **HTML Video** — video-as-code: 3 nguồn (prompt / bài viết / repo GitHub — tự đọc README), AI tách thành cảnh theo 8 template HTML (thêm bố cục Key cho video dọc), chỉnh từng cảnh, render bằng Chrome headless (24/30fps, 3 theme, narration TTS, nhạc nền, phụ đề).
-- **Text → Video** — quy trình 5 bước có lưu phiên: Nguồn (link/văn bản) → Kịch bản đọc (chia đoạn, sửa tay, chọn model) → Giọng đọc (đo thời lượng thật, xuất `voice.wav` + `transcript.json`) → Cấu hình → Dựng video (AI hoặc HTML Video). Danh sách phiên cho phép quay lại sửa và dựng lại bất cứ lúc nào.
+- **Text → Video** — nhận khuôn từ Xưởng (khung hình, độ dài, nhịp kể — gỡ được bất cứ lúc nào); quy trình 5 bước có lưu phiên: Nguồn (link/văn bản) → Kịch bản đọc (chia đoạn, sửa tay, chọn model) → Giọng đọc (đo thời lượng thật, xuất `voice.wav` + `transcript.json`) → Cấu hình → Dựng video (AI hoặc HTML Video). Danh sách phiên cho phép quay lại sửa và dựng lại bất cứ lúc nào.
 - **Dự án** — trang điều phối trung tâm (chi tiết ở phần Phiên AI phía trên) + QC, thumbnail, gói xuất bản, QR điện thoại, quản lý prompt mẫu (**có sẵn 8 prompt mẫu** cho các thể loại: viral TikTok, TVC sản phẩm, vlog, giáo dục, recap, repo tech, podcast clip, số liệu).
 - **Phim → Kể chuyện** — chia phim theo chuyển cảnh, AI xem khung hình viết lời từng cảnh (sửa tay được), đọc giọng Việt, dựng video lời kể đè phim, xuất tiếp sang CapCut.
 - **Avatar nói** — ảnh + giọng → video nhân vật nói. Gõ chữ là máy tự đọc bằng giọng Việt rồi dựng luôn. Cần một máy có GPU NVIDIA (chạy tại chỗ hoặc đẩy việc sang qua mạng).
@@ -312,6 +321,7 @@ Backend là REST thuần — bạn có thể tự động hóa mọi thứ khôn
 | `POST /api/tools/htmlvideo/plan` · `POST /api/tools/htmlvideo` | HTML Video: tách cảnh từ prompt/bài viết/repo → render MP4 |
 | `GET /api/studio/templates` · `/platforms` · `/moods` · `/mood-for` · `/voice-langs` | Xưởng: bảng khuôn theo lĩnh vực, preset nền tảng, tone nhạc, gợi ý tone theo kịch bản, giọng gom theo ngôn ngữ |
 | `POST /api/studio/normalize` | Chuẩn hoá một video về khung hình + độ to của nền tảng đã chọn |
+| `POST /api/t2v/sessions` (`templateId`) · `PUT …/{id}` (`templateId`) | Tạo phiên Text → Video theo khuôn; đổi hoặc gỡ khuôn của phiên đã có |
 | `GET /api/tools/voices` · `GET /api/jobs` · `GET /api/logs` · CRUD `/api/prompts` | Tra cứu |
 | `GET /api/qr.png?project=ID` · `GET /m/{id}` | QR + trang upload điện thoại |
 

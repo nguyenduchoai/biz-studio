@@ -202,9 +202,25 @@
   // A. DANH SÁCH PHIÊN
   // ============================================================
 
+  // Khoá localStorage do trang Xưởng ghi khi bấm "Dùng khuôn này".
+  var PREFILL_KEY = 'biz-template-prefill-t2v';
+
+  // takePrefill đọc RỒI XOÁ: khuôn chỉ dùng cho đúng phiên vừa tạo. Không xoá
+  // thì mọi phiên mới sau đó đều dính khuôn cũ mà người dùng không hiểu vì sao.
+  function takePrefill() {
+    try {
+      var raw = localStorage.getItem(PREFILL_KEY);
+      if (!raw) return null;
+      localStorage.removeItem(PREFILL_KEY);
+      return JSON.parse(raw);
+    } catch (e) { return null; }
+  }
+
   function createSession(btn) {
     if (btn) btn.disabled = true;
-    API.post('/api/t2v/sessions', {}).then(function (s) {
+    var tpl = takePrefill();
+    var body = tpl ? { templateId: tpl.id } : {};
+    API.post('/api/t2v/sessions', body).then(function (s) {
       if (!s || !s.id) throw new Error('Máy chủ không trả về phiên mới');
       UI.toast('Đã tạo phiên "' + (s.name || s.id) + '"');
       App.navigate('text2video/' + s.id);
@@ -404,6 +420,38 @@
         s.voiceSeconds > 0 ? 'thật ' + UI.fmtDur(s.voiceSeconds) : 'chưa có giọng đọc'),
       h('span', { class: 'muted', style: { fontSize: '12px' } },
         'Sửa cuối: ' + (UI.timeAgo(s.updatedAt) || '—'))));
+    if (s.templateId) renderTemplateChip(ctx);
+  }
+
+  // Khuôn lặng lẽ nắn kịch bản AI viết ra. Không hiện thì lần sau người dùng mở
+  // lại phiên, thấy kịch bản ra khác hẳn phiên khác mà không hiểu vì sao — nên
+  // vừa hiện tên vừa cho gỡ ngay tại đây.
+  function renderTemplateChip(ctx) {
+    var s = ctx.sess;
+    API.get('/api/studio/templates').then(function (d) {
+      var tpl = null, list = (d && d.templates) || [];
+      for (var i = 0; i < list.length; i++) if (list[i].id === s.templateId) { tpl = list[i]; break; }
+      if (!tpl || ctx.sess.templateId !== s.templateId) return;
+      var off = UI.btn('Gỡ khuôn', {
+        variant: 'ghost', small: true,
+        onclick: function () {
+          off.disabled = true;
+          putSession(ctx, { templateId: '' })
+            .then(function () { renderChips(ctx); UI.toast('Đã gỡ khuôn — kịch bản sau sẽ viết tự do.'); })
+            .catch(function (e) { off.disabled = false; UI.toast('Không gỡ được: ' + e.message, 'error'); });
+        }
+      });
+      ctx.chipHost.appendChild(h('div', {
+        class: 'row', style: {
+          marginTop: '8px', gap: '8px', padding: '8px 10px', borderRadius: '8px',
+          background: 'var(--surface-2, rgba(124,58,237,.06))', border: '1px solid var(--border)'
+        }
+      },
+        h('span', { style: { fontSize: '13px' } }, '🧰 Khuôn: ', h('b', null, tpl.icon + ' ' + tpl.name)),
+        h('span', { class: 'muted', style: { fontSize: '12px', flex: '1', minWidth: '0' } },
+          'AI viết kịch bản theo nhịp của khuôn này.'),
+        off));
+    }).catch(function () { /* mất mạng thì thôi, không chặn phần còn lại */ });
   }
 
   // ---------- Card thu gọn được ----------

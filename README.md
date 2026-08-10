@@ -27,6 +27,14 @@
 
 ## Có gì mới
 
+### v2.3.0 — 10/08/2026 — Khuôn cảnh HTML Video nâng cấp
+
+- 🐛 **Sửa một lỗ hổng lặng lẽ trong việc đóng gói font**: bốn ký hiệu trong khuôn cảnh — dấu tích `✓`, ngôi sao `✦`, con trỏ `▍`, nút play `▶` — **không có trong font tiếng Việt đóng gói kèm** (Be Vietnam Pro chỉ có 459 glyph; đọc thẳng bảng cmap của font ra thế). Chúng rơi sang font của hệ điều hành, tức lọt đúng khỏi cái mà việc đóng gói font sinh ra để tránh: **hai máy render ra hai kiểu**. Trên macOS nhìn vẫn ổn nên lỗi này không bao giờ tự lộ. Nay cả bốn **vẽ bằng hình học CSS** — đo lại: đổi sang một họ font không tồn tại, ảnh của dấu tích / ngôi sao / nút play ra **giống hệt từng byte**.
+- 👁 **Mỗi khung tối đa 3 phần tử đang sáng**: cảnh 6 gạch đầu dòng trước đây có khung cuối 6 dòng cùng sáng như nhau, mắt không biết nhìn đâu. Nay dòng mới vào thì dòng cũ **lùi lại** (mờ còn 42% và thụt nhẹ) chứ không biến mất — vẫn đọc được, hết giành nhìn.
+- ⏸ **Dừng 0,3 giây trước khi con số chạy** ở cảnh biểu đồ: trước đây số chạy ngay lúc nhãn còn đang bay vào, mắt chưa kịp biết đang đọc chỉ số gì đã phải đuổi theo số.
+- 🪶 **Ba đường cong thay vì một**: trước đây mọi phần tử dùng chung một đường cong nên chữ tiêu đề nặng và cái huy hiệu nhỏ về đích y như nhau. Nay tiêu đề dùng `expo` (đáp xuống chứ không dừng lại), huy hiệu dùng `back` (vọt quá một chút rồi lùi về).
+- ⏱ **Nhịp co theo thời lượng cảnh**: video 15 giây chia 6 cảnh thì mỗi cảnh chỉ 2,5 giây — nhịp cũ cố định khiến gạch đầu dòng cuối và con số cuối **chưa kịp hiện đã hết cảnh**. Nay nhịp tự co, luôn chừa ≥0,7 giây cuối cho khung chốt đứng yên.
+
 ### v2.2.0 — 09/08/2026 — Xưởng làm sẵn
 
 - 🧰 **22 khuôn theo lĩnh vực / 7 nhóm** (quảng cáo & bán hàng, review, kiến thức, kể chuyện, mạng xã hội, doanh nghiệp, giải trí): mỗi khuôn gói sẵn hướng viết kịch bản, **nhịp ba đoạn** (mở đầu / thân / chốt), phong cách hình, khung hình, nền tảng, kiểu giọng và tone nhạc. Bấm **Dùng khuôn này** rồi chọn dựng bằng **HTML Video** (hình bằng HTML/CSS — chữ và số liệu sắc nét, không tốn lượt AI sinh ảnh) hay **Text → Video** (hình sinh bằng AI theo bộ Style Kit, có lưu phiên). Cả hai đường đều nhận sẵn khung hình, độ dài và hướng viết; hướng dẫn đi kèm như một trường riêng nên **lời bạn gõ vẫn nguyên văn**, AI không đem câu chữ trong khuôn vào lời đọc.
@@ -406,6 +414,7 @@ Biz Studio học hỏi ý tưởng từ những dự án mã nguồn mở rất 
 | [AiToEarn](https://github.com/yikart/AiToEarn) | Tư duy hệ sinh thái agent **Create → Publish → Engage → Monetize** → định hướng **Gói xuất bản** (meta/hashtag sẵn sàng đăng đa nền tảng) và roadmap tự động hóa xuất bản |
 | [Pallaidium](https://github.com/tin2tin/Pallaidium) | Mô hình **"AI movie studio" khép kín** một môi trường duy nhất (kịch bản → sinh media → dựng → phân tích ngược) → cách tổ chức workflow Bài viết → Video / Vox-Director / phiên AI trong cùng một studio |
 | [shuohao-skills](https://github.com/eternityspring/shuohao-skills) | Cách **thiết kế prompt cho hồ sơ nhân vật** (Apache-2.0): tuyệt đối không để tên riêng vào prompt sinh ảnh vì model vẽ nhân vật nó đã học; bố cục bản ba góc nhìn phải khoá cứng tỉ lệ và chia ánh sáng theo vùng; prompt cho máy luôn tiếng Anh còn chữ cho người theo ngôn ngữ người dùng → **Hồ sơ nhân vật + bản vẽ ba góc nhìn** của Biz Studio (mã tự viết, không chép) |
+| [huashu-design](https://github.com/alchaincyf/huashu-design) | **Kỷ luật chuyển động** (MIT): mỗi khung tối đa 3 phần tử đang sáng, phần tử mới vào thì phần tử cũ phải lùi lại; dừng ≥0,3 giây trước thông tin then chốt để mắt kịp phản ứng; đường cong phải khớp sức nặng của vật (`expo` cho thứ nặng, `back` cho thứ nhỏ và nảy); và cảnh báo **không dựa vào ký tự Unicode hiếm** vì font có thể không có glyph → **bộ máy chuyển động của HTML Video** (mã tự viết, không chép) |
 | HyperFrame · OpenDesign | Cảm hứng về motion/storytelling cho short video và thiết kế scene/layout động → bộ template cảnh + theme của HTML Video |
 
 Và những công cụ nền tảng mà Biz Studio đứng trên vai: [FFmpeg](https://ffmpeg.org), [chromedp](https://github.com/chromedp/chromedp), [yt-dlp](https://github.com/yt-dlp/yt-dlp), [Claude Code CLI](https://claude.com/claude-code), [Gemini API](https://ai.google.dev), [Pexels](https://www.pexels.com/api/), [go-qrcode](https://github.com/skip2/go-qrcode).

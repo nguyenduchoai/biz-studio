@@ -137,8 +137,18 @@ body.theme-light #bg { background: #F7F5FE; }
   flex: none; width: calc(var(--size-body) * 4.6 / 3.6); height: calc(var(--size-body) * 4.6 / 3.6); border-radius: 50%;
   background: linear-gradient(135deg, var(--a1), var(--a2));
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: calc(var(--size-body) * 2.5 / 3.6); font-weight: 800;
   box-shadow: 0 calc(var(--u)*.6) calc(var(--u)*2.2) rgba(0,0,0,.22);
+}
+/* Dấu tích, mũi tên, con trỏ và ngôi sao dưới đây VẼ BẰNG CSS chứ không dùng ký
+   tự ✓ ✦ ▍ ▶. Lý do đo được: font tiếng Việt đóng gói kèm (Be Vietnam Pro) chỉ
+   có 459 glyph và KHÔNG có bốn ký tự đó, nên chúng rơi sang font của hệ điều
+   hành — tức lọt đúng khỏi cái mà việc đóng gói font sinh ra để tránh: hai máy
+   render ra hai kiểu. Hình học CSS thì máy nào cũng ra đúng từng pixel. */
+.tick::after {
+  content: ''; display: block;
+  width: 32%; height: 58%;
+  border: solid #fff; border-width: 0 .16em .16em 0;
+  transform: translateY(-8%) rotate(45deg);
 }
 .btext { padding-top: calc(var(--u)*.5); }
 
@@ -156,7 +166,12 @@ body.theme-light #bg { background: #F7F5FE; }
   font-size: calc(var(--size-body) * 2.6 / 3.6); line-height: 1.65; color: #E9E5FF;
   white-space: pre-wrap; word-break: break-word;
 }
-.caret { color: var(--a2); font-weight: 400; }
+.caret {
+  /* tỉ lệ con trỏ khối của terminal: hẹp bằng khoảng 1/3 ô chữ, cao gần trọn
+     dòng — rộng hơn thì đọc ra là ô màu chứ không phải con trỏ đang nhấp nháy */
+  display: inline-block; width: .34em; height: 1.18em;
+  background: var(--a2); vertical-align: -.24em; border-radius: .04em;
+}
 
 /* ---------- chart ---------- */
 .rows { display: flex; flex-direction: column; gap: calc(var(--u)*3); }
@@ -275,7 +290,18 @@ body.theme-light #bg { background: #F7F5FE; }
   position: absolute; inset: 22%; border-radius: 50%;
   background: linear-gradient(135deg, var(--a1), var(--a2));
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: calc(var(--u)*4.4);
+}
+/* tam giác "play" bằng viền: lệch phải một chút cho cân thị giác trong hình tròn */
+.core::after {
+  content: ''; display: block;
+  border-style: solid; border-width: calc(var(--u)*2.3) 0 calc(var(--u)*2.3) calc(var(--u)*3.9);
+  border-color: transparent transparent transparent #fff;
+  margin-left: calc(var(--u)*.9);
+}
+/* ngôi sao bốn cánh — clip-path lõm cạnh cho ra dáng lấp lánh */
+.spark {
+  display: inline-block; width: 1em; height: 1em; background: #fff;
+  clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%);
 }
 .otitle { font-family: var(--font-head); font-size: calc(var(--size-title) * 7.6 / 9.2); font-weight: 800; letter-spacing: -.02em; line-height: 1.1; max-width: 96%; }
 .osub { font-size: calc(var(--size-body) * 3.4 / 3.6); color: var(--muted); font-weight: 600; }
@@ -302,7 +328,37 @@ var DATA = {{.DataJSON}};
   /* ---------- helpers: mọi trạng thái là hàm thuần của t ---------- */
   function clamp01(x) { return x < 0 ? 0 : (x > 1 ? 1 : x); }
   function easeOutCubic(x) { x = clamp01(x); return 1 - Math.pow(1 - x, 3); }
+
+  /* Ba đường cong cho ba loại "sức nặng" khác nhau. Trước đây mọi thứ dùng
+     chung easeOutCubic nên cả khung hình chuyển động cùng một cảm giác — chữ
+     to nặng và cái huy hiệu nhỏ về đích y như nhau, mắt đọc ra là đồ hoạ chứ
+     không phải vật thể.
+       cubic — mặc định, dùng cho phần lớn phần tử
+       expo  — hãm rất gắt ở cuối: phần tử "ĐÁP xuống" chứ không "dừng lại",
+               dành cho thứ nặng nhất khung hình (tiêu đề)
+       back  — vọt quá đích một chút rồi lùi về, cho thứ nhỏ và nảy (huy hiệu,
+               con số) — biên độ để rất nhẹ (1.34) vì quá tay thành hoạt hình */
+  function easeOutExpo(x) { x = clamp01(x); return x >= 1 ? 1 : 1 - Math.pow(2, -10 * x); }
+  function easeOutBack(x) {
+    x = clamp01(x);
+    var c = 1.34, y = x - 1;
+    return 1 + (c + 1) * y * y * y + c * y * y;
+  }
   function seg(t, start, dur) { return easeOutCubic((t - start) / dur); }
+  function segExpo(t, start, dur) { return easeOutExpo((t - start) / dur); }
+  function segBack(t, start, dur) { return easeOutBack((t - start) / dur); }
+
+  /* Luật một khung tối đa ba phần tử đang "sáng": phần tử mới vào thì phần tử
+     cũ phải lùi lại (mờ đi + thụt nhẹ), không phải biến mất. Không có luật này
+     thì cảnh 6 gạch đầu dòng có khung cuối 7 thứ cùng hét lên một lúc, mắt
+     không biết nhìn đâu.
+     recede(i, cur) trả độ mờ của mục thứ i khi mục cur đang là mục mới nhất. */
+  var ACTIVE_MAX = 3;
+  function recede(i, cur) {
+    var back = cur - i;                    // mục này đã vào trước bao nhiêu lượt
+    if (back < ACTIVE_MAX) return 1;       // vẫn trong nhóm đang sáng
+    return 0.42;                           // đã lùi về sau: còn đọc được, hết giành nhìn
+  }
   function rnd(i) { var x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
   function el(tag, cls, txt) {
     var e = document.createElement(tag);
@@ -478,15 +534,16 @@ var DATA = {{.DataJSON}};
 
   function buildHero() {
     var c = el('div', 'center');
-    var badge = el('div', 'badge', '✦');
+    var badge = el('div', 'badge');
+    badge.appendChild(el('span', 'spark'));
     var title = el('h1', 'hero-title grad-text', D.title || '');
     var sub = D.subtitle ? el('p', 'hero-sub', D.subtitle) : null;
     c.appendChild(badge); c.appendChild(title);
     if (sub) c.appendChild(sub);
     stage.appendChild(c);
     return function (t) {
-      var eb = seg(t, 0, 0.45); fx(badge, eb, 0, (1 - eb) * -24);
-      var e1 = seg(t, 0, 0.8); fx(title, e1, 0, (1 - e1) * 60);
+      var eb = segBack(t, 0, 0.45); fx(badge, clamp01(eb), 0, (1 - eb) * -24);
+      var e1 = segExpo(t, 0, 0.8); fx(title, e1, 0, (1 - e1) * 60);
       var e2 = seg(t, 0.4, 0.8); fx(sub, e2, 0, (1 - e2) * 40);
     };
   }
@@ -498,17 +555,29 @@ var DATA = {{.DataJSON}};
     var items = [];
     (D.bullets || []).forEach(function (txt) {
       var row = el('div', 'bullet');
-      row.appendChild(el('div', 'tick', '✓'));
+      row.appendChild(el('div', 'tick'));
       row.appendChild(el('div', 'btext', txt));
       c.appendChild(row);
       items.push(row);
     });
     stage.appendChild(c);
+    /* Nhịp co lại cho vừa cảnh: 0.35s/mục là đẹp với cảnh 5 giây, nhưng video
+       15 giây chia 6 cảnh thì mỗi cảnh 2.5s — giữ nguyên nhịp là mục cuối chưa
+       kịp hiện đã hết cảnh. Chừa 0.9s cuối để khung chốt đứng yên cho người
+       xem đọc (tài liệu gọi là "礼让": nhường mắt người xem). */
+    var START = 0.45, IN = 0.55;
+    var room = Math.max(0.6, DUR - START - IN - 0.9);
+    var STEP = items.length > 1 ? Math.min(0.35, room / (items.length - 1)) : 0.35;
     return function (t) {
-      var e0 = seg(t, 0, 0.5); fx(title, e0, 0, (1 - e0) * 30);
+      var e0 = segExpo(t, 0, 0.5); fx(title, e0, 0, (1 - e0) * 30);
+      // mục mới nhất đã vào tới đâu — để biết mục nào phải lùi lại
+      var cur = -1;
+      for (var j = 0; j < items.length; j++) if (t >= START + j * STEP) cur = j;
       for (var i = 0; i < items.length; i++) {
-        var e = seg(t, 0.45 + i * 0.35, 0.55);
-        fx(items[i], e, (1 - e) * -46, 0);
+        var e = seg(t, START + i * STEP, IN);
+        var dim = e * recede(i, cur);
+        // lùi lại = mờ đi VÀ thụt vào một chút: chỉ mờ thôi mắt vẫn thấy ngang hàng
+        fx(items[i], dim, (1 - e) * -46, 0, dim < 1 ? ' scale(0.972)' : '');
       }
     };
   }
@@ -524,7 +593,7 @@ var DATA = {{.DataJSON}};
     });
     var body = el('pre', 'codebody');
     var codeSpan = el('span', '', '');
-    var caret = el('span', 'caret', '▍');
+    var caret = el('span', 'caret');
     body.appendChild(codeSpan); body.appendChild(caret);
     wrap.appendChild(barEl); wrap.appendChild(body);
     c.appendChild(wrap); stage.appendChild(c);
@@ -569,12 +638,25 @@ var DATA = {{.DataJSON}};
       rows.push({ row: row, bar: bar, val: val, v: Number(it.value) || 0 });
     });
     c.appendChild(rowsEl); stage.appendChild(c);
+    /* Nhãn hiện xong thì DỪNG một nhịp rồi con số mới chạy. Con số là thứ người
+       xem phải nhớ; cho nó chạy ngay lúc nhãn còn đang bay vào thì mắt chưa kịp
+       biết đang đọc chỉ số gì đã phải đuổi theo số. 0.30s là mức tối thiểu để
+       não kịp phản ứng — dưới ngưỡng đó coi như không có khoảng dừng. */
+    var PAUSE = 0.30, R_IN = 0.4, COUNT = 0.9, R_START = 0.2;
+    /* Chừa ≥0.8s cuối cảnh cho con số ĐỨNG YÊN. Số vừa chốt đã cắt sang cảnh
+       khác thì coi như chưa hề hiện ra — người xem không kịp đọc con số, mà
+       con số chính là thứ duy nhất cảnh này tồn tại để nói. */
+    var HOLD = 0.8;
+    var need = R_START + (rows.length - 1) * 0.22 + R_IN + PAUSE + COUNT + HOLD;
+    var k = need > DUR && need > 0 ? Math.max(0.35, (DUR - HOLD) / (need - HOLD)) : 1;
+    var STEP = 0.22 * k, IN = R_IN * k, PZ = PAUSE * k, CNT = COUNT * k, S0 = R_START * k;
     return function (t) {
-      var e0 = seg(t, 0, 0.5); fx(title, e0, 0, (1 - e0) * 30);
+      var e0 = segExpo(t, 0, 0.5); fx(title, e0, 0, (1 - e0) * 30);
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
-        var ein = seg(t, 0.2 + i * 0.22, 0.4); fx(r.row, ein, (1 - ein) * -30, 0);
-        var e = seg(t, 0.35 + i * 0.22, 0.9);
+        var at = S0 + i * STEP;
+        var ein = seg(t, at, IN); fx(r.row, ein, (1 - ein) * -30, 0);
+        var e = seg(t, at + IN + PZ, CNT);
         r.bar.style.width = (r.v / maxV * 100 * e) + '%';
         r.val.textContent = fmtVal(r.v * e, allInt);
       }
@@ -735,7 +817,7 @@ var DATA = {{.DataJSON}};
     var pulse = el('div', 'pulse');
     var ring1 = el('div', 'ring');
     var ring2 = el('div', 'ring');
-    var core = el('div', 'core', '▶');
+    var core = el('div', 'core');
     pulse.appendChild(ring1); pulse.appendChild(ring2); pulse.appendChild(core);
     var title = el('div', 'otitle grad-text', D.title || '');
     var sub = D.subtitle ? el('div', 'osub', D.subtitle) : null;

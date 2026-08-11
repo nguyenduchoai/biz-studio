@@ -27,6 +27,21 @@
 
 ## Có gì mới
 
+### v2.5.0 — 12/08/2026 — Rút clip ngắn từ video dài
+
+- ✂️ **Video dài → clip ngắn**: hệ thống bóc băng, để AI **chấm điểm từng đoạn** theo mức đáng giữ, rồi ghép các đoạn đắt nhất. Đo thật trên một video 27 giây có 6 câu (2 câu cố ý ê a vô nghĩa) — clip 10 giây trả về giữ đúng con số gây sốc và câu giải thích, bỏ sạch lời chào chung chung cùng hai câu *"À thì, ừm, để tôi xem lại đã nhé"* và *"Ừ, cái này, ờ, cũng bình thường thôi"*.
+
+  Ba luật khiến kết quả nghe được chứ không phải một mớ vụn ghép lại:
+  - **Chọn theo điểm, xếp theo thời gian.** Ghép theo thứ tự điểm thì câu chuyện nhảy cóc tới lui, người xem không lần ra mạch.
+  - **Mép cắt nới ra tới TỪ trọn vẹn** rồi mới đệm 120ms đầu / 180ms đuôi. Mốc câu của bản bóc băng không khớp chính xác mốc từ, cắt đúng mốc câu vẫn xén mất nửa âm.
+  - **Không có khoá AI thì báo lỗi rõ, không chấm bừa.** Cắt nhầm đoạn còn tệ hơn không cắt, vì người dùng tưởng máy đã chọn hộ.
+
+  Chọn nền tảng thì thời lượng tự ép xuống dưới trần của nền tảng đó, và video được chuẩn hoá luôn. **Video gốc không bị đụng tới.**
+
+- 🐛 **Sửa lỗi phụ đề teo khi chuẩn hoá nền tảng**: burn phụ đề lúc render rồi mới chuẩn hoá là đường đi rất tự nhiên, nhưng bước chuẩn hoá **thu nhỏ cả khung** nên phụ đề teo theo mà không có gì báo. Đo thật: video 16:9 có phụ đề chiếm 3,98% chiều cao khung, chuẩn hoá sang khung dọc TikTok còn **1,25% — nhỏ đi 3,2 lần**, gần như không đọc nổi trên điện thoại. Nay báo cáo chuẩn hoá tính sẵn hệ số và cảnh báo thẳng, kèm cách làm đúng. Công thức khớp số đo trong sai số 0,6%.
+
+  Chiều ngược lại thì **không** bị: video dọc đặt vào khung ngang lấp trọn chiều cao nên chữ giữ nguyên tỉ lệ — nên phải tính theo chiều cao khung chứ không theo hệ số thu ảnh.
+
 ### v2.4.0 — 11/08/2026 — Truyện tranh vẽ tay
 
 - ✏️ **Hiệu ứng "đang được vẽ ra"**: ảnh của cảnh hiện ra theo ba lớp quét ngang — **nét đen trắng** trước, rồi **tô bóng xám**, rồi **lên màu**. Vùng chưa vẽ là nền trang trắng chứ không phải bóng mờ của bức tranh (hé trước nội dung thì mắt đọc ra là ảnh đang rõ dần, không phải nét đang được vẽ). Dùng được cho cả ảnh AI sinh lẫn **ảnh bạn tự vẽ đưa vào**. Lớp màu xong ở 78% thời lượng cảnh, chừa phần còn lại để nhìn bức tranh đã hoàn chỉnh.
@@ -295,7 +310,7 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 ## Các module chi tiết
 
 - **Tổng quan** — số dự án, tác vụ đang chạy, trạng thái 4 công cụ, dự án & job gần đây.
-- **Xưởng làm sẵn** — 22 khuôn theo lĩnh vực (bấm một cái là sang HTML Video với khung hình, độ dài, hướng viết đã điền sẵn), 6 preset chuẩn hoá cho từng nền tảng, 7 tone nhạc nền nghe thử/tải về được, và danh sách giọng gom theo 41 ngôn ngữ.
+- **Xưởng làm sẵn** — rút video dài thành clip ngắn (AI chấm điểm từng đoạn, ghép theo thứ tự thời gian, ép vừa trần nền tảng); 22 khuôn theo lĩnh vực (bấm một cái là sang HTML Video với khung hình, độ dài, hướng viết đã điền sẵn), 6 preset chuẩn hoá cho từng nền tảng, 7 tone nhạc nền nghe thử/tải về được, và danh sách giọng gom theo 41 ngôn ngữ.
 - **Tải Video** — dán links (mỗi dòng 1 link) hoặc thả file TXT; mỗi link một job có progress; chọn chất lượng 1080/720/audio; hỗ trợ cookies để tải nội dung cần đăng nhập.
 - **OCR / ASR** — kéo-thả file video/audio lên thẳng giao diện (hoặc nhập đường dẫn); ASR bóc âm thanh thành SRT, OCR bóc chữ trên khung hình (chọn FPS lấy mẫu); kết quả preview + tải về.
 - **Dịch thuật** — kéo-thả SRT/TXT hoặc dán văn bản; 4 phong cách dịch; giữ nguyên timing SRT; engine Claude CLI hoặc Gemini; văn bản ngắn trả kết quả ngay, file dài chạy job nền theo batch.
@@ -336,7 +351,8 @@ Backend là REST thuần — bạn có thể tự động hóa mọi thứ khôn
 | `POST /api/ideas/{id}/retry` · `/retry-failed` · `/queue-pending` | Thử lại ý tưởng hỏng, xếp hàng ý tưởng đã duyệt |
 | `POST /api/tools/htmlvideo/plan` · `POST /api/tools/htmlvideo` | HTML Video: tách cảnh từ prompt/bài viết/repo → render MP4 |
 | `GET /api/studio/templates` · `/platforms` · `/moods` · `/mood-for` · `/voice-langs` | Xưởng: bảng khuôn theo lĩnh vực, preset nền tảng, tone nhạc, gợi ý tone theo kịch bản, giọng gom theo ngôn ngữ |
-| `POST /api/studio/normalize` | Chuẩn hoá một video về khung hình + độ to của nền tảng đã chọn |
+| `POST /api/studio/normalize` | Chuẩn hoá một video về khung hình + độ to của nền tảng đã chọn (báo kèm hệ số co của chữ đã cháy sẵn) |
+| `POST /api/studio/highlight` | Rút video dài thành clip ngắn: bóc băng → AI chấm điểm từng đoạn → ghép đoạn đắt nhất theo thứ tự thời gian |
 | `POST /api/t2v/sessions` (`templateId`) · `PUT …/{id}` (`templateId`) | Tạo phiên Text → Video theo khuôn; đổi hoặc gỡ khuôn của phiên đã có |
 | `GET /api/tools/voices` · `GET /api/jobs` · `GET /api/logs` · CRUD `/api/prompts` | Tra cứu |
 | `GET /api/qr.png?project=ID` · `GET /m/{id}` | QR + trang upload điện thoại |
@@ -375,6 +391,7 @@ internal/
 ├── capcut/                 # sinh dự án CapCut (.draft) từ phiên kể chuyện
 ├── charbible/              # hồ sơ nhân vật, bản vẽ ba góc nhìn, ghép giọng
 ├── vtemplate/              # khuôn theo lĩnh vực, preset nền tảng, nhạc nền tổng hợp
+├── highlight/              # rút video dài thành clip ngắn (AI chấm điểm từng đoạn)
 ├── tts/  dubbing/          # giọng đọc VieNeu / say / Gemini, lồng tiếng khớp timing
 ├── htmlvideo/              # render video bằng HTML/CSS qua headless Chrome
 ├── text2video/             # phiên Text → Video (kịch bản, giọng, storyboard)

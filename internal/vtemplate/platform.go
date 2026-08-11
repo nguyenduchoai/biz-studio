@@ -93,7 +93,19 @@ type NormalizeReport struct {
 	Duration  float64 `json:"duration"` // thời lượng sau chuẩn hoá
 	OverLimit bool    `json:"overLimit"`
 	Note      string  `json:"note"`
+
+	// TextScale — chữ ĐÃ CHÁY SẴN trong hình (phụ đề burn, tiêu đề, watermark)
+	// sẽ còn lại bao nhiêu phần so với trước, tính theo tỉ lệ chiều cao khung.
+	// 1 = không đổi; 0.32 = chỉ còn gần một phần ba, tức đọc rất khó trên điện
+	// thoại. Đo thật: video 16:9 có phụ đề cao 3.98% khung, chuẩn hoá sang khung
+	// dọc TikTok còn 1.25% — nhỏ đi hơn ba lần.
+	TextScale float64 `json:"textScale"`
+	TextWarn  string  `json:"textWarn"`
 }
+
+// textReadableFloor — dưới mức này thì chữ cháy sẵn coi như mất khả năng đọc
+// trên điện thoại. Lấy 0.8 vì tụt 20% là đã thấy rõ bằng mắt.
+const textReadableFloor = 0.8
 
 // NormalizeForPlatform đưa video về đúng khung hình và độ to của nền tảng.
 //
@@ -120,6 +132,18 @@ func NormalizeForPlatform(ctx context.Context, src, dst, platformID string) (*No
 	// scale giữ nguyên tỉ lệ rồi pad cho đủ khung: méo hình là hỏng hẳn, thêm
 	// viền thì còn xem được.
 	rep.Padded = info.Width*p.Height != info.Height*p.Width
+
+	// Chữ đã cháy sẵn trong hình co theo khung. Người dùng burn phụ đề lúc
+	// render rồi mới chuẩn hoá là đường đi rất tự nhiên, nhưng kết quả là phụ
+	// đề teo lại mà không có gì báo. Tính ra đây để nói thẳng.
+	rep.TextScale = burnedTextScale(info.Width, info.Height, p.Width, p.Height)
+	if rep.TextScale > 0 && rep.TextScale < textReadableFloor {
+		rep.TextWarn = fmt.Sprintf(
+			"Chữ đã cháy sẵn trong hình (phụ đề burn, tiêu đề, watermark) sẽ chỉ còn %.0f%% cỡ cũ so với khung — "+
+				"phụ đề dễ thành không đọc nổi trên điện thoại. Cách đúng: render thẳng ở khung %s ngay từ đầu, "+
+				"hoặc render KHÔNG burn phụ đề rồi gắn phụ đề sau khi chuẩn hoá.",
+			rep.TextScale*100, p.Name)
+	}
 	vf := fmt.Sprintf("scale=%d:%d:force_original_aspect_ratio=decrease,"+
 		"pad=%d:%d:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1", p.Width, p.Height, p.Width, p.Height)
 
@@ -138,6 +162,26 @@ func NormalizeForPlatform(ctx context.Context, src, dst, platformID string) (*No
 		rep.Duration = out.Duration
 	}
 	return rep, nil
+}
+
+// burnedTextScale trả phần cỡ chữ còn lại sau khi đưa khung fromW×fromH về
+// toW×toH bằng cách thu vừa rồi thêm viền.
+//
+// Chữ được đọc theo tỉ lệ với CHIỀU CAO KHUNG, không theo pixel tuyệt đối: một
+// dòng cao 24px trên khung 1080 thì đọc thoải mái, vẫn 24px trên khung 1920 thì
+// bé như con kiến. Nên công thức là (hệ số thu ảnh) × (chiều cao khung cũ /
+// chiều cao khung mới).
+func burnedTextScale(fromW, fromH, toW, toH int) float64 {
+	if fromW <= 0 || fromH <= 0 || toW <= 0 || toH <= 0 {
+		return 0
+	}
+	sx := float64(toW) / float64(fromW)
+	sy := float64(toH) / float64(fromH)
+	s := sx // force_original_aspect_ratio=decrease → lấy hệ số NHỎ hơn
+	if sy < s {
+		s = sy
+	}
+	return s * float64(fromH) / float64(toH)
 }
 
 // AspectSize đổi tỉ lệ khung hình thành kích thước pixel chuẩn. Tỉ lệ lạ thì

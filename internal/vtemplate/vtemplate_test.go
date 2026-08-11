@@ -175,3 +175,44 @@ func TestStyleCuaKhuonCoThat(t *testing.T) {
 		}
 	}
 }
+
+// Chữ đã cháy sẵn trong hình co theo khung khi chuẩn hoá. Người dùng burn phụ
+// đề lúc render rồi mới chuẩn hoá là đường đi rất tự nhiên, và trước đây không
+// có gì báo cho họ biết phụ đề đã teo lại.
+//
+// Số 0.316 dưới đây KHÔNG phải tính toán suông: đo trên video thật có phụ đề
+// cháy sẵn, dải chữ chiếm 3.98% chiều cao khung 16:9, sau khi chuẩn hoá sang
+// khung dọc TikTok còn 1.25% — tỉ lệ 0.314, khớp công thức trong sai số đo.
+func TestChuChaySanCoTheoKhung(t *testing.T) {
+	cases := []struct {
+		ten            string
+		fw, fh, tw, th int
+		muon           float64
+		phaiCanhBao    bool
+	}{
+		{"16:9 → dọc: teo hơn ba lần", 1920, 1080, 1080, 1920, 0.316, true},
+		{"1:1 → dọc: teo gần một nửa", 1080, 1080, 1080, 1920, 0.562, true},
+		{"dọc → dọc: không đổi", 1080, 1920, 1080, 1920, 1.000, false},
+		// Dọc đặt vào khung ngang thì lấp trọn CHIỀU CAO, nên chữ giữ nguyên tỉ
+		// lệ so với khung — ngược hẳn với chiều kia. Đây là lý do phải tính theo
+		// chiều cao khung chứ không theo hệ số thu ảnh.
+		{"dọc → ngang: không đổi", 1080, 1920, 1920, 1080, 1.000, false},
+		{"phóng to lên: chữ to theo", 540, 960, 1080, 1920, 1.000, false},
+	}
+	for _, c := range cases {
+		got := burnedTextScale(c.fw, c.fh, c.tw, c.th)
+		if diff := got - c.muon; diff > 0.005 || diff < -0.005 {
+			t.Errorf("%s: burnedTextScale = %.3f, muốn %.3f", c.ten, got, c.muon)
+		}
+		if canhBao := got < textReadableFloor; canhBao != c.phaiCanhBao {
+			t.Errorf("%s: cảnh báo = %v, muốn %v (hệ số %.3f, ngưỡng %.2f)",
+				c.ten, canhBao, c.phaiCanhBao, got, textReadableFloor)
+		}
+	}
+	// đầu vào rác thì trả 0 chứ không chia cho không
+	for _, c := range [][4]int{{0, 1080, 1080, 1920}, {1920, 0, 1080, 1920}, {1920, 1080, 0, 1920}, {1920, 1080, 1080, 0}} {
+		if got := burnedTextScale(c[0], c[1], c[2], c[3]); got != 0 {
+			t.Errorf("kích thước %v phải trả 0, nhận %.3f", c, got)
+		}
+	}
+}

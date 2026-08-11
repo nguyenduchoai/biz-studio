@@ -71,6 +71,9 @@ func (s *Server) handleNormalize(w http.ResponseWriter, r *http.Request) {
 			if rep.OverLimit {
 				note += " · ⚠ " + rep.Note
 			}
+			if rep.TextWarn != "" {
+				note += " · ⚠ " + rep.TextWarn
+			}
 			upd(98, note)
 			s.Log("info", "studio", "Chuẩn hoá "+filepath.Base(dst)+" — "+note)
 			return s.toolRelPath(dst), nil

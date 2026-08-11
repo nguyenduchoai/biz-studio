@@ -56,7 +56,7 @@
   };
 
   function render(root) {
-    var tabs = ['Khuôn theo lĩnh vực', 'Nền tảng', 'Nhạc nền', 'Giọng theo ngôn ngữ'];
+    var tabs = ['Khuôn theo lĩnh vực', 'Rút clip ngắn', 'Nền tảng', 'Nhạc nền', 'Giọng theo ngôn ngữ'];
     var active = 0;
     var host = h('div', { class: 'mt-16' });
     var bar = h('div', { class: 'row' }, tabs.map(function (t, i) {
@@ -78,8 +78,9 @@
     function draw() {
       host.innerHTML = '';
       if (active === 0) drawTemplates(host);
-      else if (active === 1) drawPlatforms(host);
-      else if (active === 2) drawMoods(host);
+      else if (active === 1) drawHighlight(host);
+      else if (active === 2) drawPlatforms(host);
+      else if (active === 3) drawMoods(host);
       else drawLangs(host);
     }
     draw();
@@ -151,6 +152,70 @@
     return h('div', { style: { fontSize: '12px', marginBottom: '5px', lineHeight: '1.5' } },
       h('span', { style: { fontWeight: '700' } }, label + ': '),
       h('span', { class: 'muted' }, val));
+  }
+
+  // ---------- rút clip ngắn ----------
+
+  function drawHighlight(host) {
+    var st = { file: '', secs: 60, platform: 'tiktok', goal: '', minScore: 6 };
+
+    var runBtn = UI.btn('Rút clip', {
+      onclick: function () {
+        if (!st.file) { UI.toast('Chưa chọn video nguồn.', 'error'); return; }
+        runBtn.disabled = true;
+        API.post('/api/studio/highlight', {
+          path: st.file, seconds: Number(st.secs) || 60, platform: st.platform,
+          goal: st.goal, minScore: Number(st.minScore) || 6, lang: 'vi'
+        }).then(function () {
+          runBtn.disabled = false;
+          UI.toast('Đã xếp hàng — theo dõi ở Nhật ký. Bóc băng video dài mất vài phút.');
+        }).catch(function (e) {
+          runBtn.disabled = false;
+          UI.toast('Không chạy được: ' + e.message, 'error');
+        });
+      }
+    });
+
+    var platSel = h('div');
+    API.get('/api/studio/platforms').then(function (ps) {
+      platSel.appendChild(UI.select('Nền tảng đích', [{ value: '', label: 'Không chuẩn hoá — giữ nguyên khung hình' }]
+        .concat(ps.map(function (p) {
+          return { value: p.id, label: p.name + (p.maxSec ? ' (tối đa ' + p.maxSec + 's)' : '') };
+        })), st.platform, function (v) { st.platform = v; }));
+    }).catch(function () { /* mất mạng nội bộ thì bỏ ô này, phần còn lại vẫn chạy */ });
+
+    host.appendChild(h('div', { class: 'card' },
+      h('div', { class: 'card-title' }, '✂️ Rút video dài thành clip ngắn'),
+      h('div', { class: 'muted', style: { fontSize: '12.5px', marginBottom: '12px', lineHeight: '1.6' } },
+        'Hệ thống bóc băng video, để AI chấm điểm từng đoạn theo mức đáng giữ, rồi ghép các đoạn đắt nhất ' +
+        'theo ĐÚNG thứ tự thời gian gốc — chọn theo điểm nhưng xếp theo thời gian, vì ghép lộn xộn thì ' +
+        'người xem không lần ra mạch. Mép cắt nới ra tới từ trọn vẹn nên không bị nuốt chữ. ' +
+        'Video gốc không bị đụng tới.'),
+      UI.field('Video nguồn', UI.input({
+        value: '', placeholder: 'Đường dẫn video trong data, vd: tmp/abc/phong-van.mp4',
+        oninput: function (e) { st.file = e.target.value.trim(); }
+      })),
+      h('div', { class: 'grid-3 mt-8' },
+        UI.field('Thời lượng clip (giây)', UI.input({
+          type: 'number', value: '60',
+          oninput: function (e) { st.secs = e.target.value; }
+        })),
+        platSel,
+        UI.select('Ngưỡng điểm giữ lại', [
+          { value: '7', label: '7 — chỉ đoạn thật đắt (clip ngắn hơn)' },
+          { value: '6', label: '6 — cân bằng (mặc định)' },
+          { value: '5', label: '5 — giữ rộng tay (clip đầy hơn)' }
+        ], String(st.minScore), function (v) { st.minScore = v; })),
+      h('div', { class: 'mt-8' },
+        UI.field('Clip nhắm vào ý gì (tuỳ chọn)', UI.input({
+          placeholder: 'vd: giải thích vì sao hoá đơn điện tăng',
+          oninput: function (e) { st.goal = e.target.value; }
+        }))),
+      h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '8px' } },
+        'Chọn nền tảng thì hệ thống tự ép thời lượng xuống dưới trần của nền tảng đó. ' +
+        'Cần khoá AI trong Cấu hình & API — không có khoá thì báo lỗi rõ chứ không chấm bừa: ' +
+        'cắt nhầm đoạn còn tệ hơn không cắt.'),
+      h('div', { class: 'row mt-16' }, runBtn)));
   }
 
   // ---------- nền tảng ----------

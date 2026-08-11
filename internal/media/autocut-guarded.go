@@ -376,3 +376,31 @@ func cutAndConcatAudio(ctx context.Context, src, dst string, keeps []segment) er
 	}
 	return run(ctx, append(args, dst)...)
 }
+
+// KeepSpans cắt lấy ĐÚNG các đoạn trong spans rồi nối lại theo thứ tự đưa vào.
+//
+// Ngược với AutoCutGuarded (bỏ khoảng lặng, giữ phần còn lại), hàm này giữ đúng
+// những đoạn được chỉ định — dùng cho việc rút gọn video dài thành clip ngắn.
+// Dùng chung đúng bộ lọc trim/concat của autocut nên chất lượng và cách xử lý
+// tiếng giống hệt, không phải một đường ống thứ hai đi lệch dần.
+func KeepSpans(ctx context.Context, src, dst string, spans []TimeSpan) error {
+	if len(spans) == 0 {
+		return fmt.Errorf("không có đoạn nào để giữ")
+	}
+	if err := ensureDir(dst); err != nil {
+		return err
+	}
+	keeps := make([]segment, 0, len(spans))
+	for _, s := range spans {
+		if s.End > s.Start {
+			keeps = append(keeps, segment{s.Start, s.End})
+		}
+	}
+	if len(keeps) == 0 {
+		return fmt.Errorf("mọi đoạn đều rỗng hoặc lộn đầu đuôi")
+	}
+	if HasVideo(ctx, src) {
+		return cutAndConcat(ctx, src, dst, keeps)
+	}
+	return cutAndConcatAudio(ctx, src, dst, keeps)
+}

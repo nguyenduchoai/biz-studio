@@ -48,9 +48,19 @@ func normalizeTransition(v string) string {
 		return "fade"
 	case "dip":
 		return "dip"
+	case "page":
+		return "page"
 	default:
 		return "none"
 	}
+}
+
+// normalizeReveal chuẩn hoá cách ảnh hiện ra; không hợp lệ → "none".
+func normalizeReveal(v string) string {
+	if strings.EqualFold(strings.TrimSpace(v), "draw") {
+		return "draw"
+	}
+	return "none"
 }
 
 // normalizeMotion chuẩn hoá kiểu chuyển động; không hợp lệ → "basic".
@@ -118,6 +128,7 @@ func buildSceneHTML(sc Scene, cfg Config, w, h int, durS float64, imgURI string)
 		"index":      cfg.sceneIndex,
 		"transition": normalizeTransition(cfg.Transition),
 		"motion":     normalizeMotion(cfg.Motion),
+		"reveal":     normalizeReveal(cfg.Reveal),
 	}
 	raw, err := json.Marshal(payload)
 	if err != nil {

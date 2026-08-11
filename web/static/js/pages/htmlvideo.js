@@ -113,7 +113,7 @@
       tab: 'prompt', prompt: '', content: '', repoUrl: '',
       count: 6, style: STYLES[0].value,
       scenes: [], projectId: '', lastProjectId: '', jobHandler: null,
-      cfg: { aspect: '9:16', theme: 'vivid', fps: 24, narration: true, voice: '', engine: '', bgmPath: '', bgmVolume: 25, burnSub: false, transition: 'none', motion: 'basic' }
+      cfg: { aspect: '9:16', theme: 'vivid', fps: 24, narration: true, voice: '', engine: '', bgmPath: '', bgmVolume: 25, burnSub: false, transition: 'none', motion: 'basic', reveal: 'none' }
     };
     App._cleanup = function () {
       if (st.jobHandler) { Bus.off('job', st.jobHandler); st.jobHandler = null; }
@@ -416,6 +416,7 @@
         h('div', { class: 'grid-3' },
           UI.select('Khung hình', [
             { value: '9:16', label: '9:16 — Dọc (Shorts/Reels)' },
+            { value: '3:4', label: '3:4 — Dọc kiểu trang giấy (truyện tranh, nhật ký)' },
             { value: '16:9', label: '16:9 — Ngang (YouTube)' },
             { value: '1:1', label: '1:1 — Vuông' }
           ], st.cfg.aspect, function (v) { st.cfg.aspect = v; }),
@@ -432,12 +433,20 @@
           UI.select('Chuyển cảnh', [
             { value: 'none', label: 'Cắt thẳng' },
             { value: 'fade', label: 'Chớm tối ở mối nối' },
-            { value: 'dip', label: 'Tối hẳn giữa hai cảnh' }
+            { value: 'dip', label: 'Tối hẳn giữa hai cảnh' },
+            { value: 'page', label: 'Lật trang — như mở một cuốn sách' }
           ], st.cfg.transition, function (v) { st.cfg.transition = v; }),
           UI.select('Chuyển động', [
             { value: 'basic', label: 'Phóng nhẹ (mặc định)' },
             { value: 'cinematic', label: 'Điện ảnh — trôi đổi hướng, có chiều sâu' }
           ], st.cfg.motion, function (v) { st.cfg.motion = v; })),
+        h('div', { class: 'grid-2 mt-8' },
+          UI.select('Cách ảnh hiện ra', [
+            { value: 'none', label: 'Hiện thẳng (mặc định)' },
+            { value: 'draw', label: 'Vẽ ra — nét đen trắng, tô bóng, rồi lên màu' }
+          ], st.cfg.reveal, function (v) { st.cfg.reveal = v; })),
+        h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '6px' } },
+          '"Vẽ ra" chỉ có tác dụng ở cảnh CÓ ảnh — dùng được cả ảnh AI sinh lẫn ảnh bạn tự vẽ đưa vào.'),
         h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '6px' } },
           'Chuyển cảnh nằm trong thời lượng của chính cảnh nên tổng thời lượng video không đổi — hình vẫn bám đúng giọng đọc.'),
         h('div', { class: 'mt-8' },
@@ -477,7 +486,7 @@
       var body = {
         scenes: st.scenes.map(cleanScene),
         config: {
-          aspect: st.cfg.aspect, theme: st.cfg.theme, fps: st.cfg.fps,
+          aspect: st.cfg.aspect, theme: st.cfg.theme, fps: st.cfg.fps, reveal: st.cfg.reveal,
           narration: st.cfg.narration, voice: st.cfg.voice, engine: st.cfg.engine,
           bgmPath: st.cfg.bgmPath, bgmVolume: st.cfg.bgmVolume / 100, burnSub: st.cfg.burnSub
         }

@@ -34,7 +34,7 @@ type Scene struct {
 
 // Config — cấu hình render HTML Video.
 type Config struct {
-	Aspect    string  `json:"aspect"` // "9:16" | "16:9" | "1:1" (mặc định 9:16)
+	Aspect    string  `json:"aspect"` // "9:16" | "3:4" | "16:9" | "1:1" (mặc định 9:16)
 	Theme     string  `json:"theme"`  // vivid | dark | light (mặc định vivid)
 	FPS       int     `json:"fps"`    // mặc định 24
 	Narration bool    `json:"narration"`
@@ -49,7 +49,8 @@ type Config struct {
 	SafeGuides bool `json:"safeGuides"`
 
 	// Transition — cách vào/ra mỗi cảnh: "" hoặc none (cắt thẳng như trước) |
-	// fade (chớm tối ở mối nối) | dip (tối hẳn giữa hai cảnh).
+	// fade (chớm tối ở mối nối) | dip (tối hẳn giữa hai cảnh) | page (lật
+	// trang như mở một cuốn sách).
 	// Hiệu ứng nằm TRONG thời lượng của cảnh nên tổng thời lượng không đổi;
 	// nếu chồng mờ hai clip thì mỗi mối nối ăn mất thời lượng và hình sẽ lệch
 	// dần khỏi giọng đọc đã thu.
@@ -58,6 +59,11 @@ type Config struct {
 	// Motion — "" hoặc basic (chỉ phóng nhẹ như trước) | cinematic (ảnh nền
 	// trôi đổi hướng theo từng cảnh, lớp chữ trôi ngược tạo chiều sâu).
 	Motion string `json:"motion"`
+
+	// Reveal — cách ảnh của cảnh hiện ra: "" hoặc none (hiện thẳng như trước) |
+	// draw (nét đen trắng quét ra trước, rồi tô bóng, rồi lên màu — cảm giác
+	// tranh đang được vẽ). Chỉ có tác dụng ở cảnh CÓ ảnh.
+	Reveal string `json:"reveal"`
 
 	// Kit — bộ style điều khiển giao diện video (font, cỡ chữ, màu, logo, tư
 	// liệu nền). nil → Render tự lấy bộ đang mặc định của store; vẫn không có
@@ -104,8 +110,12 @@ func resolveSize(aspect string) (int, int, error) {
 		return 1920, 1080, nil
 	case "1:1":
 		return 1080, 1080, nil
+	case "3:4":
+		// Khung dọc "trang giấy": thấp hơn 9:16 nên vừa một trang truyện tranh
+		// hay trang nhật ký mà không phải cắt cụt hai đầu.
+		return 1080, 1440, nil
 	default:
-		return 0, 0, fmt.Errorf("tỉ lệ khung hình không hợp lệ: %q (hỗ trợ 9:16, 16:9, 1:1)", aspect)
+		return 0, 0, fmt.Errorf("tỉ lệ khung hình không hợp lệ: %q (hỗ trợ 9:16, 3:4, 16:9, 1:1)", aspect)
 	}
 }
 

@@ -166,6 +166,14 @@ body.theme-light #bg { background: #F7F5FE; }
   font-size: calc(var(--size-body) * 2.6 / 3.6); line-height: 1.65; color: #E9E5FF;
   white-space: pre-wrap; word-break: break-word;
 }
+/* Ba lớp của hiệu ứng "đang được vẽ ra". Cùng MỘT ảnh, khác bộ lọc, lần lượt
+   quét ngang lộ ra: nét đen trắng trước, rồi tô bóng xám, rồi lên màu. Mắt đọc
+   ra là bức tranh đang được vẽ dần, dù thật ra chỉ có một tấm ảnh. */
+.dlayer { position: absolute; inset: 0; overflow: hidden; }
+.dlayer > img {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  min-width: 100%; min-height: 100%; object-fit: cover;
+}
 .caret {
   /* tỉ lệ con trỏ khối của terminal: hẹp bằng khoảng 1/3 ô chữ, cao gần trọn
      dòng — rộng hơn thì đọc ra là ô màu chứ không phải con trỏ đang nhấp nháy */
@@ -322,6 +330,8 @@ var DATA = {{.DataJSON}};
   document.documentElement.style.setProperty('--u', u + 'px');
   document.body.className = 'theme-' + D.theme;
 
+  var REVEAL = D.reveal || 'none';
+
   /* template hiệu lực: cảnh photo mà chưa có ảnh thì rơi về hero */
   var TPL = D.template === 'photo' && !D.image ? 'hero' : D.template;
 
@@ -339,6 +349,9 @@ var DATA = {{.DataJSON}};
        back  — vọt quá đích một chút rồi lùi về, cho thứ nhỏ và nảy (huy hiệu,
                con số) — biên độ để rất nhẹ (1.34) vì quá tay thành hoạt hình */
   function easeOutExpo(x) { x = clamp01(x); return x >= 1 ? 1 : 1 - Math.pow(2, -10 * x); }
+  /* smoothstep: mềm cả hai đầu. Dùng cho nét vẽ quét ra — vào và ra đều êm,
+     khác easeOut (vào gắt, ra êm) vốn hợp với vật rơi xuống. */
+  function smoothstep(x) { x = clamp01(x); return x * x * (3 - 2 * x); }
   function easeOutBack(x) {
     x = clamp01(x);
     var c = 1.34, y = x - 1;
@@ -693,12 +706,51 @@ var DATA = {{.DataJSON}};
   /* photo: ảnh tràn khung, zoom rất nhẹ theo t, chữ trắng đè ở 1/3 dưới.
      Cỡ chữ tự co theo độ dài và bị chặn tối đa 3 dòng (đo một lần lúc dựng
      trang, không phụ thuộc t nên mọi frame đều nhất quán). */
+  /* buildDrawLayers dựng ba lớp vẽ chồng lên nhau, trả hàm cập nhật theo t.
+     REVEAL !== 'draw' thì trả null và cảnh chạy y hệt như trước. */
+  function buildDrawLayers(host, src) {
+    if (REVEAL !== 'draw') return null;
+    // Ba bước xử lý: tăng tương phản mạnh + bỏ màu ra nét vẽ; tương phản vừa ra
+    // lớp tô bóng; gần như nguyên bản ra lớp màu.
+    // Mốc tính theo TIẾN ĐỘ cảnh (0..1). Lớp màu xong ở 0.78 chứ không phải 1.0:
+    // tranh tô xong đúng lúc cắt cảnh thì coi như người xem chưa hề thấy bức
+    // tranh hoàn chỉnh — chừa 22% cuối cảnh cho nó đứng yên.
+    var STEPS = [
+      { f: 'grayscale(1) contrast(1.75) brightness(1.14)', at: 0.00, dur: 0.34 },
+      { f: 'grayscale(1) contrast(1.26) brightness(1.05)', at: 0.22, dur: 0.32 },
+      { f: 'brightness(1.03) contrast(1.03)', at: 0.44, dur: 0.34 }
+    ];
+    var layers = STEPS.map(function (st, i) {
+      var d = el('div', 'dlayer');
+      d.style.zIndex = String(2 + i);
+      var im = document.createElement('img');
+      im.src = src;
+      im.style.filter = st.f;
+      d.appendChild(im);
+      host.appendChild(d);
+      return d;
+    });
+    return function (t) {
+      var p = clamp01(DUR > 0 ? t / DUR : 0);
+      for (var i = 0; i < layers.length; i++) {
+        var st = STEPS[i];
+        // Quét theo TIẾN ĐỘ CẢNH chứ không theo giây tuyệt đối: cảnh 2 giây hay
+        // 8 giây thì nét vẫn vẽ xong đúng lúc, không cảnh nào vẽ dở dang.
+        var q = smoothstep(clamp01((p - st.at) / st.dur));
+        // Mọi lớp quét CÙNG một chiều trái→phải. Đổi chiều giữa chừng thì mắt
+        // đọc ra là ảnh bị lật chứ không phải nét đang được vẽ tiếp.
+        layers[i].style.clipPath = 'inset(0 ' + ((1 - q) * 100).toFixed(2) + '% 0 0)';
+      }
+    };
+  }
+
   function buildPhoto() {
     if (!D.image) return buildHero(); // chưa có ảnh → vẫn ra cảnh tử tế
     var wrap = el('div', 'phwrap');
     var img = document.createElement('img');
     img.className = 'phimg';
     img.src = D.image;
+    var draw = buildDrawLayers(wrap, D.image);
     var shade = el('div', 'phshade');
     var box = el('div', 'phtext');
     var bar = el('div', 'phbar');
@@ -723,7 +775,15 @@ var DATA = {{.DataJSON}};
     return function (t) {
       var p = clamp01(DUR > 0 ? t / DUR : 0);
       var e0 = seg(t, 0, 0.5);
-      img.style.opacity = 0.35 + 0.65 * e0;
+      if (draw) {
+        // Ẩn HẲN lớp gốc. Để nó mờ mờ phía dưới thì vùng chưa vẽ vẫn hiện bóng
+        // của bức tranh — hé trước nội dung, và mắt đọc ra là ảnh đang rõ dần
+        // chứ không phải nét đang được vẽ ra trên giấy trắng.
+        img.style.opacity = 0;
+        draw(t);
+      } else {
+        img.style.opacity = 0.35 + 0.65 * e0;
+      }
       var dph = drift(p, 3.0);
       img.style.transform = 'translate(calc(-50% + ' + dph[0] + 'px), calc(-50% + ' + dph[1] +
         'px)) scale(' + (1 + 0.06 * p) + ') translateY(' + (-0.6 * p) + '%)';
@@ -859,6 +919,95 @@ var DATA = {{.DataJSON}};
   var IDX = D.index || 0;
 
   var transUpdate = null;
+
+  /* Lật trang: trang hiện tại bị một đường CONG quét từ phải sang trái, kèm
+     một dải "mép gấp" có gradient giả chỗ giấy cuộn lên. Đường cong chứ không
+     phải đường thẳng — thẳng thì đọc ra là cái gạt nước, cong mới ra tờ giấy
+     đang bị nhấc lên. Mép trên chạy trước mép dưới một nhịp vì tay lật giấy
+     bao giờ cũng nhấc góc trên trước.
+
+     Cùng luật với fade/dip: hiệu ứng nằm TRỌN trong thời lượng cảnh, không ăn
+     lẹm sang cảnh sau, nên tổng thời lượng video không đổi một phần nghìn giây
+     và hình không lệch dần khỏi giọng đọc đã thu. */
+  /* pageBg — màu "trang giấy" phía dưới. Lấy từ bộ style nếu có, không thì
+     theo theme: nền sáng ra giấy trắng, nền tối ra giấy tối. */
+  function pageBg() {
+    if (K && K.bgDeep) return mix(K.bgDeep, '#ffffff', 0.10);
+    return D.theme === 'light' ? '#F6F4EF' : '#141024';
+  }
+
+  (function buildPageFlip() {
+    if (TRANS !== 'page') return;
+    var FLIP = Math.min(0.62, DUR * 0.3);   // giây dành cho cú lật ở cuối cảnh
+    if (FLIP <= 0.05) return;               // cảnh quá ngắn thì bỏ, đừng lật vội vàng
+
+    /* Dựng SVG bằng innerHTML chứ không createElementNS: hàm đó bắt buộc truyền
+       chuỗi namespace "http://www.w3.org/2000/svg", mà trang cảnh có luật cứng
+       là KHÔNG được chứa địa chỉ mạng nào — render phải chạy được cả khi máy
+       rút mạng. Trình phân tích HTML tự gán namespace cho thẻ svg nội tuyến. */
+    var host = el('div', null);
+    host.style.cssText = 'position:fixed;inset:0;z-index:10;pointer-events:none';
+    host.innerHTML =
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" ' +
+      'style="width:100%;height:100%;display:block">' +
+      '<defs><linearGradient id="foldg" x1="0" x2="1">' +
+      '<stop offset="0" stop-color="#000" stop-opacity=".30"/>' +
+      '<stop offset=".45" stop-color="#fff" stop-opacity=".20"/>' +
+      '<stop offset="1" stop-color="#000" stop-opacity=".34"/>' +
+      '</linearGradient></defs>' +
+      // Vùng đã lật qua phải ĐỤC HẲN và mang màu nền của chính trang: để nó
+      // trong mờ thì vẫn nhìn xuyên thấy trang cũ, mắt đọc ra là ảnh mờ đi chứ
+      // không phải tờ giấy đã bị lật đi. Dùng màu trang chứ không dùng đen:
+      // lật xong phải thấy "trang tiếp theo", không phải một hố đen.
+      '<path class="pf-behind" fill="' + pageBg() + '"/>' +
+      '<path class="pf-fold" fill="url(#foldg)"/>' +
+      '<path class="pf-edge" fill="none" stroke="rgba(0,0,0,.28)" stroke-width="2"/>' +
+      '</svg>';
+    document.body.appendChild(host);
+    var svg = host.firstChild;
+    var behind = host.querySelector('.pf-behind');
+    var fold = host.querySelector('.pf-fold');
+    var edge = host.querySelector('.pf-edge');
+
+    /* Đầu cảnh sau phải bắt đầu từ ĐÚNG màu mà cảnh trước kết thúc, nếu không
+       mối nối loé lên một nhịp. Cảnh trước lật xong là cả khung màu trang, nên
+       cảnh sau hiện ra từ chính màu đó. */
+    var veil = el('div', null);
+    veil.style.cssText = 'position:fixed;inset:0;z-index:11;pointer-events:none;background:' + pageBg();
+    document.body.appendChild(veil);
+    var IN = Math.min(0.22, DUR * 0.12);
+
+    transUpdate = function (t) {
+      veil.style.opacity = String(1 - clamp01(IN > 0 ? t / IN : 1));
+      var q = clamp01((t - (DUR - FLIP)) / FLIP);
+      if (q <= 0) { svg.style.display = 'none'; return; }
+      svg.style.display = '';
+      var pr = smoothstep(q);
+      // mép trên đi trước mép dưới → nếp gấp nghiêng như giấy thật
+      var top = clamp01(pr / 0.78), bot = clamp01((pr - 0.22) / 0.78);
+      var xT = W * (1 - top), xB = W * (1 - bot);
+      // độ vồng của nếp: mạnh nhất giữa cú lật, phẳng lại ở hai đầu
+      var curl = Math.sin(pr * Math.PI);
+      var bow = W * 0.17 * curl, band = W * 0.02 + W * 0.17 * curl;
+      // xuống: từ (xt,0) cong xuống (xb,H). lên: ngược lại, cho cạnh ngoài
+      // của dải gấp — dùng lại hàm xuống rồi đảo là sai, điểm điều khiển phải
+      // đổi thứ tự theo chiều đi thì đường mới song song với cạnh trong.
+      function down(xt, xb, b) {
+        return 'C ' + Math.min(W, xt + b) + ' ' + (H * 0.31).toFixed(1) + ' ' +
+          Math.min(W, xb + b * 0.78) + ' ' + (H * 0.70).toFixed(1) + ' ' + xb.toFixed(1) + ' ' + H;
+      }
+      function up(xb, xt, b) {
+        return 'C ' + Math.min(W, xb + b * 0.78) + ' ' + (H * 0.70).toFixed(1) + ' ' +
+          Math.min(W, xt + b) + ' ' + (H * 0.31).toFixed(1) + ' ' + xt.toFixed(1) + ' 0';
+      }
+      var inner = 'M ' + xT.toFixed(1) + ' 0 ' + down(xT, xB, bow);
+      behind.setAttribute('d', inner + ' H ' + W + ' V 0 Z');
+      var oT = Math.min(W, xT + band), oB = Math.min(W, xB + band * 0.72);
+      fold.setAttribute('d', inner + ' L ' + oB.toFixed(1) + ' ' + H + ' ' + up(oB, oT, bow * 0.8) + ' Z');
+      edge.setAttribute('d', inner);
+    };
+  })();
+
   (function buildTransition() {
     if (TRANS !== 'fade' && TRANS !== 'dip') return;
     var v = el('div', null);

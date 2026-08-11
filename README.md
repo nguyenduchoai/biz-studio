@@ -27,6 +27,14 @@
 
 ## Có gì mới
 
+### v2.4.0 — 11/08/2026 — Truyện tranh vẽ tay
+
+- ✏️ **Hiệu ứng "đang được vẽ ra"**: ảnh của cảnh hiện ra theo ba lớp quét ngang — **nét đen trắng** trước, rồi **tô bóng xám**, rồi **lên màu**. Vùng chưa vẽ là nền trang trắng chứ không phải bóng mờ của bức tranh (hé trước nội dung thì mắt đọc ra là ảnh đang rõ dần, không phải nét đang được vẽ). Dùng được cho cả ảnh AI sinh lẫn **ảnh bạn tự vẽ đưa vào**. Lớp màu xong ở 78% thời lượng cảnh, chừa phần còn lại để nhìn bức tranh đã hoàn chỉnh.
+- 📖 **Chuyển cảnh lật trang**: trang bị một đường **cong** quét từ phải sang, kèm dải mép gấp có gradient giả chỗ giấy cuộn. Cong chứ không thẳng — thẳng thì đọc ra là cái gạt nước. Mép trên chạy trước mép dưới một nhịp vì tay lật giấy bao giờ cũng nhấc góc trên trước. Vùng đã lật mang **màu nền của chính trang** nên lật xong thấy trang tiếp theo, không phải một hố đen.
+- 📐 **Khung hình 3:4** (1080×1440): dọc kiểu **trang giấy**, vừa một trang truyện tranh hay trang nhật ký mà không phải cắt cụt hai đầu.
+
+Cả ba nằm **trọn trong thời lượng của chính cảnh** như fade/dip đã có — đo thật: video 3 cảnh 3+4+3 giây ra đúng **10,02 giây**, hình không lệch khỏi giọng đọc đã thu.
+
 ### v2.3.0 — 10/08/2026 — Khuôn cảnh HTML Video nâng cấp
 
 - 🐛 **Sửa một lỗ hổng lặng lẽ trong việc đóng gói font**: bốn ký hiệu trong khuôn cảnh — dấu tích `✓`, ngôi sao `✦`, con trỏ `▍`, nút play `▶` — **không có trong font tiếng Việt đóng gói kèm** (Be Vietnam Pro chỉ có 459 glyph; đọc thẳng bảng cmap của font ra thế). Chúng rơi sang font của hệ điều hành, tức lọt đúng khỏi cái mà việc đóng gói font sinh ra để tránh: **hai máy render ra hai kiểu**. Trên macOS nhìn vẫn ổn nên lỗi này không bao giờ tự lộ. Nay cả bốn **vẽ bằng hình học CSS** — đo lại: đổi sang một họ font không tồn tại, ảnh của dấu tích / ngôi sao / nút play ra **giống hệt từng byte**.
@@ -295,7 +303,7 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 - **Bài viết → Video** — quy trình 4 bước; bảng cảnh chỉnh sửa inline từng ô; cấu hình theme, khung hình, giọng, nhạc nền, burn phụ đề.
 - **Vox-Director** — quy trình 5 bước, chọn dự án đích, gán media từng cảnh.
 - **Studio Editor** — chọn dự án → thư viện media, preview, thuộc tính file, timeline theo thời lượng thật; cắt khoảng lặng, render final.
-- **HTML Video** — video-as-code: 3 nguồn (prompt / bài viết / repo GitHub — tự đọc README), AI tách thành cảnh theo 8 template HTML (thêm bố cục Key cho video dọc), chỉnh từng cảnh, render bằng Chrome headless (24/30fps, 3 theme, narration TTS, nhạc nền, phụ đề).
+- **HTML Video** — video-as-code: 3 nguồn (prompt / bài viết / repo GitHub — tự đọc README), AI tách thành cảnh theo 8 template HTML (thêm bố cục Key cho video dọc), chỉnh từng cảnh, render bằng Chrome headless (24/30fps, khung hình 9:16 / 3:4 / 16:9 / 1:1, 3 theme, chuyển cảnh mờ / tối / **lật trang**, hiệu ứng ảnh **vẽ ra** kiểu truyện tranh, narration TTS, nhạc nền, phụ đề).
 - **Text → Video** — nhận khuôn từ Xưởng (khung hình, độ dài, nhịp kể — gỡ được bất cứ lúc nào); quy trình 5 bước có lưu phiên: Nguồn (link/văn bản) → Kịch bản đọc (chia đoạn, sửa tay, chọn model) → Giọng đọc (đo thời lượng thật, xuất `voice.wav` + `transcript.json`) → Cấu hình → Dựng video (AI hoặc HTML Video). Danh sách phiên cho phép quay lại sửa và dựng lại bất cứ lúc nào.
 - **Dự án** — trang điều phối trung tâm (chi tiết ở phần Phiên AI phía trên) + QC, thumbnail, gói xuất bản, QR điện thoại, quản lý prompt mẫu (**có sẵn 8 prompt mẫu** cho các thể loại: viral TikTok, TVC sản phẩm, vlog, giáo dục, recap, repo tech, podcast clip, số liệu).
 - **Phim → Kể chuyện** — chia phim theo chuyển cảnh, AI xem khung hình viết lời từng cảnh (sửa tay được), đọc giọng Việt, dựng video lời kể đè phim, xuất tiếp sang CapCut.

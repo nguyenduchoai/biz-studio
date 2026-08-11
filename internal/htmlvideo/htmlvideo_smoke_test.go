@@ -21,6 +21,7 @@ func TestResolveSize(t *testing.T) {
 	}{
 		{"", 1080, 1920, true},
 		{"9:16", 1080, 1920, true},
+		{"3:4", 1080, 1440, true}, // khung "trang giấy" cho truyện tranh / nhật ký
 		{"16:9", 1920, 1080, true},
 		{"1:1", 1080, 1080, true},
 		{"4:3", 0, 0, false},

@@ -152,7 +152,11 @@ func NormalizeForPlatform(ctx context.Context, src, dst, platformID string) (*No
 		args = append(args, "-af", fmt.Sprintf("loudnorm=I=%.1f:TP=-1.5:LRA=11", p.LUFS))
 	}
 	args = append(args,
-		"-c:v", "libx264", "-crf", "20", "-preset", "medium", "-pix_fmt", "yuv420p",
+		// preset veryfast chứ không phải medium: đo trên bản render thật, medium tốn
+		// gấp 1.7 lần thời gian và cho ra file TO HƠN, đổi lại chênh lệch hình ở mức
+		// PSNR 56.5 dB / SSIM 0.9986 — trên 50 dB là mắt không phân biệt được.
+		// Mọi chỗ khác trong hệ thống đều đã dùng veryfast.
+		"-c:v", "libx264", "-crf", "20", "-preset", "veryfast", "-pix_fmt", "yuv420p",
 		"-c:a", "aac", "-b:a", "192k", "-ar", "48000",
 		"-movflags", "+faststart", dst)
 	if err := media.RunFFmpeg(ctx, args...); err != nil {

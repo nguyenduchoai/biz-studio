@@ -56,7 +56,7 @@
   };
 
   function render(root) {
-    var tabs = ['Khuôn theo lĩnh vực', 'Rút clip ngắn', 'Nền tảng', 'Nhạc nền', 'Giọng theo ngôn ngữ'];
+    var tabs = ['Khuôn theo lĩnh vực', 'Rút clip ngắn', 'Ghép tư liệu', 'Nền tảng', 'Nhạc nền', 'Giọng theo ngôn ngữ'];
     var active = 0;
     var host = h('div', { class: 'mt-16' });
     var bar = h('div', { class: 'row' }, tabs.map(function (t, i) {
@@ -79,8 +79,9 @@
       host.innerHTML = '';
       if (active === 0) drawTemplates(host);
       else if (active === 1) drawHighlight(host);
-      else if (active === 2) drawPlatforms(host);
-      else if (active === 3) drawMoods(host);
+      else if (active === 2) drawBroll(host);
+      else if (active === 3) drawPlatforms(host);
+      else if (active === 4) drawMoods(host);
       else drawLangs(host);
     }
     draw();
@@ -215,6 +216,70 @@
         'Chọn nền tảng thì hệ thống tự ép thời lượng xuống dưới trần của nền tảng đó. ' +
         'Cần khoá AI trong Cấu hình & API — không có khoá thì báo lỗi rõ chứ không chấm bừa: ' +
         'cắt nhầm đoạn còn tệ hơn không cắt.'),
+      h('div', { class: 'row mt-16' }, runBtn)));
+  }
+
+  // ---------- ghép tư liệu ----------
+
+  function drawBroll(host) {
+    var st = { dir: '', audio: '', aspect: '9:16', maxClip: 5, fps: 30, shuffle: true };
+
+    var runBtn = UI.btn('Ghép tư liệu', {
+      onclick: function () {
+        if (!st.dir) { UI.toast('Chưa chọn thư mục clip tư liệu.', 'error'); return; }
+        if (!st.audio) { UI.toast('Chưa chọn file lời đọc.', 'error'); return; }
+        runBtn.disabled = true;
+        API.post('/api/studio/broll', {
+          clipsDir: st.dir, audio: st.audio, aspect: st.aspect,
+          maxClip: Number(st.maxClip) || 5, fps: Number(st.fps) || 30, shuffle: st.shuffle
+        }).then(function () {
+          runBtn.disabled = false;
+          UI.toast('Đã xếp hàng — theo dõi ở Nhật ký.');
+        }).catch(function (e) {
+          runBtn.disabled = false;
+          UI.toast('Không chạy được: ' + e.message, 'error');
+        });
+      }
+    });
+
+    host.appendChild(h('div', { class: 'card' },
+      h('div', { class: 'card-title' }, '🎞 Ghép clip tư liệu khớp lời đọc'),
+      h('div', { class: 'muted', style: { fontSize: '12.5px', marginBottom: '12px', lineHeight: '1.6' } },
+        'Kiểu video "đọc trên nền tư liệu" hay gặp ở kênh tin tức, kiến thức, review. ' +
+        'Hệ thống cắt các clip thành mẩu ngắn, xoay vòng qua TỪNG clip để mọi file đều lên hình, ' +
+        'ghép cho đủ dài rồi cắt đúng bằng lời đọc. Lời đọc giữ nguyên — hình chạy theo tiếng, ' +
+        'không phải ngược lại. Clip lệch tỉ lệ thì thêm viền chứ không bóp méo. File gốc không bị đụng tới.'),
+      UI.field('Thư mục clip tư liệu', UI.input({
+        placeholder: 'vd: tmp/tuyet-lieu  (chấp nhận .mp4 .mov .mkv .webm .m4v .avi)',
+        oninput: function (e) { st.dir = e.target.value.trim(); }
+      })),
+      h('div', { class: 'mt-8' },
+        UI.field('File lời đọc', UI.input({
+          placeholder: 'vd: tmp/phien-abc/voice.wav',
+          oninput: function (e) { st.audio = e.target.value.trim(); }
+        }))),
+      h('div', { class: 'grid-3 mt-8' },
+        UI.select('Khung hình', [
+          { value: '9:16', label: '9:16 — Dọc' },
+          { value: '3:4', label: '3:4 — Dọc kiểu trang giấy' },
+          { value: '16:9', label: '16:9 — Ngang' },
+          { value: '1:1', label: '1:1 — Vuông' },
+          { value: '', label: 'Giữ theo clip đầu tiên' }
+        ], st.aspect, function (v) { st.aspect = v; }),
+        UI.field('Mỗi mẩu tối đa (giây)', UI.input({
+          type: 'number', value: '5',
+          oninput: function (e) { st.maxClip = e.target.value; }
+        })),
+        UI.select('FPS', [
+          { value: '30', label: '30 fps' },
+          { value: '24', label: '24 fps' }
+        ], String(st.fps), function (v) { st.fps = v; })),
+      h('div', { class: 'mt-8' },
+        UI.toggle('Xáo thứ tự mẩu', 'Vẫn tất định — dựng lại ra đúng video cũ, để còn sửa lỗi được',
+          st.shuffle, function (v) { st.shuffle = v; })),
+      h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '8px' } },
+        'Tư liệu ngắn hơn lời đọc thì hệ thống dùng lại và BÁO rõ đã lặp mấy vòng — ' +
+        'thêm clip vào thư mục để hình đỡ lặp.'),
       h('div', { class: 'row mt-16' }, runBtn)));
   }
 

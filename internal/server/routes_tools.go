@@ -371,3 +371,24 @@ func shortText(v string, n int) string {
 	}
 	return v
 }
+
+// toolSrcDir — bản dành cho THƯ MỤC của toolSrcPath. Tách riêng chứ không nới
+// lỏng hàm kia: mọi công cụ khác đều nhận đúng một file, và cái chặn "đường dẫn
+// là thư mục" ở đó bắt được lỗi gõ nhầm rất hay gặp.
+func (s *Server) toolSrcDir(w http.ResponseWriter, raw string) (string, bool) {
+	if strings.TrimSpace(raw) == "" {
+		httpErr(w, http.StatusBadRequest, "thiếu đường dẫn thư mục")
+		return "", false
+	}
+	p := s.toolAbsPath(raw)
+	fi, err := os.Stat(p)
+	if err != nil {
+		httpErr(w, http.StatusBadRequest, "không tìm thấy thư mục: %s", p)
+		return "", false
+	}
+	if !fi.IsDir() {
+		httpErr(w, http.StatusBadRequest, "đường dẫn là file, cần chọn thư mục: %s", p)
+		return "", false
+	}
+	return p, true
+}

@@ -27,6 +27,18 @@
 
 ## Có gì mới
 
+### v2.6.0 — 14/08/2026 — Ghép clip tư liệu
+
+- 🎞 **Ghép clip tư liệu khớp lời đọc**: kiểu video "đọc trên nền tư liệu" hay gặp ở kênh tin tức, kiến thức, review. Đưa vào một thư mục clip và một file lời đọc — hệ thống cắt clip thành mẩu ngắn, **xoay vòng qua TỪNG clip** để mọi file đều lên hình, ghép cho đủ dài rồi cắt đúng bằng lời đọc.
+
+  Lời đọc là thứ dẫn, hình chạy theo tiếng chứ không ngược lại — tiếng đã thu rồi, co kéo tiếng là hỏng lời đọc. Clip lệch tỉ lệ thì **thêm viền chứ không bóp méo** (đo thật: 16:9, 1:1 và 9:16 trộn chung một video, mỗi loại nhận viền đúng cạnh). Tư liệu ngắn hơn lời đọc thì dùng lại và **báo rõ đã lặp mấy vòng**. File gốc không bị đụng tới.
+
+  Xoay vòng qua từng clip là chỗ dễ làm sai nhất: lấy tuần tự hết clip này mới sang clip kia thì đo thật với 4 clip cho một video 17 giây, **chỉ 2 clip đầu lên hình** — người dùng đưa 4 file mà chỉ thấy 2.
+
+- ⚡ **Xuất nhanh hơn 1,7 lần**: bước chuẩn hoá nền tảng đang dùng `-preset medium` trong khi 9 chỗ khác đều dùng `veryfast`. Đo trên bản render thật: `medium` tốn gấp **1,7 lần** thời gian và cho ra file **to hơn**, đổi lại chênh lệch hình ở mức **PSNR 56,5 dB / SSIM 0,9986** — trên 50 dB là mắt không phân biệt được.
+
+  Đã thử cả **tăng tốc bằng phần cứng** (`h264_videotoolbox`): trên máy đo được nó **chậm hơn 13%** so với `libx264 -preset veryfast` đang dùng, nên không đổi.
+
 ### v2.5.0 — 12/08/2026 — Rút clip ngắn từ video dài
 
 - ✂️ **Video dài → clip ngắn**: hệ thống bóc băng, để AI **chấm điểm từng đoạn** theo mức đáng giữ, rồi ghép các đoạn đắt nhất. Đo thật trên một video 27 giây có 6 câu (2 câu cố ý ê a vô nghĩa) — clip 10 giây trả về giữ đúng con số gây sốc và câu giải thích, bỏ sạch lời chào chung chung cùng hai câu *"À thì, ừm, để tôi xem lại đã nhé"* và *"Ừ, cái này, ờ, cũng bình thường thôi"*.
@@ -310,7 +322,7 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 ## Các module chi tiết
 
 - **Tổng quan** — số dự án, tác vụ đang chạy, trạng thái 4 công cụ, dự án & job gần đây.
-- **Xưởng làm sẵn** — rút video dài thành clip ngắn (AI chấm điểm từng đoạn, ghép theo thứ tự thời gian, ép vừa trần nền tảng); 22 khuôn theo lĩnh vực (bấm một cái là sang HTML Video với khung hình, độ dài, hướng viết đã điền sẵn), 6 preset chuẩn hoá cho từng nền tảng, 7 tone nhạc nền nghe thử/tải về được, và danh sách giọng gom theo 41 ngôn ngữ.
+- **Xưởng làm sẵn** — ghép clip tư liệu khớp lời đọc; rút video dài thành clip ngắn (AI chấm điểm từng đoạn, ghép theo thứ tự thời gian, ép vừa trần nền tảng); 22 khuôn theo lĩnh vực (bấm một cái là sang HTML Video với khung hình, độ dài, hướng viết đã điền sẵn), 6 preset chuẩn hoá cho từng nền tảng, 7 tone nhạc nền nghe thử/tải về được, và danh sách giọng gom theo 41 ngôn ngữ.
 - **Tải Video** — dán links (mỗi dòng 1 link) hoặc thả file TXT; mỗi link một job có progress; chọn chất lượng 1080/720/audio; hỗ trợ cookies để tải nội dung cần đăng nhập.
 - **OCR / ASR** — kéo-thả file video/audio lên thẳng giao diện (hoặc nhập đường dẫn); ASR bóc âm thanh thành SRT, OCR bóc chữ trên khung hình (chọn FPS lấy mẫu); kết quả preview + tải về.
 - **Dịch thuật** — kéo-thả SRT/TXT hoặc dán văn bản; 4 phong cách dịch; giữ nguyên timing SRT; engine Claude CLI hoặc Gemini; văn bản ngắn trả kết quả ngay, file dài chạy job nền theo batch.
@@ -353,6 +365,7 @@ Backend là REST thuần — bạn có thể tự động hóa mọi thứ khôn
 | `GET /api/studio/templates` · `/platforms` · `/moods` · `/mood-for` · `/voice-langs` | Xưởng: bảng khuôn theo lĩnh vực, preset nền tảng, tone nhạc, gợi ý tone theo kịch bản, giọng gom theo ngôn ngữ |
 | `POST /api/studio/normalize` | Chuẩn hoá một video về khung hình + độ to của nền tảng đã chọn (báo kèm hệ số co của chữ đã cháy sẵn) |
 | `POST /api/studio/highlight` | Rút video dài thành clip ngắn: bóc băng → AI chấm điểm từng đoạn → ghép đoạn đắt nhất theo thứ tự thời gian |
+| `POST /api/studio/broll` | Ghép một thư mục clip tư liệu thành dải hình khớp đúng độ dài lời đọc |
 | `POST /api/t2v/sessions` (`templateId`) · `PUT …/{id}` (`templateId`) | Tạo phiên Text → Video theo khuôn; đổi hoặc gỡ khuôn của phiên đã có |
 | `GET /api/tools/voices` · `GET /api/jobs` · `GET /api/logs` · CRUD `/api/prompts` | Tra cứu |
 | `GET /api/qr.png?project=ID` · `GET /m/{id}` | QR + trang upload điện thoại |
@@ -392,6 +405,7 @@ internal/
 ├── charbible/              # hồ sơ nhân vật, bản vẽ ba góc nhìn, ghép giọng
 ├── vtemplate/              # khuôn theo lĩnh vực, preset nền tảng, nhạc nền tổng hợp
 ├── highlight/              # rút video dài thành clip ngắn (AI chấm điểm từng đoạn)
+├── broll/                  # ghép clip tư liệu khớp độ dài lời đọc
 ├── tts/  dubbing/          # giọng đọc VieNeu / say / Gemini, lồng tiếng khớp timing
 ├── htmlvideo/              # render video bằng HTML/CSS qua headless Chrome
 ├── text2video/             # phiên Text → Video (kịch bản, giọng, storyboard)

@@ -13,6 +13,8 @@ Turn ideas, articles and raw footage into finished videos — AI editing, silenc
 [![Go](https://img.shields.io/badge/Go-1.22%2B-00ADD8?style=flat-square&logo=go)](https://go.dev)
 [![Platforms](https://img.shields.io/badge/macOS%20·%20Windows%20·%20Linux-lightgrey?style=flat-square)](../../releases)
 
+<img src="assets/demo.gif" width="100%" alt="Biz Studio — dashboard, preset workshop, colour grading, voices, characters">
+
 🎬 [**Watch the intro video**](Biz-Studio-intro-final.mp4) — *made with Biz Studio's own HTML Video module and VieNeu voice.*
 
 </div>
@@ -102,6 +104,20 @@ Running with no command (or with a leading `-`) starts the web UI as before.
 | 📱 **Phone handoff** | Scan a QR on the same Wi-Fi and send video straight into a project. No cable, no cloud drive. |
 | ⬇️ **Downloader** | Batch fetch from YouTube/TikTok/Facebook via `yt-dlp`, with cookie support. |
 | 🎞 **Film → narration** | Split a movie by visual scene change, let AI watch actual frames and write commentary, dub it in Vietnamese over the film with automatic ducking, export to CapCut. |
+
+---
+
+## Screenshots
+
+<table>
+<tr>
+<td width="50%"><img src="assets/xuong-lam-san.png" alt="Preset workshop"><br><sub><b>Preset workshop</b> — 22 templates across 7 niches. Each one bundles script guidance, three-beat pacing, image style, framing, target platform, voice and music mood.</sub></td>
+<td width="50%"><img src="assets/tts.png" alt="Voices"><br><sub><b>Voices</b> — VieNeu on-device Vietnamese at 48 kHz with regional accents, plus 41 languages grouped from voices already on your machine.</sub></td>
+</tr>
+<tr>
+<td colspan="2"><img src="assets/dien-mao.png" alt="Colour grading"><br><sub><b>Look</b> — 14 colour-grade presets, each previewed on a single frame before you spend time on the whole video. Strength adjustable 10–100%.</sub></td>
+</tr>
+</table>
 
 ---
 

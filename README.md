@@ -6,6 +6,8 @@
 
 Điểm khác biệt lớn nhất: phần AI edit video chạy qua **Claude CLI** (`claude -p`) — tức là dùng **subscription Claude (khuyên dùng gói Max 5x trở lên)**, *không tốn phí API theo token*. Một phiên edit phức tạp có thể tiêu 15M–60M token, nhưng tất cả nằm trong hạn mức subscription của bạn.
 
+<img src="assets/demo.gif" width="100%" alt="Biz Studio — tổng quan, xưởng làm sẵn, diện mạo, giọng đọc, nhân vật">
+
 🎬 **Xem video giới thiệu:** [Biz-Studio-intro-final.mp4](Biz-Studio-intro-final.mp4) — *chính video này được tạo bằng module HTML Video + giọng đọc VieNeu của Biz Studio.*
 
 ---
@@ -232,6 +234,18 @@ Bốn tính năng biến Biz Studio thành xưởng làm video hàng loạt, kh�
 | 🎥 **Veo — sinh video AI** | Mô tả cảnh bằng lời → clip 4/6/8 giây **có tiếng** (Google Veo 3.1). **Trả phí theo giây trên khoá riêng của bạn** — chi phí hiện sẵn và có bước xác nhận trước mỗi lần tạo. |
 | 🌈 **Diện mạo** | 14 kiểu chỉnh màu (xem thử một khung hình trước khi chạy cả video), 10 tiếng động tổng hợp tại chỗ và cân cùng độ to, font tiếng Việt Be Vietnam Pro dùng chung cho mọi máy. |
 | 🎧 **Bóc băng offline** | faster-whisper chạy trên máy, **không cần khoá API**, cho mốc **từng từ** — nhờ đó cắt khoảng lặng không nuốt chữ và xuất được phụ đề karaoke `.ass`. |
+
+## Ảnh giao diện
+
+<table>
+<tr>
+<td width="50%"><img src="assets/xuong-lam-san.png" alt="Xưởng làm sẵn"><br><sub><b>Xưởng làm sẵn</b> — 22 khuôn theo 7 lĩnh vực. Mỗi khuôn gói sẵn hướng viết kịch bản, nhịp ba đoạn, phong cách hình, khung hình, nền tảng, kiểu giọng và tone nhạc.</sub></td>
+<td width="50%"><img src="assets/tts.png" alt="Giọng đọc"><br><sub><b>Giọng đọc</b> — VieNeu on-device 48 kHz với giọng ba miền, cộng 41 ngôn ngữ gom từ giọng máy bạn đã có sẵn.</sub></td>
+</tr>
+<tr>
+<td colspan="2"><img src="assets/dien-mao.png" alt="Diện mạo"><br><sub><b>Diện mạo</b> — 14 kiểu chỉnh màu, mỗi kiểu xem thử trên một khung hình trước khi tốn thời gian chạy cả video. Chỉnh độ mạnh 10–100%.</sub></td>
+</tr>
+</table>
 
 ## Hệ thống vận hành thế nào
 

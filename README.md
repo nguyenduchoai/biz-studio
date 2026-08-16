@@ -1,5 +1,7 @@
 # 🚀 Biz Studio
 
+[Tiếng Việt](README.md) · [**English**](README.en.md)
+
 **Studio video AI chạy hoàn toàn trên máy của bạn** — biến ý tưởng, bài viết và footage thô thành video hoàn chỉnh: AI tự edit, tự cắt, tự tạo phụ đề, tự lồng tiếng, tự QC và tự đóng gói xuất bản.
 
 Điểm khác biệt lớn nhất: phần AI edit video chạy qua **Claude CLI** (`claude -p`) — tức là dùng **subscription Claude (khuyên dùng gói Max 5x trở lên)**, *không tốn phí API theo token*. Một phiên edit phức tạp có thể tiêu 15M–60M token, nhưng tất cả nằm trong hạn mức subscription của bạn.

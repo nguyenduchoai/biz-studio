@@ -490,11 +490,11 @@ Thanh trên có nút chuyển **VI / EN**. Hiện trạng thật:
 
 | Lớp | Tình trạng |
 |---|---|
-| Điều hướng, tiêu đề trang, tab, nút dùng chung, thanh trạng thái | ✅ đã có tiếng Anh |
-| Chữ trong thân trang, gợi ý ô nhập, phần lớn chữ riêng từng module | ⚠️ vẫn tiếng Việt |
-| Chi tiết job, thông báo lỗi, log (phía server) | ⚠️ vẫn tiếng Việt |
+| Toàn bộ chữ giao diện — điều hướng, thân trang, gợi ý ô nhập, nút, chữ hướng dẫn, thông báo lỗi | ✅ đã có tiếng Anh |
+| Tên khuôn, công thức khuôn, preset nền tảng, tone nhạc (phía server) | ✅ đã có tiếng Anh |
+| Tên giọng, tên dự án, nội dung của bạn | — giữ nguyên (tên riêng và dữ liệu) |
 
-Khoảng **110 trên ~1.500** chuỗi giao diện đã dịch — đủ để người nước ngoài tìm đường, chưa đủ để họ làm việc trọn vẹn. Chuỗi chưa dịch **rơi về tiếng Việt** chứ không vỡ giao diện.
+**Cả 1.541 chuỗi giao diện đã dịch**, cộng các chuỗi phía server hiện lên UI — tổng **1.683 mục**. Độ phủ được kiểm bằng cách gắn bộ thu vào app đang chạy rồi đi qua đủ 21 trang, không phải đếm dòng mã. Chuỗi nào sót vẫn **rơi về tiếng Việt** chứ không vỡ giao diện.
 
 Muốn dịch thêm: mở [`web/static/js/i18n.en.js`](web/static/js/i18n.en.js), thêm một dòng theo chính chuỗi tiếng Việt làm khoá. Không cần build, không cần đăng ký mã khoá, không phải đụng 24 file trang. Thêm ngôn ngữ mới = chép file đó một bản + một thẻ `<script>`.
 

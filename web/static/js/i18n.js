@@ -45,6 +45,12 @@
     if (m && m[2] && DICT[m[2]]) {
       return s.replace(trimmed, m[1] + DICT[m[2]]);
     }
+    // Chuỗi ghép số ở đầu ("22 khuôn · …", "3 đoạn · …"): tách phần số ra tra
+    // phần chữ. Cùng lý do với emoji — nhân đôi khoá cho từng con số là vô lý.
+    var n = /^(\d[\d.,]*\s+)(.+)$/u.exec(trimmed);
+    if (n && DICT[n[2]]) {
+      return s.replace(trimmed, n[1] + DICT[n[2]]);
+    }
     return s;
   }
 

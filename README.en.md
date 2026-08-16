@@ -200,11 +200,11 @@ The UI has a **VI / EN** toggle in the top bar. Be aware of what that covers tod
 
 | Layer | State |
 |---|---|
-| Navigation, page titles, tabs, common buttons, status bar | ✅ English |
-| Page body copy, form hints, most module-specific text | ⚠️ still Vietnamese |
-| Job details, error messages, logs (server-side) | ⚠️ still Vietnamese |
+| Every interface string — navigation, page copy, form hints, buttons, help text, error messages | ✅ English |
+| Template names, recipes, platform presets, music moods (server-side) | ✅ English |
+| Voice names, project names, your own content | — left as-is (they're proper nouns and your data) |
 
-Roughly **110 of ~1,500** interface strings are translated — enough to find your way around, not enough to work comfortably end to end. Untranslated strings fall back to Vietnamese rather than breaking, so nothing is ever blank or broken.
+**All 1,541 interface strings are translated**, plus the server-side strings that surface in the UI — 1,683 entries in total. Coverage was verified by instrumenting the live app and walking every one of the 21 pages, not by counting source lines. Anything missing falls back to Vietnamese rather than breaking.
 
 **This is the single best place to contribute.** Translations live in one file, [`web/static/js/i18n.en.js`](web/static/js/i18n.en.js), keyed by the Vietnamese source string:
 
@@ -212,7 +212,9 @@ Roughly **110 of ~1,500** interface strings are translated — enough to find yo
 'Xem công thức': 'Show recipe',
 ```
 
-Run the app, find a Vietnamese string, add a line. No build step, no key registry, no touching 24 page files. Adding another language is one copy of that file plus one `<script>` tag.
+Run the app, find an untranslated string, add a line. No build step, no key registry, no touching 24 page files.
+
+**Adding a whole new language** is one copy of that file with the right-hand side translated, plus one `<script>` tag in `index.html`. If you do that for your language, please open a PR — it's the most useful thing anyone can contribute here.
 
 ---
 

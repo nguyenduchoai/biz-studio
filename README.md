@@ -31,6 +31,15 @@
 
 ## Có gì mới
 
+### v2.8.0 — 16/08/2026 — Giao diện tiếng Anh trọn vẹn
+
+- 🌐 **Nút VI / EN ở thanh trên** — **toàn bộ 1.541 chuỗi giao diện** đã dịch, cộng các chuỗi phía server hiện lên UI (tên và công thức 22 khuôn, 6 preset nền tảng, 7 tone nhạc, 6 Style Kit, 10 tiếng động). Tổng **1.683 mục**.
+- 🔌 **Chặn ở đúng một chỗ**: mọi chữ lên màn hình đều đi qua `appendChild()` trong `ui.js`. Không phải sửa 24 file trang, và trang mới thêm sau này tự được dịch. Chuỗi phía Go dùng **chính từ điển JS** — chúng về UI dưới dạng dữ liệu rồi cũng đi qua cửa đó, nên không phải dựng lớp i18n riêng cho Go hay đụng vào 1.599 chỗ trong mã.
+- 🔍 **Độ phủ kiểm bằng cách gắn bộ thu vào app đang chạy** rồi đi qua đủ 21 trang, ghi lại mọi chuỗi lọt qua mà không được dịch — không phải đếm dòng mã. Cách này bắt được loại sót mà quét mã nguồn không thấy: chuỗi ghép từ nhiều dòng literal, lúc trích thì tách rời còn lúc chạy lại nối làm một.
+- 🙅 **Tên giọng, tên dự án và nội dung của bạn giữ nguyên** — đó là tên riêng và dữ liệu, dịch là sai.
+
+Thêm ngôn ngữ mới = chép một file, dịch vế phải, thêm một thẻ `<script>`. Chuỗi chưa dịch rơi về tiếng Việt chứ không vỡ giao diện.
+
 ### v2.7.0 — 16/08/2026 — Dòng lệnh cho script và AI agent
 
 Từ trước tới nay Biz Studio chỉ dùng được qua giao diện web. Nay có **dòng lệnh**, chạy được từ terminal, từ script, hoặc để một AI agent tự điều phối.

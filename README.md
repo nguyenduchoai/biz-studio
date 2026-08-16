@@ -27,6 +27,31 @@
 
 ## Có gì mới
 
+### v2.7.0 — 16/08/2026 — Dòng lệnh cho script và AI agent
+
+Từ trước tới nay Biz Studio chỉ dùng được qua giao diện web. Nay có **dòng lệnh**, chạy được từ terminal, từ script, hoặc để một AI agent tự điều phối.
+
+```bash
+# ghép clip tư liệu khớp lời đọc
+bizstudio broll --clips ./tu-lieu --audio voice.wav --workdir ./viec --aspect 16:9
+
+# chuẩn hoá cho TikTok — chỉ cần --workdir, không phải chép lại đường dẫn
+bizstudio normalize --workdir ./viec --platform tiktok
+```
+
+Sáu lệnh: `probe`, `normalize`, `broll`, `autocut`, `platforms`, `templates`.
+
+Bốn quy ước, mỗi cái sinh ra từ một cách hỏng cụ thể khi **máy đọc kết quả của máy**:
+
+- **Dòng cuối trên stdout luôn là MỘT dòng JSON**, log tiến độ đi hết sang stderr. Bắt agent đọc log dạng chữ là bắt nó đoán, mà log thì đổi luôn.
+- **Mỗi lệnh ghi `bizstudio_manifest.json`** vào thư mục làm việc. Lệnh sau chỉ cần trỏ đúng thư mục là dùng lại được kết quả lệnh trước.
+- **`--dry-run`** kiểm tham số và dựng manifest mà không chạy gì tốn kém — thử được câu lệnh trước khi đốt một tiếng render.
+- **Lỗi có phân loại** và mã thoát riêng: `usage` (mã 2) → sửa tham số · `dependency` (mã 3) → cài `ffmpeg`/`ffprobe` · `retryable` (mã 4) → thử lại · `failed` (mã 1). "Thất bại" chung chung thì agent chỉ biết thử lại mù.
+
+Cờ đặt **trước hay sau** tên file đều được — `normalize phim.mp4 --platform tiktok` và `normalize --platform tiktok phim.mp4` cho cùng kết quả. Gói `flag` của Go vốn dừng ở đối số đầu không phải cờ, nên cách viết tự nhiên nhất lại là cách hỏng.
+
+Chạy web vẫn y như cũ: không có tên lệnh thì `bizstudio -port 6868 -data data` vào thẳng giao diện.
+
 ### v2.6.0 — 14/08/2026 — Ghép clip tư liệu
 
 - 🎞 **Ghép clip tư liệu khớp lời đọc**: kiểu video "đọc trên nền tư liệu" hay gặp ở kênh tin tức, kiến thức, review. Đưa vào một thư mục clip và một file lời đọc — hệ thống cắt clip thành mẩu ngắn, **xoay vòng qua TỪNG clip** để mọi file đều lên hình, ghép cho đủ dài rồi cắt đúng bằng lời đọc.
@@ -388,7 +413,7 @@ data/                       # sinh khi chạy (không commit)
 ├── characters/  text2video/
 └── tmp/
 
-cmd/bizstudio/              # entry point
+cmd/bizstudio/              # entry point (không có tên lệnh = chạy web; có = chạy CLI)
 internal/
 ├── server/                 # HTTP + SSE + routes
 ├── store/                  # JSON store an toàn goroutine
@@ -406,6 +431,7 @@ internal/
 ├── vtemplate/              # khuôn theo lĩnh vực, preset nền tảng, nhạc nền tổng hợp
 ├── highlight/              # rút video dài thành clip ngắn (AI chấm điểm từng đoạn)
 ├── broll/                  # ghép clip tư liệu khớp độ dài lời đọc
+├── cli/                    # dòng lệnh: JSON một dòng, manifest, dry-run, lỗi có loại
 ├── tts/  dubbing/          # giọng đọc VieNeu / say / Gemini, lồng tiếng khớp timing
 ├── htmlvideo/              # render video bằng HTML/CSS qua headless Chrome
 ├── text2video/             # phiên Text → Video (kịch bản, giọng, storyboard)

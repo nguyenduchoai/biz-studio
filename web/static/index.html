@@ -48,6 +48,7 @@
           <div class="page-subtitle" id="pageSubtitle"></div>
         </div>
         <div class="topbar-actions">
+          <button class="icon-btn" id="langToggle" title="Language / Ngôn ngữ">VI</button>
           <button class="icon-btn" id="themeToggle" title="Đổi giao diện sáng / tối">🌙</button>
           <button class="icon-btn" id="settingsBtn" title="Cấu hình &amp; API">⚙</button>
           <span class="badge badge-blue nova-badge">BIZ</span>
@@ -58,7 +59,7 @@
 
       <footer class="statusbar">
         <div class="statusbar-left">
-          <span>Trạng thái [STUDIO1]:</span>
+          <span id="statusLabel">Trạng thái [STUDIO1]:</span>
           <span class="status-dot" id="studioDot">●</span>
           <span class="status-text" id="studioStatus">Đang kết nối…</span>
         </div>
@@ -78,6 +79,8 @@
   <div class="toasts" id="toasts"></div>
 
   <!-- Thứ tự load bắt buộc: api → ui → app → pages -->
+  <script src="js/i18n.js"></script>
+  <script src="js/i18n.en.js"></script>
   <script src="js/api.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/app.js"></script>

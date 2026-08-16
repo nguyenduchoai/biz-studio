@@ -194,10 +194,33 @@ The backend is plain REST — automate anything without the UI. Full reference i
 
 ---
 
+## Interface language
+
+The UI has a **VI / EN** toggle in the top bar. Be aware of what that covers today:
+
+| Layer | State |
+|---|---|
+| Navigation, page titles, tabs, common buttons, status bar | ✅ English |
+| Page body copy, form hints, most module-specific text | ⚠️ still Vietnamese |
+| Job details, error messages, logs (server-side) | ⚠️ still Vietnamese |
+
+Roughly **110 of ~1,500** interface strings are translated — enough to find your way around, not enough to work comfortably end to end. Untranslated strings fall back to Vietnamese rather than breaking, so nothing is ever blank or broken.
+
+**This is the single best place to contribute.** Translations live in one file, [`web/static/js/i18n.en.js`](web/static/js/i18n.en.js), keyed by the Vietnamese source string:
+
+```js
+'Xem công thức': 'Show recipe',
+```
+
+Run the app, find a Vietnamese string, add a line. No build step, no key registry, no touching 24 page files. Adding another language is one copy of that file plus one `<script>` tag.
+
+---
+
 ## Contributing
 
 Issues and pull requests are welcome — especially:
 
+- **Interface translation** (see above) — the highest-impact, lowest-friction contribution right now.
 - **Voices and languages.** The TTS layer is pluggable; adding a good on-device engine for your language would help a lot of people.
 - **Platform presets.** If a platform's framing, duration cap or loudness target is wrong or missing, that's a one-line fix with real impact.
 - **Bug reports with a repro.** A command line and the JSON output from the CLI is the fastest possible report.

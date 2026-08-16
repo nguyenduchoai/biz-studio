@@ -5,6 +5,8 @@
 (function () {
   'use strict';
 
+  function TR(s) { return (window.I18N && window.I18N.t) ? window.I18N.t(s) : s; }
+
   var NAV = [
     { group: 'BẢNG ĐIỀU KHIỂN', items: [
       { id: 'dashboard', label: 'Tổng quan', icon: '📊' }
@@ -72,8 +74,11 @@
   // ---------- Header ----------
 
   function setHeader(title, subtitle) {
-    $('pageTitle').textContent = title || '';
-    $('pageSubtitle').textContent = subtitle || '';
+    // Tiêu đề gán thẳng textContent nên KHÔNG đi qua h() — phải dịch tại đây.
+    // Đây đúng là loại chỗ dễ sót khi chặn tập trung: hầu hết chữ đi qua một
+    // cửa, nhưng vài chỗ đi đường riêng.
+    $('pageTitle').textContent = TR(title || '');
+    $('pageSubtitle').textContent = TR(subtitle || '');
   }
 
   // ---------- Router ----------
@@ -137,6 +142,26 @@
     };
   }
 
+  // ---------- Ngôn ngữ ----------
+
+  function initLang() {
+    // Chữ nằm cứng trong index.html không đi qua h() — dịch một lần lúc khởi
+    // động. Đây là toàn bộ danh sách những chỗ như vậy.
+    var lbl = document.getElementById('statusLabel');
+    if (lbl) lbl.textContent = TR('Trạng thái [STUDIO1]:');
+    ['themeToggle', 'settingsBtn'].forEach(function (id) {
+      var b = document.getElementById(id);
+      if (b && b.title) b.title = TR(b.title);
+    });
+    var btn = $('langToggle');
+    if (!btn || !window.I18N) return;
+    // Nút hiện ngôn ngữ ĐANG dùng, không phải ngôn ngữ sẽ chuyển sang — người
+    // dùng nhìn nút để biết mình đang ở đâu, thấy "EN" mà giao diện tiếng Việt
+    // thì loạn.
+    btn.textContent = I18N.get() === 'en' ? 'EN' : 'VI';
+    btn.onclick = function () { I18N.set(I18N.get() === 'en' ? 'vi' : 'en'); };
+  }
+
   // ---------- Status bar + sidebar disk (poll /api/state 5s) ----------
 
   function pct(v) { return (v === undefined || v === null) ? '--' : Math.round(Number(v)); }
@@ -152,21 +177,21 @@
     if (running > 0) {
       dot.className = 'status-dot busy';
       txt.className = 'status-text busy';
-      txt.textContent = 'Đang chạy ' + running + ' tác vụ';
+      txt.textContent = TR('Đang chạy') + ' ' + running + ' ' + TR('tác vụ');
     } else {
       dot.className = 'status-dot';
       txt.className = 'status-text';
-      txt.textContent = 'Sẵn sàng';
+      txt.textContent = TR('Sẵn sàng');
     }
 
     // Thông số máy
-    $('hostStats').textContent = 'Máy CPU: ' + pct(host.cpuPct) + '% | GPU: -- | RAM: ' +
+    $('hostStats').textContent = TR('Máy') + ' CPU: ' + pct(host.cpuPct) + '% | GPU: -- | RAM: ' +
       pct(host.ramPct) + '% | Disk: ' + pct(host.diskPct) + '%';
     $('ramUsed').textContent = 'RAM: ' + (host.ramUsedMB || 0) + ' MB';
 
     // Backend OK
     $('backendDot').className = 'backend-dot';
-    $('backendText').textContent = 'Backend hoạt động';
+    $('backendText').textContent = TR('Backend hoạt động');
 
     // Sidebar: dung lượng + version
     var dp = Number(host.diskPct) || 0;
@@ -179,11 +204,11 @@
 
   function renderStateError() {
     $('backendDot').className = 'backend-dot err';
-    $('backendText').textContent = 'Mất kết nối backend';
+    $('backendText').textContent = TR('Mất kết nối backend');
     var dot = $('studioDot'), txt = $('studioStatus');
     dot.className = 'status-dot err';
     txt.className = 'status-text err';
-    txt.textContent = 'Không kết nối được';
+    txt.textContent = TR('Không kết nối được');
   }
 
   function pollState() {
@@ -201,6 +226,7 @@
   document.addEventListener('DOMContentLoaded', function () {
     renderNav();
     initTheme();
+    initLang();
     $('settingsBtn').onclick = function () { App.navigate('settings'); };
     window.addEventListener('hashchange', route);
     if (!location.hash) {

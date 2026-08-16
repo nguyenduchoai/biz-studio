@@ -484,6 +484,20 @@ scripts/
 | Chữ tiếng Việt trong video hiện hai kiểu font lẫn lộn | Font hệ điều hành thiếu chữ có dấu chồng tầng. Vào **Diện mạo** bấm tải font Be Vietnam Pro (~400 KB). |
 | Cắt khoảng lặng bị nuốt chữ | Bật **bảo vệ bằng transcript** trong Studio Editor — bóc băng trước bằng faster-whisper để có mốc từng từ. |
 
+## Ngôn ngữ giao diện
+
+Thanh trên có nút chuyển **VI / EN**. Hiện trạng thật:
+
+| Lớp | Tình trạng |
+|---|---|
+| Điều hướng, tiêu đề trang, tab, nút dùng chung, thanh trạng thái | ✅ đã có tiếng Anh |
+| Chữ trong thân trang, gợi ý ô nhập, phần lớn chữ riêng từng module | ⚠️ vẫn tiếng Việt |
+| Chi tiết job, thông báo lỗi, log (phía server) | ⚠️ vẫn tiếng Việt |
+
+Khoảng **110 trên ~1.500** chuỗi giao diện đã dịch — đủ để người nước ngoài tìm đường, chưa đủ để họ làm việc trọn vẹn. Chuỗi chưa dịch **rơi về tiếng Việt** chứ không vỡ giao diện.
+
+Muốn dịch thêm: mở [`web/static/js/i18n.en.js`](web/static/js/i18n.en.js), thêm một dòng theo chính chuỗi tiếng Việt làm khoá. Không cần build, không cần đăng ký mã khoá, không phải đụng 24 file trang. Thêm ngôn ngữ mới = chép file đó một bản + một thẻ `<script>`.
+
 ## Cảm hứng & ghi nhận
 
 Biz Studio học hỏi ý tưởng từ những dự án mã nguồn mở rất hay trong hệ sinh thái AI video — xin ghi nhận và cảm ơn:

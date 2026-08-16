@@ -7,11 +7,17 @@
 
   // ---------- h(tag, attrs, ...children) ----------
 
+  // TR — cầu nối sang lớp đa ngôn ngữ. i18n.js nạp trước ui.js; nếu vì lý do
+  // gì đó chưa có thì trả nguyên chuỗi, giao diện vẫn chạy bình thường.
+  function TR(s) { return (window.I18N && window.I18N.t) ? window.I18N.t(s) : s; }
+  var TEXT_ATTRS = { placeholder: 1, title: 1, alt: 1, 'aria-label': 1 };
+
   function appendChild(el, child) {
     if (child === null || child === undefined || child === false || child === true) return;
     if (Array.isArray(child)) { child.forEach(function (c) { appendChild(el, c); }); return; }
     if (child instanceof Node) { el.appendChild(child); return; }
-    el.appendChild(document.createTextNode(String(child)));
+    // Dịch tại đây: mọi chữ lên màn hình đều đi qua đúng dòng này.
+    el.appendChild(document.createTextNode(TR(String(child))));
   }
 
   function h(tag, attrs) {
@@ -28,6 +34,7 @@
         else if (k === 'checked') el.checked = !!v;
         else if (k === 'disabled') el.disabled = !!v;
         else if (k === 'selected') el.selected = !!v;
+        else if (TEXT_ATTRS[k]) el.setAttribute(k, TR(String(v)));
         else el.setAttribute(k, v);
       });
     }

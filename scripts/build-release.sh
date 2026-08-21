@@ -16,12 +16,36 @@ gobuild() { # gobuild <GOOS> <GOARCH> <out>
 }
 
 # ---------- Windows (.exe trong zip) ----------
+#
+# Hai file exe, cố ý:
+#   "Biz Studio.exe"  build với -H windowsgui → bấm đúp là ra cửa sổ app, KHÔNG
+#                     kèm cửa sổ console đen thui bên cạnh.
+#   bizstudio.exe     build thường → dùng cho dòng lệnh (bizstudio setup …).
+# Không gộp được: -H windowsgui cắt luôn stdout nên lệnh CLI sẽ câm.
 mkdir -p dist/win
 gobuild windows amd64 dist/win/bizstudio.exe
+echo "→ build windows/amd64 (bản cửa sổ app)"
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 \
+  go build -trimpath -ldflags "$LDFLAGS -H windowsgui" -o "dist/win/Biz Studio.exe" ./cmd/bizstudio
 cat > dist/win/HUONG-DAN.txt <<'EOF'
-Biz Studio — chạy bizstudio.exe rồi mở http://localhost:6868
-Yêu cầu: ffmpeg trong PATH (https://ffmpeg.org). Tùy chọn: Claude CLI, yt-dlp.
-Dữ liệu lưu tại thư mục data\ cạnh file exe. Đổi cổng: bizstudio.exe -port 8080
+Biz Studio
+==========
+
+Bấm đúp "Biz Studio.exe" — mở ra cửa sổ app, không cần trình duyệt.
+(Cửa sổ dùng Chrome hoặc Microsoft Edge đã có sẵn trên máy. Windows 10/11
+luôn có Edge nên không phải cài thêm gì.)
+
+Đóng cửa sổ là thoát. Nếu còn việc đang render, máy chủ vẫn chạy tới khi xong.
+
+Dòng lệnh — dùng bizstudio.exe (bản có console):
+  bizstudio.exe setup                  liệt kê công cụ cài được
+  bizstudio.exe setup yt-dlp --update  cập nhật yt-dlp (chữa lỗi 403 khi tải)
+  bizstudio.exe -port 8080             đổi cổng
+  bizstudio.exe -window=false          chỉ chạy máy chủ, không mở cửa sổ
+
+Yêu cầu: ffmpeg trong PATH (https://ffmpeg.org) — hoặc bấm Cài trong
+Cấu hình & API. Tùy chọn: Claude CLI, yt-dlp.
+Dữ liệu lưu tại thư mục data\ cạnh file exe.
 EOF
 (cd dist/win && zip -q -r "../BizStudio-windows-amd64.zip" .)
 
@@ -29,7 +53,33 @@ EOF
 for arch in amd64 arm64; do
   mkdir -p "dist/linux-$arch"
   gobuild linux "$arch" "dist/linux-$arch/bizstudio"
-  tar -czf "dist/BizStudio-linux-$arch.tar.gz" -C "dist/linux-$arch" bizstudio
+  # .desktop để Biz Studio hiện trong menu ứng dụng như app thường.
+  # StartupWMClass phải khớp --class mà internal/desktop truyền cho trình duyệt,
+  # nếu không thanh tác vụ hiện icon Chrome thay vì mục Biz Studio.
+  cat > "dist/linux-$arch/bizstudio.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Biz Studio
+Comment=Studio dựng video AI chạy trên máy
+Exec=bizstudio
+Terminal=false
+Categories=AudioVideo;Video;
+StartupWMClass=BizStudio
+EOF
+  cat > "dist/linux-$arch/HUONG-DAN.txt" <<'EOF'
+Biz Studio
+==========
+
+  ./bizstudio                    mở cửa sổ app (cần Chrome/Chromium/Edge)
+  ./bizstudio -window=false      chỉ chạy máy chủ (máy không màn hình)
+  ./bizstudio setup              liệt kê công cụ cài được
+  ./bizstudio setup yt-dlp --update
+
+Hiện trong menu ứng dụng:
+  cp bizstudio ~/.local/bin/
+  cp bizstudio.desktop ~/.local/share/applications/
+EOF
+  tar -czf "dist/BizStudio-linux-$arch.tar.gz" -C "dist/linux-$arch" .
 done
 
 # ---------- macOS (.app trong .dmg) ----------
@@ -44,13 +94,11 @@ make_app() { # make_app <arch>
 DIR="$(cd "$(dirname "$0")" && pwd)"
 DATA="$HOME/Library/Application Support/BizStudio"
 mkdir -p "$DATA"
-if ! curl -sf -o /dev/null "http://localhost:6868/api/state" 2>/dev/null; then
-  ( sleep 1.5; open "http://localhost:6868" ) &
-  # Chạy qua login shell để kế thừa PATH của người dùng (claude, ffmpeg, yt-dlp…)
-  exec /bin/zsh -l -c "exec \"$DIR/bizstudio\" -port 6868 -data \"$DATA\""
-else
-  open "http://localhost:6868"
-fi
+# Binary tự lo cả hai việc: mở cửa sổ app, và nếu đã có bản đang chạy thì mở
+# thêm cửa sổ rồi thoát. Trước đây launcher tự curl rồi `open` — hai chỗ cùng
+# quyết định một việc, sửa một chỗ là lệch.
+# Chạy qua login shell để kế thừa PATH của người dùng (claude, ffmpeg, yt-dlp…)
+exec /bin/zsh -l -c "exec \"$DIR/bizstudio\" -port 6868 -data \"$DATA\""
 EOF
   chmod +x "$appdir/Contents/MacOS/launcher"
 

@@ -375,6 +375,31 @@ Cùng khuôn với internal/tts/vieneu.go (venv riêng + runner python nhúng tr
 - Xuất phụ đề: `SRT(tr) string` (theo segment) và `KaraokeASS(tr, style KaraokeStyle) string` — ASS có hiệu ứng \k từng từ, dùng cho burn phụ đề karaoke.
   `KaraokeStyle{FontName string; FontSize int; Primary, Highlight, Outline string (hex); MarginV int}` — lấy từ Style Kit đang dùng.
 
+## Cửa sổ app (internal/desktop)
+
+Binary mở giao diện trong cửa sổ app riêng thay vì tab trình duyệt. Cờ:
+
+| Cờ | Mặc định | Ý nghĩa |
+|---|---|---|
+| `-window` | `true` | Mở cửa sổ app. `-window=false` cho máy chủ không màn hình. |
+| `-port` | `6868` | Cổng HTTP. |
+| `-data` | `data` | Thư mục dữ liệu. |
+
+Cách chạy: dò trình duyệt họ Chromium (htmlvideo.FindChrome trước, để tôn trọng
+ChromeBin người dùng đã điền; rồi tới Edge/Brave/Vivaldi/Cốc Cốc) → chạy với
+`--app=<url> --user-data-dir=<data>/appwindow`. Không tìm được → lui về trình
+duyệt mặc định (`open` / `rundll32` / `xdg-open`).
+
+Hai hành vi phải giữ:
+- **Cổng đã có bản đang chạy** → mở thêm cửa sổ rồi thoát mã 0. KHÔNG được chết
+  vì "address already in use": người dùng bấm icon lần hai là chuyện thường.
+- **Đóng cửa sổ** → thoát, TRỪ KHI `store.Jobs()` còn job `running`/`queued`.
+  Còn việc thì giữ máy chủ, kiểm lại mỗi 15 giây, xong hết mới thoát. Giết một
+  lượt render dài vì người dùng đóng nhầm cửa sổ là mất trắng công.
+
+Linux: `--class=BizStudio` phải khớp `StartupWMClass` trong `bizstudio.desktop`,
+nếu không thanh tác vụ hiện icon Chrome thay vì mục Biz Studio.
+
 ## /api/setup — cài & cập nhật công cụ ngoài
 
 `GET /api/setup/tools` → `[{id, label, desc, manual, installed, detail}]`.

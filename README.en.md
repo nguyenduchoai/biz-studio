@@ -44,10 +44,17 @@ brew install ffmpeg          # macOS
 git clone https://github.com/nguyenduchoai/biz-studio.git
 cd biz-studio && go run ./cmd/bizstudio
 
-# → open http://localhost:6868
+# → opens in its own app window. No browser tab, no address bar.
 ```
 
 Prebuilt: [**Releases**](../../releases) → `.dmg` (macOS Intel/ARM), `.zip` (Windows), `.tar.gz` (Linux ARM/x86).
+On Windows, double-click **`Biz Studio.exe`** (`bizstudio.exe` is the console build, for the command line).
+
+**It runs as a desktop app.** No address bar, no tabs, its own entry in the Dock/taskbar. Closing the
+window quits — unless a render is still going, in which case the server stays up until it finishes and
+says so. Under the hood it drives an already-installed Chrome/Edge/Brave in `--app` mode with a
+separate profile, so it never touches your own browser session or open tabs. Headless server?
+`-window=false`.
 
 > On macOS the app is unsigned — right-click → **Open** → **Open** the first time.
 

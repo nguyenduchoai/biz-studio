@@ -31,6 +31,19 @@
 
 ## Có gì mới
 
+### v2.10.0 — 21/08/2026 — App độc lập, không cần mở trình duyệt
+
+Trước đây bấm vào Biz Studio là trình duyệt bật lên một tab lẫn giữa mười tab khác, có thanh địa chỉ, có nút back — nhìn không ra một phần mềm. Nay nó mở **cửa sổ app riêng**.
+
+- 🪟 **Cửa sổ app thật**: không thanh địa chỉ, không tab, không nút back, có mục riêng trên Dock/taskbar. Chạy trên nền Chrome/Edge/Brave đã có sẵn ở chế độ `--app`, hồ sơ riêng nên không đụng vào phiên đăng nhập và tab đang mở của bạn.
+- 🚪 **Đóng cửa sổ là thoát** — nhả cổng luôn, không để lại tiến trình ma. **Trừ khi còn việc đang render**: khi đó máy chủ vẫn sống và nói rõ còn mấy việc, xong hết mới tự thoát. Đóng nhầm cửa sổ không mất một tiếng render.
+- 🔁 **Bấm mở lần hai không còn lỗi**: trước đây bản thứ hai chết vì "address already in use" — với người dùng là "bấm vào app mà chẳng thấy gì". Nay nó mở thêm cửa sổ vào bản đang chạy rồi thoát.
+- 🪟 **Windows có hai file**: `Biz Studio.exe` bấm đúp ra cửa sổ app, **không kèm cửa sổ console đen**; `bizstudio.exe` giữ console cho dòng lệnh. Không gộp được vì cờ `-H windowsgui` cắt luôn stdout, gộp là lệnh `setup` câm.
+- 🐧 **Linux có `.desktop`** để hiện trong menu ứng dụng, `StartupWMClass` khớp `--class` nên thanh tác vụ hiện Biz Studio chứ không phải icon Chrome.
+- 🖥 **Máy chủ không màn hình**: `-window=false`. Trên Linux tự tắt khi không có `DISPLAY`/`WAYLAND_DISPLAY` — gọi trình duyệt trên máy không màn hình chỉ tổ treo vài giây rồi chết kèm một đống lỗi Xlib chẳng liên quan.
+
+Vẫn **một binary, cross-compile đủ 5 nền tảng từ một máy**. Không dùng webview của hệ điều hành vì nó bắt buộc CGO — mà bật CGO là mất khả năng đó, phải dựng CI riêng cho từng hệ điều hành.
+
 ### v2.9.0 — 21/08/2026 — Cài công cụ một chạm
 
 Một người dùng gặp `HTTP Error 403: Forbidden` khi tải video và tưởng mình bị chặn. Đo thật: yt-dlp trên máy là bản **2026.07.04**, mới nhất là **2026.08.19** — cũ 6 tuần. Cập nhật xong là hết lỗi ngay. Thông báo lỗi của yt-dlp không hề nhắc tới phiên bản, nên không có cách nào đoán ra.
@@ -335,11 +348,20 @@ Nguyên tắc thiết kế:
 
 Tải bản phù hợp từ trang [Releases](../../releases):
 
-- **macOS**: mở `BizStudio-macos-*.dmg`, kéo **Biz Studio.app** vào Applications, mở app (lần đầu: chuột phải → Open để qua Gatekeeper). Trình duyệt tự mở `http://localhost:6868`.
-- **Windows**: giải nén `BizStudio-windows-amd64.zip`, chạy `bizstudio.exe`, mở `http://localhost:6868`.
-- **Linux**: giải nén `BizStudio-linux-*.tar.gz`, chạy `./bizstudio`.
+- **macOS**: mở `BizStudio-macos-*.dmg`, kéo **Biz Studio.app** vào Applications, mở app (lần đầu: chuột phải → Open để qua Gatekeeper).
+- **Windows**: giải nén `BizStudio-windows-amd64.zip`, bấm đúp **`Biz Studio.exe`**. (`bizstudio.exe` là bản có console, dùng cho dòng lệnh.)
+- **Linux**: giải nén `BizStudio-linux-*.tar.gz`, chạy `./bizstudio`. Chép `bizstudio.desktop` vào `~/.local/share/applications/` để hiện trong menu ứng dụng.
 
-Dữ liệu lưu trong thư mục `data/` cạnh chỗ chạy (tùy chỉnh bằng `-data`, cổng bằng `-port`).
+Cả ba đều mở thẳng **cửa sổ app riêng** — không thanh địa chỉ, không tab. Đóng cửa sổ là thoát; còn việc đang render thì máy chủ giữ tới khi xong.
+
+| Cần gì | Cách làm |
+|---|---|
+| Chỉ chạy máy chủ, không mở cửa sổ | `-window=false` |
+| Đổi cổng | `-port 8080` |
+| Đổi thư mục dữ liệu | `-data /duong/dan/khac` |
+| Truy cập từ điện thoại | Mở app trên máy tính rồi quét QR ở trang Tổng quan (cùng Wi-Fi) |
+
+Cửa sổ app dùng Chrome/Edge/Brave đã cài sẵn với một hồ sơ riêng trong `data/appwindow` — không đụng vào phiên đăng nhập và tab đang mở của bạn. Máy không có trình duyệt họ Chromium nào thì tự lui về mở tab ở trình duyệt mặc định.
 
 ### Chạy từ source
 
@@ -484,6 +506,7 @@ internal/
 ├── openaiapi/              # endpoint OpenAI-compatible làm engine thứ 3
 ├── publishpkg/             # gói xuất bản + meta AI
 ├── vox/                    # engine render bài viết → video
+├── desktop/                # mở giao diện trong cửa sổ app riêng (Chrome --app)
 ├── setup/                  # cài/cập nhật công cụ ngoài; script .sh/.ps1 nhúng trong binary
 └── util/                   # exec, thống kê máy, vá PATH cho bản đóng gói
 web/static/                 # SPA: index.html, css/, js/pages/*.js (nhúng vào binary)
@@ -503,6 +526,8 @@ scripts/                    # vỏ bọc giữ lệnh quen thuộc; bản thật
 | OCR/ASR báo "chưa cấu hình Gemini API key" | Dán key vào **Cấu hình & API**, bấm Lưu rồi Kiểm tra kết nối. |
 | **Tải video lỗi `HTTP Error 403: Forbidden`** | **Gần như luôn là yt-dlp cũ, không phải bị chặn.** Vào **Cấu hình & API → 🧰 Công cụ trên máy** bấm **Cập nhật** ở dòng yt-dlp (hoặc `bizstudio setup yt-dlp --update`). YouTube đổi cách chống tải liên tục nên yt-dlp ra bản mới mỗi 1–3 tuần. |
 | Tải video lỗi "chưa cài yt-dlp" | Bấm **Cài** ở 🧰 Công cụ trên máy, hoặc `brew install yt-dlp` / `pip install yt-dlp`. |
+| Bấm app mà không thấy cửa sổ | Máy chưa có Chrome/Edge/Brave → app lui về mở tab ở trình duyệt mặc định. Cài Chrome bằng nút ở 🧰 Công cụ trên máy. |
+| Đóng cửa sổ mà app không thoát | Đúng như thiết kế khi còn việc đang render — xem nhật ký, xong hết sẽ tự thoát. Muốn thoát ngay: tắt tiến trình `bizstudio`. |
 | Video không preview được | Kiểm tra file có trong `data/` và URL bắt đầu bằng `/data/`. |
 | Điện thoại không mở được trang QR | Điện thoại phải cùng mạng Wi-Fi; kiểm tra firewall cho phép cổng 6868. |
 | Muốn đổi cổng / thư mục dữ liệu | `./bizstudio -port 8080 -data /duong/dan/khac` |

@@ -63,7 +63,7 @@ func (s *Server) handleSettingsTest(w http.ResponseWriter, r *http.Request) {
 	res := map[string]toolCheck{
 		"ffmpeg":  checkBinVersion(ctx, "ffmpeg", "-version"),
 		"claude":  checkBinVersion(ctx, binOrDefault(cfg.ClaudeBin, "claude"), "--version"),
-		"ytdlp":   checkBinVersion(ctx, binOrDefault(cfg.YtdlpBin, "yt-dlp"), "--version"),
+		"ytdlp":   checkYtdlp(ctx, binOrDefault(cfg.YtdlpBin, "yt-dlp")),
 		"gemini":  checkGeminiKey(cfg),
 		"openai":  checkOpenAI(cfg),
 		"pexels":  checkPexels(cfg),
@@ -127,7 +127,7 @@ func checkPexels(cfg store.Settings) toolCheck {
 func (s *Server) checkVieNeu(ctx context.Context) toolCheck {
 	py := tts.VieNeuPythonPath(s.st)
 	if py == "" {
-		return toolCheck{OK: false, Detail: "chưa cài — chạy: ./scripts/setup-vieneu.sh"}
+		return toolCheck{OK: false, Detail: "chưa cài — bấm \"Cài\" ở mục Công cụ trên máy"}
 	}
 	out, err := tts.VieNeuRun(ctx, s.st, "-c", "import vieneu, importlib.metadata as m; print(m.version('vieneu'))")
 	if err != nil {
@@ -139,7 +139,7 @@ func (s *Server) checkVieNeu(ctx context.Context) toolCheck {
 // checkWhisper kiểm tra venv faster-whisper (import SDK, không nạp model).
 func (s *Server) checkWhisper(ctx context.Context) toolCheck {
 	if !whisper.Available(s.st) {
-		return toolCheck{OK: false, Detail: "chưa cài — chạy: ./scripts/setup-whisper.sh"}
+		return toolCheck{OK: false, Detail: "chưa cài — bấm \"Cài\" ở mục Công cụ trên máy"}
 	}
 	out, err := whisper.Run(ctx, s.st,
 		"-c", "import faster_whisper, importlib.metadata as m; print(m.version('faster-whisper'))")
@@ -147,8 +147,52 @@ func (s *Server) checkWhisper(ctx context.Context) toolCheck {
 		return toolCheck{OK: false, Detail: "venv có nhưng import lỗi: " + truncateDetail(err.Error(), 200)}
 	}
 	cfg := s.st.Settings()
-	return toolCheck{OK: true, Detail: fmt.Sprintf("faster-whisper v%s · model %s · compute %s (offline, mốc từng từ)",
+	// Chỉ số liệu, không chữ mô tả: chuỗi này ghép động ở server nên lớp dịch —
+	// vốn tra theo nguyên văn — không khớp được, chữ Việt sẽ lọt vào bản tiếng
+	// Anh. Phần mô tả đã có ở dòng Desc của công cụ và dịch được bình thường.
+	return toolCheck{OK: true, Detail: fmt.Sprintf("faster-whisper v%s · model %s · compute %s",
 		strings.TrimSpace(out), cfg.WhisperModel, cfg.WhisperCompute)}
+}
+
+// ytdlpStaleDays — quá số ngày này thì nhắc cập nhật.
+//
+// yt-dlp ra bản mới sau mỗi một đến ba tuần vì YouTube liên tục đổi cách chống
+// tải. Bản để lâu biểu hiện ra thành "HTTP Error 403: Forbidden" ngay giữa lúc
+// tải — thông báo không hề nhắc đến chuyện phiên bản, nên người dùng tưởng mình
+// bị chặn. Nói thẳng tuổi của bản đang dùng ở đây rẻ hơn nhiều so với việc họ
+// ngồi đoán.
+const ytdlpStaleDays = 30
+
+// checkYtdlp kiểm tra yt-dlp và cảnh báo nếu bản đang cài đã cũ.
+func checkYtdlp(ctx context.Context, bin string) toolCheck {
+	res := checkBinVersion(ctx, bin, "--version")
+	if !res.OK {
+		return res
+	}
+	if d, ok := ytdlpAgeDays(res.Detail, time.Now()); ok && d >= ytdlpStaleDays {
+		res.Detail = fmt.Sprintf("%s — bản này đã %d ngày tuổi. Lỗi 403 khi tải "+
+			"thường là do bản cũ; bấm \"Cập nhật\" ở mục Công cụ.", res.Detail, d)
+	}
+	return res
+}
+
+// ytdlpAgeDays đọc số phiên bản dạng ngày (2026.08.19) và trả tuổi tính theo
+// ngày. Dạng khác (bản tự dựng, nightly có hậu tố) trả ok=false — thà không nói
+// gì còn hơn nói sai.
+func ytdlpAgeDays(version string, now time.Time) (int, bool) {
+	f := strings.SplitN(strings.TrimSpace(version), ".", 4)
+	if len(f) < 3 {
+		return 0, false
+	}
+	t, err := time.Parse("2006.01.02", strings.Join(f[:3], "."))
+	if err != nil {
+		return 0, false
+	}
+	d := int(now.Sub(t).Hours() / 24)
+	if d < 0 {
+		return 0, false
+	}
+	return d, true
 }
 
 // checkChrome dò trình duyệt render HTML Video.

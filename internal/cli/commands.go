@@ -26,6 +26,7 @@ func All() []Command {
 		{"autocut", "Cắt khoảng lặng, có bảo vệ theo mốc từ nếu có bản bóc băng", runAutocut},
 		{"platforms", "Liệt kê preset nền tảng", runPlatforms},
 		{"templates", "Liệt kê khuôn theo lĩnh vực", runTemplates},
+		{"setup", "Cài/cập nhật công cụ ngoài (ffmpeg, yt-dlp, whisper…)", runSetup},
 	}
 }
 

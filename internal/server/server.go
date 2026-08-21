@@ -33,6 +33,7 @@ func New(st *store.Store, dataDir string, port int) *Server {
 	s.routesState(s.mux)
 	s.routesStatic(s.mux)
 	s.routesSettings(s.mux)
+	s.routesSetup(s.mux)
 	s.routesProjects(s.mux)
 	s.routesAssets(s.mux)
 	s.routesSessions(s.mux)

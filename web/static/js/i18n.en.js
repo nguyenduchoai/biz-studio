@@ -1872,5 +1872,28 @@
     "Lấy đúng danh sách model khoá của bạn dùng được — đây là lệnh đọc, không tốn tiền. Gõ tay dễ chọn nhầm model đã bị Google gỡ và nhận lỗi khó hiểu.": "Fetches exactly the models your key can use — a read-only call, no charge. Typing it by hand risks picking a model Google has retired, and a confusing error.",
     "API Server Chung": "Shared API server",
     "Direct API": "Direct API",
+
+    /* Công cụ trên máy — cài/cập nhật một chạm (v2.9.0) */
+    "Công cụ trên máy": "Tools on this machine",
+    "Cài hoặc cập nhật các công cụ ngoài mà studio cần — không phải mở terminal. Lỗi 403 khi tải video hầu hết là do yt-dlp đã cũ: bấm Cập nhật.": "Install or update the external tools the studio needs — no terminal required. A 403 error when downloading video is almost always a stale yt-dlp: hit Update.",
+    "Đang dò công cụ…": "Checking tools…",
+    "⬆ Cập nhật": "⬆ Update",
+    "⬇ Cài": "⬇ Install",
+    "↻ Thử lại": "↻ Retry",
+    "⏳ Đang chạy…": "⏳ Running…",
+    "Đang cài ": "Installing ",
+    "Đang cập nhật ": "Updating ",
+    "✅ Xong — đang kiểm tra lại…": "✅ Done — re-checking…",
+    "→ Tải thủ công: ": "→ Manual download: ",
+    "Không dò được công cụ: ": "Could not check tools: ",
+    ": đã xong": ": done",
+    "Bộ xử lý video/âm thanh — gần như mọi tính năng đều cần.": "Video/audio processing engine — nearly every feature needs it.",
+    "Tải video về từ YouTube/TikTok… Bản cũ hay lỗi 403 — nên cập nhật thường xuyên.": "Downloads video from YouTube/TikTok… Stale builds cause 403 errors — update it often.",
+    "Trình duyệt để render HTML Video.": "Browser used to render HTML Video.",
+    "Giọng đọc tiếng Việt tự nhiên chạy ngay trên máy, không cần mạng.": "Natural Vietnamese narration running on your own machine, no network needed.",
+    "Bóc băng offline có mốc từng từ (cho phụ đề karaoke).": "Offline transcription with word-level timing (for karaoke subtitles).",
+    "chưa cài — bấm \"Cài\" ở mục Công cụ trên máy": "not installed — hit \"Install\" under Tools on this machine",
+    "tự dò data/vieneu/venv — rỗng là được, bấm Cài ở mục Công cụ trên máy": "auto-detects data/vieneu/venv — leave empty; use Install under Tools on this machine",
+    "tự dò data/whisper/venv — rỗng là được, bấm Cài ở mục Công cụ trên máy": "auto-detects data/whisper/venv — leave empty; use Install under Tools on this machine",
   });
 })();

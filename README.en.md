@@ -152,15 +152,22 @@ Design rules:
 
 ## Requirements
 
+> **You do not have to install these by hand.** Open **Settings & API → 🧰 Tools on this machine** and
+> hit **Install** or **Update** next to any row — it uses your OS package manager (brew / winget /
+> apt) and streams the output into the page. Headless? `bizstudio setup yt-dlp --update`.
+>
+> A `HTTP Error 403: Forbidden` while downloading video is almost always a stale yt-dlp, not a block.
+> The card tells you the age of your build and updates it in one click.
+
 | Tool | Required? | Install |
 |---|---|---|
 | **ffmpeg + ffprobe** | ✅ Yes | `brew install ffmpeg` · `apt install ffmpeg` · [ffmpeg.org](https://ffmpeg.org/download.html) |
 | **Claude CLI** (subscription login) | For AI editing, translation, publish metadata | `npm i -g @anthropic-ai/claude-code`, then run `claude` to log in |
 | **Gemini API key** | For OCR/ASR, AI images, Gemini TTS, AI thumbnails | [aistudio.google.com](https://aistudio.google.com/apikey) |
-| **yt-dlp** | For the downloader | `brew install yt-dlp` / `pip install yt-dlp` |
+| **yt-dlp** | For the downloader | one click in Settings — **keep it updated**, stale builds cause 403 errors |
 | **Google Chrome** | For HTML Video rendering | auto-detected, or set the path in Settings |
-| **VieNeu-TTS** (recommended) | Natural on-device Vietnamese voice | `./scripts/setup-vieneu.sh` |
-| **faster-whisper** | Offline transcription with word timings | `./scripts/setup-whisper.sh` |
+| **VieNeu-TTS** (recommended) | Natural on-device Vietnamese voice | one click in Settings, or `./scripts/setup-vieneu.sh` |
+| **faster-whisper** | Offline transcription with word timings | one click in Settings, or `./scripts/setup-whisper.sh` |
 | **Pexels key** (optional) | Keyword stock imagery | free at [pexels.com/api](https://www.pexels.com/api/) |
 | Go 1.22+ | Only to build from source | [go.dev/dl](https://go.dev/dl/) |
 

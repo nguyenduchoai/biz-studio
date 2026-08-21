@@ -31,6 +31,17 @@
 
 ## Có gì mới
 
+### v2.9.0 — 21/08/2026 — Cài công cụ một chạm
+
+Một người dùng gặp `HTTP Error 403: Forbidden` khi tải video và tưởng mình bị chặn. Đo thật: yt-dlp trên máy là bản **2026.07.04**, mới nhất là **2026.08.19** — cũ 6 tuần. Cập nhật xong là hết lỗi ngay. Thông báo lỗi của yt-dlp không hề nhắc tới phiên bản, nên không có cách nào đoán ra.
+
+- 🧰 **Thẻ "Công cụ trên máy" trong Cấu hình & API** — FFmpeg, yt-dlp, Chrome, VieNeu-TTS, faster-whisper. Mỗi dòng hiện phiên bản thật, có nút **Cài** (chưa có) hoặc **Cập nhật** (đã có). Nhật ký cài chạy trực tiếp trong trang.
+- ⏰ **Cảnh báo yt-dlp cũ**: bản quá 30 ngày tuổi sẽ được nói thẳng "bản này đã N ngày tuổi — lỗi 403 khi tải thường là do bản cũ". Đọc ngày từ chính số phiên bản, không cần gọi mạng.
+- 🪟 **Chạy được trên Windows**: thêm `setup-vieneu.ps1` và `setup-whisper.ps1`. Script **nhúng thẳng vào binary** — bản dmg/zip không kèm thư mục `scripts/`, nếu đọc từ đĩa thì nút sẽ chết ở đúng những máy cần nó nhất.
+- 🧩 **Dùng trình quản lý gói của máy**: brew (macOS), winget (Windows), apt/dnf/pacman (Linux). Không tải script lạ từ mạng về chạy. Thiếu brew/winget thì hiện đúng link tải chính thức.
+- 🖥 **`bizstudio setup <công-cụ>`** ở dòng lệnh — máy chủ không màn hình vẫn cài được, và agent gặp lỗi `kind: "dependency"` có đúng một câu lệnh để tự gỡ. Nhận cả `yt-dlp` lẫn `ytdlp`.
+- 🐞 **Sửa lỗi lệch kiến trúc trên Apple Silicon** (có từ trước, nay mới lộ): nếu Biz Studio là bản x86_64 chạy qua Rosetta, `pip` cài wheel x86_64 — nhưng lúc chạy mã Go luôn ép python qua `arch -arm64`, sinh ra `ImportError: incompatible architecture` ở tận bước nạp thư viện. Script cài giờ ép arm64 bằng `sysctl hw.optional.arm64` (dùng `uname -m` là sai — dưới Rosetta nó nói dối). Đo lại: wheel từ `macosx_11_0_x86_64` thành `macosx_14_0_arm64`, cùng binary x86_64 đó cài xong chạy được.
+
 ### v2.8.0 — 16/08/2026 — Giao diện tiếng Anh trọn vẹn
 
 - 🌐 **Nút VI / EN ở thanh trên** — **toàn bộ 1.541 chuỗi giao diện** đã dịch, cộng các chuỗi phía server hiện lên UI (tên và công thức 22 khuôn, 6 preset nền tảng, 7 tone nhạc, 6 Style Kit, 10 tiếng động). Tổng **1.683 mục**.
@@ -301,14 +312,21 @@ Nguyên tắc thiết kế:
 
 ### Yêu cầu
 
+> **Không phải cài tay.** Mở **Cấu hình & API → 🧰 Công cụ trên máy**, bấm **Cài** hoặc **Cập nhật**
+> ngay cạnh từng dòng — dùng chính trình quản lý gói của máy (brew / winget / apt), nhật ký chạy hiện
+> ngay trong trang. Máy chủ không màn hình: `bizstudio setup yt-dlp --update`.
+>
+> Lỗi `HTTP Error 403: Forbidden` khi tải video hầu như luôn là do **yt-dlp cũ**, không phải bị chặn.
+> Thẻ này nói thẳng bản của bạn bao nhiêu ngày tuổi và cập nhật trong một cú bấm.
+
 | Công cụ | Bắt buộc? | Cài đặt |
 |---|---|---|
 | **ffmpeg + ffprobe** | ✅ Bắt buộc | macOS: `brew install ffmpeg` · Windows: [ffmpeg.org](https://ffmpeg.org/download.html) · Linux: `apt install ffmpeg` |
 | **Claude CLI** (đăng nhập subscription) | Cho Phiên AI, dịch thuật, meta xuất bản | `npm i -g @anthropic-ai/claude-code` rồi chạy `claude` đăng nhập |
 | **Gemini API key** | Cho OCR/ASR, ảnh AI, TTS Gemini, thumbnail AI | Lấy tại [aistudio.google.com](https://aistudio.google.com/apikey), dán vào **Cấu hình & API** |
-| **yt-dlp** | Cho module Tải Video | `brew install yt-dlp` / `pip install yt-dlp` |
+| **yt-dlp** | Cho module Tải Video | một cú bấm ở Cấu hình — **nhớ cập nhật thường xuyên**, bản cũ sinh lỗi 403 |
 | **Google Chrome / Chromium** | Cho module HTML Video (render frame) | tự dò bản đã cài, hoặc nhập đường dẫn ở Cấu hình |
-| **VieNeu-TTS** (khuyên dùng) | Giọng đọc Việt tự nhiên on-device — engine TTS mặc định | `./scripts/setup-vieneu.sh` (cần Python 3.10+, tải model lần đầu vài phút) |
+| **VieNeu-TTS** (khuyên dùng) | Giọng đọc Việt tự nhiên on-device — engine TTS mặc định | một cú bấm ở Cấu hình (cần Python 3.10+, tải model lần đầu vài phút) |
 | **API Trực Tiếp** (tùy chọn) | Endpoint OpenAI-compatible cho Dịch thuật & tách cảnh: OpenAI, OpenRouter, LM Studio, Ollama local | nhập ở tab **API Trực Tiếp** |
 | **Pexels API key** (tùy chọn) | Ảnh stock theo từ khóa cho cảnh Vox/HTML Video | miễn phí tại [pexels.com/api](https://www.pexels.com/api/), nhập ở tab **Media Xu hướng** |
 | Go 1.22+ | Chỉ khi build từ source | [go.dev/dl](https://go.dev/dl/) |
@@ -357,8 +375,8 @@ Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
 | Gemini Base / API Key / Model | Kết nối Gemini (mặc định `gemini-2.5-flash`) |
 | **Khoá Veo + Model Veo** | Sinh video AI — **trả phí theo giây**, cần dự án Google đã bật thanh toán. Để trống khoá thì dùng chung khoá Gemini. Mặc định `veo-3.1-fast-generate-preview` |
 | **Avatar nói — engine LongCat** | `Tắt` / `local` (máy này có GPU NVIDIA) / `remote` (đẩy sang máy GPU khác) + địa chỉ máy GPU, thư mục mã nguồn, thư mục trọng số, python |
-| **VieNeu-TTS python** | Giọng Việt on-device — cài bằng `./scripts/setup-vieneu.sh` |
-| **faster-whisper** python / model / compute | Bóc băng offline có mốc từng từ — cài bằng `./scripts/setup-whisper.sh` |
+| **VieNeu-TTS python** | Giọng Việt on-device — để rỗng, bấm Cài ở 🧰 Công cụ trên máy |
+| **faster-whisper** python / model / compute | Bóc băng offline có mốc từng từ — để rỗng, bấm Cài ở 🧰 Công cụ trên máy |
 | **API Trực Tiếp** (tab riêng) | Base URL + Key + Model endpoint OpenAI-compatible — thêm 1 engine cho Dịch thuật/tách cảnh |
 | **Media Xu hướng** (tab riêng) | Pexels API key — tự chèn ảnh stock theo từ khóa cảnh |
 | Chrome bin | Đường dẫn trình duyệt render HTML Video (mặc định tự dò) |
@@ -466,12 +484,13 @@ internal/
 ├── openaiapi/              # endpoint OpenAI-compatible làm engine thứ 3
 ├── publishpkg/             # gói xuất bản + meta AI
 ├── vox/                    # engine render bài viết → video
+├── setup/                  # cài/cập nhật công cụ ngoài; script .sh/.ps1 nhúng trong binary
 └── util/                   # exec, thống kê máy, vá PATH cho bản đóng gói
 web/static/                 # SPA: index.html, css/, js/pages/*.js (nhúng vào binary)
-scripts/
+scripts/                    # vỏ bọc giữ lệnh quen thuộc; bản thật nằm ở internal/setup/scripts/
 ├── build-release.sh        # đóng gói dmg / exe / tar.gz
-├── setup-vieneu.sh         # cài giọng đọc Việt on-device
-├── setup-whisper.sh        # cài bóc băng offline
+├── setup-vieneu.sh         # cài giọng đọc Việt on-device (hoặc bấm Cài trong Cấu hình)
+├── setup-whisper.sh        # cài bóc băng offline (hoặc bấm Cài trong Cấu hình)
 ├── setup-longcat.sh        # cài avatar nói (CHỈ chạy trên máy có GPU NVIDIA)
 └── longcat-worker.py       # xưởng render avatar đặt trên máy GPU
 ```
@@ -482,7 +501,8 @@ scripts/
 |---|---|
 | Phiên AI báo lỗi ngay khi tạo | Kiểm tra `claude` CLI: chạy `claude --version`, đăng nhập subscription. Xem **Cấu hình & API → Kiểm tra kết nối**. |
 | OCR/ASR báo "chưa cấu hình Gemini API key" | Dán key vào **Cấu hình & API**, bấm Lưu rồi Kiểm tra kết nối. |
-| Tải video lỗi "chưa cài yt-dlp" | `brew install yt-dlp` (macOS) hoặc `pip install yt-dlp`. |
+| **Tải video lỗi `HTTP Error 403: Forbidden`** | **Gần như luôn là yt-dlp cũ, không phải bị chặn.** Vào **Cấu hình & API → 🧰 Công cụ trên máy** bấm **Cập nhật** ở dòng yt-dlp (hoặc `bizstudio setup yt-dlp --update`). YouTube đổi cách chống tải liên tục nên yt-dlp ra bản mới mỗi 1–3 tuần. |
+| Tải video lỗi "chưa cài yt-dlp" | Bấm **Cài** ở 🧰 Công cụ trên máy, hoặc `brew install yt-dlp` / `pip install yt-dlp`. |
 | Video không preview được | Kiểm tra file có trong `data/` và URL bắt đầu bằng `/data/`. |
 | Điện thoại không mở được trang QR | Điện thoại phải cùng mạng Wi-Fi; kiểm tra firewall cho phép cổng 6868. |
 | Muốn đổi cổng / thư mục dữ liệu | `./bizstudio -port 8080 -data /duong/dan/khac` |
@@ -491,6 +511,7 @@ scripts/
 | Veo báo lỗi khoá không hợp lệ / 403 | Dự án Google của khoá đó phải **bật thanh toán** — Veo không có bậc miễn phí. Khoá Gemini thường sẽ không chạy được Veo. |
 | Veo báo "model không tìm thấy" | Model preview có thể bị Google đổi tên. Chọn model khác trong **Cấu hình & API → Model Veo**. |
 | Chữ tiếng Việt trong video hiện hai kiểu font lẫn lộn | Font hệ điều hành thiếu chữ có dấu chồng tầng. Vào **Diện mạo** bấm tải font Be Vietnam Pro (~400 KB). |
+| VieNeu / whisper báo `ImportError: incompatible architecture` | Venv cài bằng kiến trúc khác lúc chạy (hay gặp khi dùng bản Biz Studio x86_64 trên máy Apple Silicon). Xoá `data/whisper` hoặc `data/vieneu` rồi bấm **Cài** lại ở 🧰 Công cụ trên máy — script nay tự ép arm64. |
 | Cắt khoảng lặng bị nuốt chữ | Bật **bảo vệ bằng transcript** trong Studio Editor — bóc băng trước bằng faster-whisper để có mốc từng từ. |
 
 ## Ngôn ngữ giao diện

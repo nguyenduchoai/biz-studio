@@ -164,7 +164,7 @@ Gọi POST tools/* → nhận Job → hiện progress card, cập nhật qua `Bu
 - internal/tts: engine mới "vieneu" — VieNeu-TTS on-device 48 kHz (https://github.com/pnnbao97/VieNeu-TTS). Venv tại data/vieneu/venv (Settings.vieneuPython override). Runner python NHÚNG trong binary (tts/vieneu.go) → tự ghi data/vieneu/runner.py.
 - Speak engine rỗng: tự chọn vieneu → say → gemini; nếu voiceID thuộc engine khác thì theo engine của giọng. voiceID VieNeu hỗ trợ "Tên@style" (tu_nhien|tin_tuc|doc_truyen).
 - tts.VoicesFor(st) = giọng VieNeu (đọc data/vieneu/voices.json, fallback 5 tên) + Voices() cũ. Route /api/tools/voices dùng VoicesFor.
-- settings/test thêm key "vieneu"; state.tools thêm "vieneu". Cài đặt: scripts/setup-vieneu.sh.
+- settings/test thêm key "vieneu"; state.tools thêm "vieneu". Cài đặt: nút Cài ở Cấu hình (POST /api/setup/vieneu) hoặc scripts/setup-vieneu.sh.
 
 ## Mở rộng v1.3 — Dubbing chất lượng & Clone voice
 
@@ -374,6 +374,33 @@ Cùng khuôn với internal/tts/vieneu.go (venv riêng + runner python nhúng tr
 - Ghi kèm `SaveJSON(tr, path)` và `LoadJSON(path)`.
 - Xuất phụ đề: `SRT(tr) string` (theo segment) và `KaraokeASS(tr, style KaraokeStyle) string` — ASS có hiệu ứng \k từng từ, dùng cho burn phụ đề karaoke.
   `KaraokeStyle{FontName string; FontSize int; Primary, Highlight, Outline string (hex); MarginV int}` — lấy từ Style Kit đang dùng.
+
+## /api/setup — cài & cập nhật công cụ ngoài
+
+`GET /api/setup/tools` → `[{id, label, desc, manual, installed, detail}]`.
+Chỉ kiểm tra CỤC BỘ (`--version`, import trong venv), không gọi mạng — trang Cấu
+hình gọi ngay khi mở.
+
+`POST /api/setup/{id}?action=install|update` → trả NGAY `{tool, action, cmds, manual}`
+rồi chạy nền. `id` nhận cả ID nội bộ lẫn tên quen: `ytdlp` = `yt-dlp` = `YT-DLP`.
+Lỗi:
+- `404` — không có công cụ đó
+- `400` — hành động lạ, hoặc máy thiếu brew/winget/sudo (message là hướng dẫn cho người dùng)
+- `409` — công cụ đó đang được cài
+
+`POST /api/setup/{id}/cancel` → hủy lượt đang chạy (`404` nếu không có).
+
+Tiến trình phát qua SSE, sự kiện `setup`:
+```
+{"tool":"ytdlp","line":"…","state":"running"}
+{"tool":"ytdlp","state":"done"}
+{"tool":"ytdlp","state":"error","error":"…","manual":"https://…"}
+```
+Chạy bằng context nền, KHÔNG phải context của request: đóng tab giữa chừng thì
+việc cài vẫn chạy tiếp thay vì bỏ dở một venv nửa vời.
+
+CLI tương đương: `bizstudio setup [<công-cụ>] [--update] [--dry-run] [--data DIR]`.
+Không có tham số = liệt kê. Thiếu brew/winget trả `kind: "dependency"` (exit 3).
 
 ### scripts/setup-whisper.sh
 Tạo venv `data/whisper/venv`, `pip install faster-whisper`, tải sẵn model theo `WhisperModel`, in hướng dẫn. Bỏ qua model bằng `SKIP_MODEL=1`.

@@ -300,10 +300,10 @@
       textField('Thư mục tải về', st, 'downloadDir', 'data/downloads'),
       textField('File Cookies', st, 'cookiesFile', 'Đường dẫn file cookies.txt (tùy chọn)'),
       textField('Chrome bin (render HTML Video)', st, 'chromeBin', 'tự dò Google Chrome'),
-      textField('VieNeu-TTS python (giọng đọc Việt on-device)', st, 'vieneuPython', 'tự dò data/vieneu/venv — cài bằng: ./scripts/setup-vieneu.sh'),
+      textField('VieNeu-TTS python (giọng đọc Việt on-device)', st, 'vieneuPython', 'tự dò data/vieneu/venv — rỗng là được, bấm Cài ở mục Công cụ trên máy'),
       withNote(
         textField('faster-whisper python (bóc băng offline, mốc từng từ)', st, 'whisperPython',
-          'tự dò data/whisper/venv — cài bằng: ./scripts/setup-whisper.sh'),
+          'tự dò data/whisper/venv — rỗng là được, bấm Cài ở mục Công cụ trên máy'),
         'Bóc băng ngay trên máy, không tốn API key — và cho mốc từng từ để cắt khoảng lặng an toàn, làm phụ đề karaoke.'),
       withNote(
         UI.select('Model whisper', [
@@ -463,6 +463,9 @@
 
   function buildForm(el, st) {
     uiCards(st, el);
+    // Đặt trên panel API: công cụ thiếu là thứ chặn người dùng ngay từ thao tác
+    // đầu tiên, còn API key thì họ mới dán xong ở bước cài đặt ban đầu.
+    if (window.SettingsTools) el.appendChild(SettingsTools.card());
     el.appendChild(apiPanel(st));
     el.appendChild(actionRow(st, el));
   }

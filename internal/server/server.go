@@ -46,6 +46,7 @@ func New(st *store.Store, dataDir string, port int) *Server {
 	s.routesCharsBible(s.mux)
 	s.routesStudio(s.mux)
 	s.routesHighlight(s.mux)
+	s.routesCollections(s.mux)
 	s.routesBroll(s.mux)
 	s.routesHTMLVideo(s.mux)
 	s.routesClone(s.mux)

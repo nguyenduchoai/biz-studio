@@ -56,7 +56,7 @@
   };
 
   function render(root) {
-    var tabs = ['Khuôn theo lĩnh vực', 'Rút clip ngắn', 'Ghép tư liệu', 'Nền tảng', 'Nhạc nền', 'Giọng theo ngôn ngữ'];
+    var tabs = ['Khuôn theo lĩnh vực', 'Rút clip ngắn', 'Hợp tuyển theo chủ đề', 'Ghép tư liệu', 'Nền tảng', 'Nhạc nền', 'Giọng theo ngôn ngữ'];
     var active = 0;
     var host = h('div', { class: 'mt-16' });
     var bar = h('div', { class: 'row' }, tabs.map(function (t, i) {
@@ -79,9 +79,10 @@
       host.innerHTML = '';
       if (active === 0) drawTemplates(host);
       else if (active === 1) drawHighlight(host);
-      else if (active === 2) drawBroll(host);
-      else if (active === 3) drawPlatforms(host);
-      else if (active === 4) drawMoods(host);
+      else if (active === 2) drawCollections(host);
+      else if (active === 3) drawBroll(host);
+      else if (active === 4) drawPlatforms(host);
+      else if (active === 5) drawMoods(host);
       else drawLangs(host);
     }
     draw();
@@ -158,7 +159,7 @@
   // ---------- rút clip ngắn ----------
 
   function drawHighlight(host) {
-    var st = { file: '', secs: 60, platform: 'tiktok', goal: '', minScore: 6 };
+    var st = { file: '', secs: 60, platform: 'tiktok', goal: '', minScore: 6, genre: 'auto' };
 
     var runBtn = UI.btn('Rút clip', {
       onclick: function () {
@@ -166,7 +167,7 @@
         runBtn.disabled = true;
         API.post('/api/studio/highlight', {
           path: st.file, seconds: Number(st.secs) || 60, platform: st.platform,
-          goal: st.goal, minScore: Number(st.minScore) || 6, lang: 'vi'
+          goal: st.goal, minScore: Number(st.minScore) || 6, lang: 'vi', genre: st.genre
         }).then(function () {
           runBtn.disabled = false;
           UI.toast('Đã xếp hàng — theo dõi ở Nhật ký. Bóc băng video dài mất vài phút.');
@@ -177,13 +178,8 @@
       }
     });
 
-    var platSel = h('div');
-    API.get('/api/studio/platforms').then(function (ps) {
-      platSel.appendChild(UI.select('Nền tảng đích', [{ value: '', label: 'Không chuẩn hoá — giữ nguyên khung hình' }]
-        .concat(ps.map(function (p) {
-          return { value: p.id, label: p.name + (p.maxSec ? ' (tối đa ' + p.maxSec + 's)' : '') };
-        })), st.platform, function (v) { st.platform = v; }));
-    }).catch(function () { /* mất mạng nội bộ thì bỏ ô này, phần còn lại vẫn chạy */ });
+    var genreSel = genreField(st);
+    var platSel = platformField(st);
 
     host.appendChild(h('div', { class: 'card' },
       h('div', { class: 'card-title' }, '✂️ Rút video dài thành clip ngắn'),
@@ -207,6 +203,7 @@
           { value: '6', label: '6 — cân bằng (mặc định)' },
           { value: '5', label: '5 — giữ rộng tay (clip đầy hơn)' }
         ], String(st.minScore), function (v) { st.minScore = v; })),
+      h('div', { class: 'mt-8' }, genreSel),
       h('div', { class: 'mt-8' },
         UI.field('Clip nhắm vào ý gì (tuỳ chọn)', UI.input({
           placeholder: 'vd: giải thích vì sao hoá đơn điện tăng',
@@ -216,6 +213,95 @@
         'Chọn nền tảng thì hệ thống tự ép thời lượng xuống dưới trần của nền tảng đó. ' +
         'Cần khoá AI trong Cấu hình & API — không có khoá thì báo lỗi rõ chứ không chấm bừa: ' +
         'cắt nhầm đoạn còn tệ hơn không cắt.'),
+      h('div', { class: 'row mt-16' }, runBtn)));
+  }
+
+  // ---------- ô dùng chung cho rút clip & hợp tuyển ----------
+
+  // Thể loại quyết định gu chấm điểm: đoạn đắt của video kiến thức không giống
+  // đoạn đắt của một vlog. Nạp danh mục từ server để thêm thể loại mới không
+  // phải sửa cả hai nơi.
+  function genreField(st) {
+    var box = h('div');
+    var note = h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '4px' } }, '');
+    API.get('/api/studio/highlight/genres').then(function (gs) {
+      box.appendChild(UI.select('Thể loại nội dung', gs.map(function (g) {
+        return { value: g.id, label: g.name };
+      }), st.genre, function (v) {
+        st.genre = v;
+        var g = gs.filter(function (x) { return x.id === v; })[0];
+        note.textContent = g ? g.desc : '';
+      }));
+      var cur = gs.filter(function (x) { return x.id === st.genre; })[0];
+      note.textContent = cur ? cur.desc : '';
+      box.appendChild(note);
+    }).catch(function () { /* thiếu ô này thì server tự dùng "auto" */ });
+    return box;
+  }
+
+  function platformField(st) {
+    var box = h('div');
+    API.get('/api/studio/platforms').then(function (ps) {
+      box.appendChild(UI.select('Nền tảng đích', [{ value: '', label: 'Không chuẩn hoá — giữ nguyên khung hình' }]
+        .concat(ps.map(function (p) {
+          return { value: p.id, label: p.name + (p.maxSec ? ' (tối đa ' + p.maxSec + 's)' : '') };
+        })), st.platform, function (v) { st.platform = v; }));
+    }).catch(function () { /* mất mạng nội bộ thì bỏ ô này, phần còn lại vẫn chạy */ });
+    return box;
+  }
+
+  // ---------- hợp tuyển theo chủ đề ----------
+
+  function drawCollections(host) {
+    var st = { file: '', secs: 60, max: 4, platform: 'tiktok', minScore: 6, genre: 'auto' };
+
+    var runBtn = UI.btn('Gom hợp tuyển', {
+      onclick: function () {
+        if (!st.file) { UI.toast('Chưa chọn video nguồn.', 'error'); return; }
+        runBtn.disabled = true;
+        API.post('/api/studio/collections', {
+          path: st.file, secondsEach: Number(st.secs) || 60, max: Number(st.max) || 4,
+          platform: st.platform, minScore: Number(st.minScore) || 6, lang: 'vi', genre: st.genre
+        }).then(function () {
+          runBtn.disabled = false;
+          UI.toast('Đã xếp hàng — tên từng hợp tuyển hiện dần ở Nhật ký.');
+        }).catch(function (e) {
+          runBtn.disabled = false;
+          UI.toast('Không chạy được: ' + e.message, 'error');
+        });
+      }
+    });
+
+    host.appendChild(h('div', { class: 'card' },
+      h('div', { class: 'card-title' }, '🗂 Hợp tuyển theo chủ đề'),
+      h('div', { class: 'muted', style: { fontSize: '12.5px', marginBottom: '12px', lineHeight: '1.6' } },
+        'Khác "Rút clip ngắn" ở đúng một chỗ, nhưng là chỗ quyết định: rút clip lấy các đoạn đắt nhất ' +
+        'bất kể nói về cái gì rồi ghép làm MỘT video. Hợp tuyển đọc xem chúng nói về cái gì rồi tách ra ' +
+        'NHIỀU video, mỗi video một chủ đề — từ một buổi phỏng vấn hai tiếng ra "chuyện khởi nghiệp", ' +
+        '"sai lầm tuyển người", "chuyện gia đình". Mỗi đoạn chỉ thuộc một hợp tuyển, và trong mỗi hợp tuyển ' +
+        'các đoạn vẫn xếp theo đúng thứ tự thời gian gốc.'),
+      UI.field('Video nguồn', UI.input({
+        placeholder: 'Đường dẫn video trong data, vd: tmp/abc/phong-van.mp4',
+        oninput: function (e) { st.file = e.target.value.trim(); }
+      })),
+      h('div', { class: 'grid-3 mt-8' },
+        UI.field('Thời lượng mỗi hợp tuyển (giây)', UI.input({
+          type: 'number', value: '60',
+          oninput: function (e) { st.secs = e.target.value; }
+        })),
+        UI.select('Tối đa bao nhiêu hợp tuyển', [
+          { value: '2', label: '2 hợp tuyển' }, { value: '3', label: '3 hợp tuyển' },
+          { value: '4', label: '4 hợp tuyển (mặc định)' }, { value: '6', label: '6 hợp tuyển' }
+        ], String(st.max), function (v) { st.max = v; }),
+        UI.select('Ngưỡng điểm giữ lại', [
+          { value: '7', label: '7 — chỉ đoạn thật đắt' },
+          { value: '6', label: '6 — cân bằng (mặc định)' },
+          { value: '5', label: '5 — giữ rộng tay' }
+        ], String(st.minScore), function (v) { st.minScore = v; })),
+      h('div', { class: 'grid-2 mt-8' }, genreField(st), platformField(st)),
+      h('div', { class: 'muted', style: { fontSize: '12px', marginTop: '8px' } },
+        'Nhóm nào không gom đủ 3 đoạn thì bỏ hẳn — gắn một cái tên kêu cho hai mẩu rời không làm nó thành ' +
+        'hợp tuyển. Video chỉ xoay quanh một chủ đề thì hệ thống báo và khuyên dùng "Rút clip ngắn" thay thế.'),
       h('div', { class: 'row mt-16' }, runBtn)));
   }
 

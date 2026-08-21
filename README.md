@@ -31,6 +31,18 @@
 
 ## Có gì mới
 
+### v2.11.0 — 21/08/2026 — Chấm điểm theo lô, prompt theo thể loại, hợp tuyển theo chủ đề
+
+Đọc [AutoClip](https://github.com/zhouxiaoka/autoclip) (6,7k sao, MIT) và soi lại mã của mình, lòi ra một lỗi đang nằm trong bản người ta đã tải về.
+
+- 🔴 **Sửa lỗi rút clip hỏng trên video dài** — chính là ca dùng của nó. Đo thật: video 2 tiếng ra **1.107 đoạn ứng viên**, mà mã cũ gửi hết trong MỘT lượt và bắt AI trả về 1.107 dòng JSON. Model hoặc bị cắt giữa chừng (mất trắng lượt chạy), hoặc chấm vài trăm dòng rồi tự đóng mảng đúng cú pháp — kiểu thứ hai hỏng **lặng lẽ**: gửi 300 đoạn, nhận 100, clip dựng ra **chỉ dùng 2% đầu video** mà không có lấy một dòng cảnh báo.
+  Nay chấm theo lô 60 đoạn, **đếm lại số đoạn nhận được**, thiếu đoạn nào thì hỏi lại đúng những đoạn đó. Thiếu ít thì chạy tiếp nhưng nói ra; thiếu quá 20% thì báo lỗi thay vì dựng một clip không đáng tin. 6 test canh gác.
+- 🎯 **Prompt theo thể loại nội dung** — 7 thể loại (kiến thức, quan điểm, giải trí, trải nghiệm, kinh doanh, phỏng vấn, tự cân bằng), mỗi loại một gu chấm riêng. Prompt cũ chỉ có một và nghiêng hẳn về kiến thức/quan điểm — *"câu gây tò mò, con số bất ngờ, tuyên bố mạnh"* — đem chấm một vlog đời thường là rớt hết vì "không có thông tin".
+- 🗂 **Hợp tuyển theo chủ đề** — tab mới. Rút clip lấy các đoạn đắt nhất bất kể nói về cái gì rồi ghép làm MỘT video; hợp tuyển đọc xem chúng nói về cái gì rồi tách ra NHIỀU video, mỗi video một chủ đề. Một buổi phỏng vấn hai tiếng ra "chuyện khởi nghiệp", "sai lầm tuyển người", "chuyện gia đình". Mỗi đoạn chỉ thuộc một hợp tuyển; trong mỗi hợp tuyển các đoạn vẫn xếp theo đúng thứ tự thời gian gốc.
+- 🐞 Kèm một lỗi nữa test bắt được lúc đang viết: bảng bỏ dấu tiếng Việt (dùng đặt tên file hợp tuyển) viết tay hai chuỗi song song và **lệch 2 ký tự** — "đ" ra "y". Nay dựng bảng bằng mã nên lệch là chuyện không thể xảy ra.
+
+Không lấy từ AutoClip: Celery + Redis + FastAPI + React. Biz Studio là một binary — thêm Redis là mất luôn tính "tải về chạy ngay".
+
 ### v2.10.0 — 21/08/2026 — App độc lập, không cần mở trình duyệt
 
 Trước đây bấm vào Biz Studio là trình duyệt bật lên một tab lẫn giữa mười tab khác, có thanh địa chỉ, có nút back — nhìn không ra một phần mềm. Nay nó mở **cửa sổ app riêng**.
@@ -537,6 +549,8 @@ scripts/                    # vỏ bọc giữ lệnh quen thuộc; bản thật
 | Veo báo "model không tìm thấy" | Model preview có thể bị Google đổi tên. Chọn model khác trong **Cấu hình & API → Model Veo**. |
 | Chữ tiếng Việt trong video hiện hai kiểu font lẫn lộn | Font hệ điều hành thiếu chữ có dấu chồng tầng. Vào **Diện mạo** bấm tải font Be Vietnam Pro (~400 KB). |
 | VieNeu / whisper báo `ImportError: incompatible architecture` | Venv cài bằng kiến trúc khác lúc chạy (hay gặp khi dùng bản Biz Studio x86_64 trên máy Apple Silicon). Xoá `data/whisper` hoặc `data/vieneu` rồi bấm **Cài** lại ở 🧰 Công cụ trên máy — script nay tự ép arm64. |
+| Hợp tuyển báo "không nhóm nào đủ 3 đoạn" | Video chỉ xoay quanh một chủ đề nên không tách nhóm được — dùng **Rút clip ngắn** thay thế, hoặc hạ ngưỡng điểm. |
+| Rút clip báo "AI chỉ chấm được N/M đoạn" | Model trả thiếu quá nhiều nên kết quả không đáng tin. Thử lại, hoặc đổi engine ở Cấu hình & API. |
 | Cắt khoảng lặng bị nuốt chữ | Bật **bảo vệ bằng transcript** trong Studio Editor — bóc băng trước bằng faster-whisper để có mốc từng từ. |
 
 ## Ngôn ngữ giao diện

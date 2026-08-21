@@ -375,6 +375,41 @@ Cùng khuôn với internal/tts/vieneu.go (venv riêng + runner python nhúng tr
 - Xuất phụ đề: `SRT(tr) string` (theo segment) và `KaraokeASS(tr, style KaraokeStyle) string` — ASS có hiệu ứng \k từng từ, dùng cho burn phụ đề karaoke.
   `KaraokeStyle{FontName string; FontSize int; Primary, Highlight, Outline string (hex); MarginV int}` — lấy từ Style Kit đang dùng.
 
+## Rút clip & hợp tuyển (internal/highlight)
+
+### Chấm điểm theo LÔ — bắt buộc
+
+`Score(ctx, st, cands, targetSec, goal, genreID, onProgress) ([]Candidate, ScoreReport, error)`
+
+- Chia lô `scoreChunk = 60` đoạn/lượt. Đo thật: video 2 tiếng ra 1.107 đoạn;
+  gửi hết một lượt thì model bị cắt giữa chừng, hoặc chấm vài trăm dòng rồi tự
+  đóng mảng — kiểu sau hỏng LẶNG LẼ (gửi 300 nhận 100, clip chỉ lấy 2% đầu video).
+- Sau mỗi lô, ĐẾM LẠI: đoạn nào thiếu thì hỏi lại **đúng những đoạn đó**, một lần.
+- Thiếu > `maxUnscoredRatio = 0.20` → **lỗi**, không dựng clip.
+  Thiếu ít hơn → chạy tiếp nhưng `ScoreReport.Warn` phải được hiện lên UI.
+- `runLLMFn` là biến để test thay chỗ gọi AI; mã chạy thật luôn dùng `runLLM`.
+
+### Thể loại (`Genres()`, `FindGenre(id)`)
+
+7 thể loại; `auto` đứng đầu và là mặc định. Mỗi thể loại đóng góp hai câu vào
+prompt: `high` (thế nào là 9-10 điểm) và `low` (thế nào bị hạ điểm). ID lạ hoặc
+rỗng → `auto` (dữ liệu người dùng cũ không có trường này).
+`GET /api/studio/highlight/genres` trả danh mục cho UI.
+
+### Hợp tuyển (`Cluster`)
+
+`POST /api/studio/collections` — bóc băng → chấm điểm → gom nhóm → dựng mỗi
+nhóm một video. Body: `{path, secondsEach, max, platform, minScore, lang, genre}`.
+
+- Chỉ đưa AI `clusterPoolMax = 60` đoạn điểm cao nhất: gom nhóm cần đọc hết mới
+  thấy đoạn nào cùng chủ đề nên KHÔNG chia lô được như chấm điểm.
+- Bất biến phải giữ: một đoạn chỉ thuộc MỘT hợp tuyển; nhóm dưới
+  `minClipsPerCollection = 3` đoạn bị bỏ và các đoạn của nó **trả lại** cho nhóm
+  sau; trong mỗi hợp tuyển các đoạn xếp theo THỜI GIAN gốc (cùng lý do với `Pick`).
+- Số thứ tự AI bịa ra bị bỏ qua, không làm sập.
+- Job chỉ mang một `Output` → trả video ĐẦU TIÊN để xem trước; danh sách đầy đủ
+  ghi ở nhật ký.
+
 ## Cửa sổ app (internal/desktop)
 
 Binary mở giao diện trong cửa sổ app riêng thay vì tab trình duyệt. Cờ:

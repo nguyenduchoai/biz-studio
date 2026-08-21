@@ -18,6 +18,9 @@ const highlightTimeout = 90 * time.Minute
 // routesHighlight — rút video dài thành clip ngắn.
 func (s *Server) routesHighlight(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/studio/highlight", s.handleHighlight)
+	mux.HandleFunc("GET /api/studio/highlight/genres", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, highlight.Genres())
+	})
 }
 
 // handleHighlight rút một video dài thành clip ngắn theo bốn bước: bóc băng →
@@ -31,6 +34,7 @@ func (s *Server) handleHighlight(w http.ResponseWriter, r *http.Request) {
 		Goal     string `json:"goal"`     // clip nhắm vào ý gì (tuỳ chọn)
 		MinScore int    `json:"minScore"` // 0 = 6
 		Lang     string `json:"lang"`     // ngôn ngữ bóc băng; rỗng = tự đoán
+		Genre    string `json:"genre"`    // thể loại nội dung; rỗng = "auto"
 	}
 	if err := readJSON(r, &body); err != nil {
 		httpErr(w, http.StatusBadRequest, "%s", err)
@@ -84,8 +88,15 @@ func (s *Server) handleHighlight(w http.ResponseWriter, r *http.Request) {
 				return "", fmt.Errorf("không tách được đoạn nào từ bản bóc băng — video có tiếng nói không?")
 			}
 
-			upd(55, fmt.Sprintf("AI đang chấm %d đoạn…", len(cands)))
-			scored, err := highlight.Score(ctx, s.st, cands, secs, body.Goal)
+			// Chấm theo lô: mỗi lô một lượt gọi AI, nên báo tiến trình theo lô
+			// thay vì để thanh tiến trình đứng im hàng phút với video dài.
+			genre := highlight.FindGenre(body.Genre)
+			upd(55, fmt.Sprintf("AI đang chấm %d đoạn (%s)…", len(cands), genre.Name))
+			scored, srep, err := highlight.Score(ctx, s.st, cands, secs, body.Goal, genre.ID,
+				func(done, total int) {
+					upd(55+float64(done)/float64(total)*15,
+						fmt.Sprintf("AI đang chấm %d/%d đoạn (%s)…", done, total, genre.Name))
+				})
 			if err != nil {
 				return "", err
 			}
@@ -111,6 +122,9 @@ func (s *Server) handleHighlight(w http.ResponseWriter, r *http.Request) {
 				rep.SourceSec, rep.OutputSec, rep.Kept, len(cands))
 			if rep.Truncated {
 				note += " · đoạn cuối bị cắt cụt cho vừa trần"
+			}
+			if srep.Warn != "" {
+				note += " · ⚠ " + srep.Warn
 			}
 
 			if plat != nil {

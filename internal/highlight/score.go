@@ -19,6 +19,32 @@ import (
 const scoreSystem = "Bạn là người dựng video ngắn tiếng Việt, chuyên chọn đoạn đắt nhất từ video dài. " +
 	"Luôn trả về đúng JSON được yêu cầu, không thêm bất kỳ nội dung nào khác."
 
+const (
+	// scoreChunk — số đoạn gửi trong MỘT lượt hỏi AI.
+	//
+	// Ràng buộc thật nằm ở ĐẦU RA chứ không phải đầu vào: mỗi đoạn tương ứng
+	// một dòng JSON, mà nhiều model chặn đầu ra ở 4–8 nghìn token. Đo trên bản
+	// bóc băng thật: video 2 tiếng ra 1.107 đoạn — bắt AI trả 1.107 dòng trong
+	// một lượt thì hoặc nó bị cắt giữa chừng, hoặc nó chấm vài trăm dòng rồi tự
+	// đóng mảng. Cả hai đều hỏng, và kiểu thứ hai hỏng LẶNG LẼ.
+	scoreChunk = 60
+
+	// maxUnscoredRatio — quá tỉ lệ này mà vẫn không chấm được thì kết quả không
+	// đáng tin, thà báo lỗi. Đoạn không chấm được mặc nhiên 0 điểm nên bị loại;
+	// mất nhiều quá thì clip dựng ra chỉ là phần video may mắn được chấm.
+	maxUnscoredRatio = 0.20
+)
+
+// ScoreReport — thống kê một lượt chấm điểm, để nói thật với người dùng.
+// (build.go đã có Report cho khâu dựng video.)
+type ScoreReport struct {
+	Total   int    `json:"total"`
+	Scored  int    `json:"scored"`
+	Chunks  int    `json:"chunks"`
+	Retries int    `json:"retries"`
+	Warn    string `json:"warn"`
+}
+
 // Score nhờ AI chấm điểm từng đoạn ứng viên.
 //
 // Cố ý dùng AI chứ không dùng công thức: "đoạn hấp dẫn" là chuyện nội dung —
@@ -28,61 +54,136 @@ const scoreSystem = "Bạn là người dựng video ngắn tiếng Việt, chuy
 //
 // Không có khoá AI thì trả lỗi rõ ràng chứ KHÔNG lặng lẽ rơi về chấm bừa: cắt
 // nhầm đoạn còn tệ hơn không cắt, vì người dùng tưởng máy đã chọn hộ.
-func Score(ctx context.Context, st *store.Store, cs []Candidate, targetSec int, goal string) ([]Candidate, error) {
+//
+// Chấm theo LÔ và ĐẾM LẠI số đoạn nhận được. Gửi cả nghìn đoạn một lượt thì AI
+// hay chấm vài trăm đoạn đầu rồi đóng mảng đúng cú pháp — nhìn như trả lời đủ.
+// Đo thật: gửi 300 đoạn, nhận 100, clip dựng ra chỉ dùng 2% đầu video và không
+// có lấy một dòng cảnh báo.
+func Score(ctx context.Context, st *store.Store, cs []Candidate, targetSec int,
+	goal, genreID string, onProgress func(done, total int)) ([]Candidate, ScoreReport, error) {
+
+	rep := ScoreReport{Total: len(cs)}
 	if len(cs) == 0 {
-		return nil, fmt.Errorf("không có đoạn nào để chấm — bản bóc băng rỗng")
+		return nil, rep, fmt.Errorf("không có đoạn nào để chấm — bản bóc băng rỗng")
 	}
-	raw, err := runLLM(ctx, st, buildScorePrompt(cs, targetSec, goal))
-	if err != nil {
-		return nil, err
+	genre := FindGenre(genreID)
+
+	all := map[int]mark{}
+	var lastRaw string
+	for start := 0; start < len(cs); start += scoreChunk {
+		end := min(start+scoreChunk, len(cs))
+		chunk := cs[start:end]
+		rep.Chunks++
+
+		got, raw, err := scoreOnce(ctx, st, chunk, targetSec, goal, genre)
+		if err != nil {
+			return nil, rep, err
+		}
+		lastRaw = raw
+
+		// Thiếu đoạn nào thì hỏi lại ĐÚNG những đoạn đó — rẻ hơn nhiều so với
+		// chấm lại cả lô, và tránh việc lần hai lại thiếu chỗ khác.
+		if missing := missingOf(chunk, got); len(missing) > 0 {
+			rep.Retries++
+			retry, _, err := scoreOnce(ctx, st, missing, targetSec, goal, genre)
+			if err == nil {
+				for k, v := range retry {
+					got[k] = v
+				}
+			}
+		}
+		for k, v := range got {
+			all[k] = v
+		}
+		if onProgress != nil {
+			onProgress(end, len(cs))
+		}
 	}
-	marks := parseScores(raw)
-	if len(marks) == 0 {
-		return nil, fmt.Errorf("AI không trả về điểm nào — thử lại hoặc đổi engine (nhận được: %s)", shortText(raw, 200))
+
+	if len(all) == 0 {
+		return nil, rep, fmt.Errorf("AI không trả về điểm nào — thử lại hoặc đổi engine (nhận được: %s)",
+			shortText(lastRaw, 200))
 	}
+
 	out := append([]Candidate(nil), cs...)
-	n := 0
 	for i := range out {
-		m, ok := marks[out[i].Index]
+		m, ok := all[out[i].Index]
 		if !ok {
 			continue
 		}
 		out[i].Score, out[i].Why = m.Score, strings.TrimSpace(m.Why)
-		n++
+		rep.Scored++
 	}
-	if n == 0 {
-		return nil, fmt.Errorf("AI chấm điểm cho những số thứ tự không có thật — thử lại")
+	if rep.Scored == 0 {
+		return nil, rep, fmt.Errorf("AI chấm điểm cho những số thứ tự không có thật — thử lại")
 	}
-	return out, nil
+
+	unscored := rep.Total - rep.Scored
+	if float64(unscored) > float64(rep.Total)*maxUnscoredRatio {
+		return nil, rep, fmt.Errorf(
+			"AI chỉ chấm được %d/%d đoạn — kết quả không đáng tin, clip sẽ chỉ lấy từ phần video may mắn được chấm. "+
+				"Thử lại, hoặc đổi engine ở Cấu hình & API", rep.Scored, rep.Total)
+	}
+	if unscored > 0 {
+		rep.Warn = fmt.Sprintf("%d/%d đoạn AI không chấm được, đã bỏ qua", unscored, rep.Total)
+	}
+	return out, rep, nil
 }
 
-func buildScorePrompt(cs []Candidate, targetSec int, goal string) string {
+// missingOf trả các đoạn chưa có điểm trong kết quả trả về.
+func missingOf(chunk []Candidate, got map[int]mark) []Candidate {
+	var out []Candidate
+	for _, c := range chunk {
+		if _, ok := got[c.Index]; !ok {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// runLLMFn — điểm thay thế cho test; mã chạy thật luôn dùng runLLM.
+var runLLMFn = runLLM
+
+func scoreOnce(ctx context.Context, st *store.Store, cs []Candidate, targetSec int,
+	goal string, genre Genre) (map[int]mark, string, error) {
+
+	raw, err := runLLMFn(ctx, st, buildScorePrompt(cs, targetSec, goal, genre))
+	if err != nil {
+		return nil, "", err
+	}
+	return parseScores(raw), raw, nil
+}
+
+func buildScorePrompt(cs []Candidate, targetSec int, goal string, genre Genre) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, `Dưới đây là bản bóc băng một video dài, đã chia thành các đoạn có đánh số và mốc thời gian.
 Nhiệm vụ: chấm điểm mỗi đoạn theo mức ĐÁNG GIỮ khi rút video này thành clip ngắn khoảng %d giây.
 
+Video thuộc thể loại: %s.
+
 Thang điểm 0 đến 10:
-- 9-10: mở được clip — câu gây tò mò, con số bất ngờ, tuyên bố mạnh, cao trào.
-- 6-8: có thông tin thật, cụ thể, đứng một mình vẫn hiểu.
-- 3-5: cần ngữ cảnh mới hiểu, hoặc chỉ là câu nối.
+- 9-10: %s.
+- 6-8: có nội dung thật, cụ thể, đứng một mình vẫn hiểu.
+- 3-5: cần ngữ cảnh mới hiểu, hoặc chỉ là câu nối. Cũng cho vào mức này: %s.
 - 0-2: chào hỏi, lặp lại, ê a, lạc đề, nói hụt.
 
 Nguyên tắc:
 - Chấm theo NỘI DUNG, không theo độ dài. Đoạn ngắn mà đắt vẫn điểm cao.
 - Đoạn đứng một mình người xem không hiểu thì hạ điểm, dù nội dung hay — clip ngắn không có chỗ giải thích.
 - Không bịa nội dung không có trong bản bóc băng.
-`, targetSec)
+`, targetSec, genre.Name, genre.high, genre.low)
 	if g := strings.TrimSpace(goal); g != "" {
 		fmt.Fprintf(&b, "- Người dùng muốn clip nhắm vào: %s. Đoạn phục vụ ý này thì cộng điểm.\n", g)
 	}
-	b.WriteString("\nCác đoạn:\n")
+	fmt.Fprintf(&b, "\nCác đoạn (%d đoạn):\n", len(cs))
 	for _, c := range cs {
 		fmt.Fprintf(&b, "[%d] %.1fs-%.1fs (%.1fs): %s\n", c.Index, c.Start, c.End, c.Dur(), oneLine(c.Text))
 	}
-	b.WriteString(`
+	fmt.Fprintf(&b, `
 Trả về DUY NHẤT một JSON mảng, mỗi phần tử là {"i": số thứ tự đoạn, "diem": số 0-10, "vi": "lý do ngắn gọn dưới 12 từ"}:
 [{"i":0,"diem":8,"vi":"mở bằng con số gây sốc"}]
-Chấm cho TẤT CẢ các đoạn. Không giải thích, không markdown, không văn bản nào khác ngoài JSON.`)
+Phải có ĐỦ %d phần tử, đúng %d số thứ tự nêu trên, không thiếu đoạn nào.
+Không giải thích, không markdown, không văn bản nào khác ngoài JSON.`, len(cs), len(cs))
 	return b.String()
 }
 

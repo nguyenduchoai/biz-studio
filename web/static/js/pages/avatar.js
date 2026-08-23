@@ -202,16 +202,21 @@
       '', function (v) { st.projectId = v; });
 
     var out = h('div', { style: { marginTop: '12px' } });
+    var faceConsent = ConsentBox.make('face');
     var runBtn = UI.btn('🗣️ Dựng video người nói', {
       variant: 'primary',
       onclick: function () {
         if (!st.info.ready) { UI.toast('Engine avatar chưa sẵn sàng.', 'error'); return; }
         if (!st.imagePath) { UI.toast('Chưa chọn ảnh nhân vật.', 'error'); return; }
         if (!st.audioPath) { UI.toast('Chưa có file giọng.', 'error'); return; }
+        if (!faceConsent.check()) return;
         runBtn.disabled = true;
+        var fc = faceConsent.values();
         API.post('/api/tools/avatar', {
           imagePath: st.imagePath, audioPath: st.audioPath,
-          prompt: st.prompt, projectId: st.projectId
+          prompt: st.prompt, projectId: st.projectId,
+          // Backend chặn độc lập; gửi lên để nó ghi vào nhật ký làm bằng chứng.
+          rights: fc.rights, adult: fc.adult, permitted: fc.permitted, subject: fc.subject
         }).then(function (job) {
           UI.toast('Đã bắt đầu dựng — model chạy vài phút.');
           waitJob(job.id, function (path) {
@@ -234,7 +239,8 @@
       UI.field('Lưu vào dự án', projSel),
       h('div', { class: 'muted', style: { fontSize: '12.5px', margin: '4px 0 12px' } },
         'Model dựng theo thời lượng file giọng — giọng càng dài càng lâu. Bạn có thể rời trang, job vẫn chạy.'),
-      runBtn, out);
+      faceConsent.el,
+      h('div', { class: 'mt-16' }, runBtn), out);
   }
 
   // waitJob theo dõi một job tới khi xong.

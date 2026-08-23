@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"bizstudio/internal/avatar"
+	"bizstudio/internal/consent"
 	"bizstudio/internal/media"
 	"bizstudio/internal/store"
 	"bizstudio/internal/tts"
@@ -77,11 +78,29 @@ func (s *Server) handleAvatarGenerate(w http.ResponseWriter, r *http.Request) {
 		AudioPath string `json:"audioPath"`
 		Prompt    string `json:"prompt"`
 		ProjectID string `json:"projectId"`
+
+		// Xác nhận quyền dùng khuôn mặt trong ảnh.
+		Rights    bool   `json:"rights"`
+		Adult     bool   `json:"adult"`
+		Permitted bool   `json:"permitted"`
+		Subject   string `json:"subject"`
 	}
 	if err := readJSON(r, &body); err != nil {
 		httpErr(w, http.StatusBadRequest, "%s", err)
 		return
 	}
+
+	// Chặn TRƯỚC mọi việc khác: làm một tấm ảnh người thật nói theo lời đọc chỉ
+	// hợp lệ khi người đó đồng ý, mà chỉ người bấm nút mới biết điều đó.
+	grant := consent.Grant{
+		Kind: consent.KindFace, Rights: body.Rights, Adult: body.Adult,
+		Permitted: body.Permitted, Subject: strings.TrimSpace(body.Subject), At: time.Now(),
+	}
+	if err := consent.Check(grant, consent.KindFace); err != nil {
+		httpErr(w, http.StatusForbidden, "%s", err)
+		return
+	}
+	s.Log("info", "avatar", consent.Line(grant, consent.KindFace))
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	st := avatar.Check(ctx, s.st)
 	cancel()

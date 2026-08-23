@@ -708,6 +708,7 @@
         cloneErrBox.appendChild(redAlert(msg));
       }
 
+      var cloneConsent = ConsentBox.make('voice');
       var cloneBtn = UI.btn('✨ Tạo giọng nhân bản', {
         variant: 'primary', large: true,
         onclick: function () {
@@ -715,9 +716,15 @@
           var name = cloneName.value.trim();
           if (!cloneFile) { showCloneErr('Chưa có clip mẫu — hãy tải lên hoặc ghi âm trực tiếp.'); return; }
           if (!name) { showCloneErr('Chưa nhập tên giọng.'); return; }
+          var miss = cloneConsent.missing();
+          if (miss.length) { showCloneErr('Còn thiếu xác nhận: ' + miss.join('; ')); return; }
           cloneBtn.disabled = true;
+          var cg = cloneConsent.values();
           API.upload('/api/tools/clone-voices', [cloneFile], {
-            name: name, gender: cloneGender, note: cloneNote.value.trim()
+            name: name, gender: cloneGender, note: cloneNote.value.trim(),
+            // Backend chặn độc lập; gửi lên để nó ghi vào nhật ký làm bằng chứng.
+            rights: String(cg.rights), adult: String(cg.adult),
+            permitted: String(cg.permitted), subject: cg.subject
           }).then(function (cv) {
             UI.toast('Đã tạo giọng nhân bản: ' + ((cv && cv.name) ? cv.name : name));
             cloneName.value = '';
@@ -744,7 +751,8 @@
             UI.field('Ghi chú', cloneNote)),
           h('div', { class: 'muted', style: { fontSize: '12px', marginBottom: '12px' } },
             '💡 Clip mẫu nên dài 3–8 giây, giọng rõ, không nhạc nền. Mẫu ngoài khoảng 2–20 giây sẽ bị từ chối.'),
-          cloneBtn, cloneErrBox)
+          cloneConsent.el,
+          h('div', { class: 'mt-16' }, cloneBtn), cloneErrBox)
       }));
 
       var cloneListHost = h('div');

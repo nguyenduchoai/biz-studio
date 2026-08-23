@@ -410,6 +410,60 @@ nhóm một video. Body: `{path, secondsEach, max, platform, minScore, lang, gen
 - Job chỉ mang một `Output` → trả video ĐẦU TIÊN để xem trước; danh sách đầy đủ
   ghi ở nhật ký.
 
+## Cổng xác nhận quyền (internal/consent)
+
+Bắt buộc trước hai việc: nhân bản giọng (`POST /api/tools/clone-voices`) và làm
+ảnh chân dung nói (`POST /api/tools/avatar`).
+
+Ba xác nhận, thiếu cái nào trả **403** và nêu ĐÍCH DANH cái đó:
+`rights` (có quyền dùng tư liệu) · `adult` (đủ 18 tuổi) · `permitted` (người đó
+đồng ý). Kèm `subject` — ghi ai, để sau còn tra lại.
+
+- Clone giọng nhận qua **form field** (multipart): `rights=true&adult=true&permitted=true&subject=…`
+- Avatar nhận qua **JSON body**: `{"rights":true,"adult":true,"permitted":true,"subject":"…"}`
+
+**Chặn ở backend, không chỉ ở giao diện.** Ô tích chỉ chặn người dùng giao diện;
+ai gọi bằng curl hay script phải đi qua cùng một cổng. Mỗi lượt qua cổng ghi một
+dòng nhật ký làm bằng chứng — bằng chứng chỉ có giá trị khi còn đọc lại được.
+
+Đây KHÔNG phải kiểm chứng pháp lý. Nó là một câu hỏi rõ ràng đặt đúng lúc, cộng
+một dòng nói rằng câu hỏi đã được đặt và ai trả lời gì.
+
+## Cache bước nặng (internal/artifact)
+
+`Key(parts…)` băm mọi thứ ảnh hưởng tới kết quả. `FileKey(path)` = đường dẫn +
+mốc sửa đổi + kích thước — KHÔNG băm nội dung (video vài GB thì băm còn lâu hơn
+cả bóc băng), nhưng đủ để bắt được việc thay file mà giữ nguyên tên.
+
+Đang dùng cho: **bản bóc băng** (`kind="transcript"`, khoá gồm file + ngôn ngữ +
+model + compute). Đo thật: 6,5 giây → 0,28 ms.
+
+Bất biến: cache là thứ TĂNG TỐC, không phải thứ bắt buộc. `Store` nil, thư mục
+không ghi được, file hỏng — tất cả đều phải im lặng bỏ qua chứ không làm job
+chết. File hỏng bị xoá luôn để lần sau không vấp lại. Ghi qua file tạm rồi đổi
+tên: mất điện giữa chừng để lại file tạm, không để lại cache hỏng.
+
+`Prune()` xoá mục quá 30 ngày.
+
+## Dọn job ma (internal/jobs)
+
+`jobs.New()` gọi `reapStale()`: mọi job còn `running`/`queued` từ lần chạy trước
+bị đánh dấu `error`. Job sống trong goroutine — tắt máy là goroutine biến mất
+nhưng bản ghi ở lại "running" mãi mãi.
+
+Thông báo phải nói HAI điều: vì sao hỏng, và chạy lại có mất công không (các bước
+nặng đã cache sẽ được dùng lại).
+
+## Ảnh lưới kiểm nhanh (qc.ContactSheet)
+
+Lưới 5×4 = 20 ô, mỗi ô rộng 320px, trải đều suốt video. Sinh kèm mỗi lượt
+`POST /api/projects/{id}/qc` → `projects/<id>/qc-contact-sheet.png`.
+
+Lấy mẫu trên `Duration × 1.02` để ô cuối không rơi đúng mép file — nhiều video
+kết bằng khung đen, một ô đen ở góc lưới trông y hệt lỗi thật.
+
+Lỗi dựng ảnh KHÔNG làm hỏng lượt QC: báo cáo số vẫn còn nguyên giá trị.
+
 ## Timeline nhiều lớp (internal/timeline)
 
 `GET  /api/projects/{id}/timeline` → Doc. Chưa có thì dựng mặc định từ asset dự

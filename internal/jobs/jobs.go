@@ -17,7 +17,30 @@ type Manager struct {
 }
 
 func New(st *store.Store, pub Broadcast) *Manager {
-	return &Manager{st: st, pub: pub}
+	m := &Manager{st: st, pub: pub}
+	m.reapStale()
+	return m
+}
+
+// reapStale đánh dấu các job còn "running"/"queued" từ lần chạy trước là đã hỏng.
+//
+// Job sống trong goroutine, tắt máy giữa chừng là goroutine biến mất nhưng bản
+// ghi trong db.json vẫn ghi "running" mãi mãi. Người dùng mở lại app thấy một
+// job đứng im ở 40% không bao giờ nhúc nhích, không biết chờ hay chạy lại — mà
+// chờ thì chờ đến sáng cũng thế.
+func (m *Manager) reapStale() int {
+	n := 0
+	for _, j := range m.st.Jobs() {
+		if j.Status != "running" && j.Status != "queued" {
+			continue
+		}
+		j.Status = "error"
+		j.Error = "bị ngắt giữa chừng do thoát ứng dụng — chạy lại; " +
+			"những bước nặng đã xong (bóc băng, chấm điểm) sẽ được dùng lại chứ không làm lại"
+		m.st.SaveJob(&j)
+		n++
+	}
+	return n
 }
 
 // Submit tạo job và chạy fn trong goroutine. fn gọi upd(progress 0..100, detail)

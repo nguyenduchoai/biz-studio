@@ -1,6 +1,7 @@
 package whisper
 
 import (
+	"bizstudio/internal/artifact"
 	"bufio"
 	"bytes"
 	"context"
@@ -30,6 +31,19 @@ func Transcribe(ctx context.Context, st *store.Store, src, lang string,
 	}
 	if _, err := os.Stat(src); err != nil {
 		return nil, fmt.Errorf("không tìm thấy file cần bóc băng: %s", src)
+	}
+
+	// Bóc băng là bước đắt nhất trong mọi pipeline — video 20 phút mất vài
+	// phút. Chạy "Rút clip ngắn" rồi "Hợp tuyển" trên cùng một video là làm
+	// đúng việc đó hai lần. Khoá tính cả mốc sửa đổi và kích thước file, nên
+	// thay file mà giữ nguyên tên vẫn bóc lại.
+	cfg := st.Settings()
+	key := artifact.Key(artifact.FileKey(src), lang, cfg.WhisperModel, cfg.WhisperCompute)
+	cache := cacheFor(st)
+	var cached Transcript
+	if cache.Load("transcript", key, &cached) && len(cached.Segments) > 0 {
+		upd(100, "Dùng lại bản bóc băng đã có (không phải bóc lại)")
+		return &cached, nil
 	}
 	runner, err := runnerPath(st)
 	if err != nil {
@@ -63,7 +77,23 @@ func Transcribe(ctx context.Context, st *store.Store, src, lang string,
 		return nil, fmt.Errorf("faster-whisper không bóc được nội dung nào — kiểm tra file có tiếng nói không")
 	}
 	upd(98, fmt.Sprintf("Đã bóc %d đoạn · %d từ có mốc", len(tr.Segments), tr.WordCount()))
+	cache.Save("transcript", key, tr)
 	return tr, nil
+}
+
+// cacheFor mở kho artifact cạnh thư mục dữ liệu của store.
+//
+// Trả nil khi không xác định được thư mục: cache là thứ tăng tốc, thiếu nó thì
+// chậm chứ không hỏng, nên không đáng để làm cả lượt bóc băng thất bại.
+func cacheFor(st *store.Store) *artifact.Store {
+	if st == nil {
+		return nil
+	}
+	dir := strings.TrimSpace(st.DataDir)
+	if dir == "" {
+		return nil
+	}
+	return artifact.New(dir)
 }
 
 // toWav16k chuyển mọi định dạng (video/audio) về WAV mono 16 kHz trong thư mục

@@ -1975,5 +1975,19 @@
     "✓ Né lời đọc": "✓ Ducking",
     "Xoá lớp": "Delete layer",
     "Tiếng gốc": "Source audio",
+
+    /* Cổng xác nhận quyền dùng mặt & giọng (v2.13.0) */
+    "🔒 Xác nhận quyền nhân bản giọng": "🔒 Confirm you may clone this voice",
+    "🔒 Xác nhận quyền dùng khuôn mặt": "🔒 Confirm you may use this face",
+    "Tôi có quyền sử dụng clip giọng này": "I have the right to use this voice clip",
+    "Người nói trong clip đủ 18 tuổi": "The speaker in the clip is 18 or older",
+    "Người đó đồng ý cho nhân bản giọng của mình": "That person agreed to have their voice cloned",
+    "Giọng của ai (để sau còn tra lại)": "Whose voice (so you can check back later)",
+    "Tôi có quyền sử dụng ảnh này": "I have the right to use this photo",
+    "Người trong ảnh đủ 18 tuổi": "The person in the photo is 18 or older",
+    "Người đó đồng ý cho ảnh của mình nói theo lời đọc": "That person agreed to have their likeness speak this narration",
+    "Ảnh của ai (để sau còn tra lại)": "Whose photo (so you can check back later)",
+    "vd: Chị Lan — đã ký giấy đồng ý": "e.g. Lan — signed consent form on file",
+    "Còn thiếu xác nhận: ": "Still unconfirmed: ",
   });
 })();

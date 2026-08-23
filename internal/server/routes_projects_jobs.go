@@ -53,6 +53,20 @@ func (s *Server) handleProjectQC(w http.ResponseWriter, r *http.Request) {
 		if err := os.WriteFile(filepath.Join(dir, "qc.json"), b, 0o644); err != nil {
 			return "", fmt.Errorf("không ghi được qc.json: %w", err)
 		}
+
+		// Ảnh lưới đi kèm báo cáo số. Kiểm bằng số bắt được khung đen, khung
+		// đứng, tiếng nhỏ — không bắt được cảnh lặp, ghép nhầm thứ tự, chữ đè
+		// lên mặt. Những thứ đó chỉ mắt thấy, mà không ai tua lại cả video sau
+		// mỗi lần render.
+		//
+		// Lỗi dựng ảnh KHÔNG làm hỏng lượt QC: báo cáo số vẫn còn nguyên giá trị.
+		upd(80, "Dựng ảnh lưới kiểm nhanh…")
+		sheet := filepath.Join(dir, "qc-contact-sheet.png")
+		if err := qc.ContactSheet(ctx, filepath.Join(s.DataDir, cur.OutputFile), sheet); err != nil {
+			s.Log("warn", "qc", "không dựng được ảnh lưới: "+err.Error())
+		} else {
+			s.Log("info", "qc", "Ảnh lưới kiểm nhanh: projects/"+id+"/qc-contact-sheet.png")
+		}
 		return "projects/" + id + "/qc.json", nil
 	})
 	writeJSON(w, http.StatusOK, job)

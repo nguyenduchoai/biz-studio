@@ -31,6 +31,17 @@
 
 ## Có gì mới
 
+### v2.13.0 — 23/08/2026 — Cổng xác nhận quyền, cache bước nặng, ảnh lưới kiểm nhanh
+
+Đọc [lanshu-create-ai-presenter-video](https://github.com/cclank/lanshu-create-ai-presenter-video) (MIT). Nó không phải thư viện mã — 12 file, ~47 KB, phần lớn là hướng dẫn quy trình cho AI agent, còn phần sinh video thì giao cho provider bên ngoài. Nhưng ba quy tắc của nó chỉ ra ba lỗ hổng có thật trong Biz Studio.
+
+- 🔒 **Cổng xác nhận quyền dùng khuôn mặt và giọng.** Trước đây mình nhân bản giọng từ clip 3–8 giây và làm một tấm ảnh nói theo lời đọc mà **không hỏi một câu nào**. Nay bắt xác nhận ba điều — có quyền dùng tư liệu, người trong đó đủ 18 tuổi, người đó đồng ý — rồi ghi vào nhật ký kèm tên đối tượng làm bằng chứng. **Chặn ở backend** chứ không chỉ ở giao diện: gọi bằng curl cũng phải qua cổng. Thiếu ô nào thì nói rõ ô đó, không gộp thành "chưa xác nhận".
+- ⚡ **Cache bước nặng.** Bóc băng là bước đắt nhất mọi pipeline, mà chạy "Rút clip ngắn" rồi "Hợp tuyển" trên cùng một video là bóc hai lần y hệt. Nay dùng lại — **đo thật: 6,5 giây xuống 0,28 mili giây**. Khoá tính cả mốc sửa đổi và kích thước file, nên thay file mà giữ nguyên tên vẫn bóc lại.
+- 🧟 **Dọn job ma khi khởi động.** Tắt app giữa chừng thì goroutine biến mất nhưng bản ghi vẫn "running" mãi — người dùng mở lại thấy một job đứng im ở 40%, không biết chờ hay chạy lại. Nay đánh dấu là bị ngắt và nói rõ chạy lại sẽ dùng lại các bước nặng đã xong.
+- 🖼 **Ảnh lưới kiểm nhanh sau mỗi lượt QC.** Kiểm bằng số bắt được khung đen, khung đứng, tiếng nhỏ — không bắt được cảnh lặp, ghép nhầm thứ tự, chữ đè lên mặt. Một ảnh 20 ô nhìn hết trong ba giây thay cho việc tua hai mươi phút.
+
+Không lấy: bản thân quy trình của nó. Việc nó mô tả (video người dẫn từ ảnh + kịch bản) thì `internal/avatar` đã làm, và **cổng chi phí trước khi gọi API tốn tiền** — quy tắc số 2 của nó — mình đã có từ lâu ở Veo (bắt buộc `Confirmed=true` sau khi hiện ước tính USD).
+
 ### v2.12.0 — 22/08/2026 — Timeline nhiều lớp: âm thanh + phụ đề
 
 Anh Hoài chỉ cho một [trình dựng](https://github.com/Lexombien/lemyloi-dichvideos) fork từ [OpenCut](https://github.com/OpenCut-app/OpenCut) (85,4k sao, MIT) và hỏi editor của mình thiếu gì. Câu trả lời thật: timeline cũ chỉ là **hai hàng V1/A1 hiển thị asset dạng khối màu** — bấm vào chỉ để chọn, không kéo được, không cắt được, không có playhead. Nó là bảng kiểm kê, không phải trình dựng.
@@ -536,6 +547,8 @@ internal/
 ├── publishpkg/             # gói xuất bản + meta AI
 ├── vox/                    # engine render bài viết → video
 ├── desktop/                # mở giao diện trong cửa sổ app riêng (Chrome --app)
+├── artifact/               # cache kết quả bước nặng (bóc băng…) theo khoá nội dung
+├── consent/                # cổng xác nhận quyền dùng mặt & giọng
 ├── timeline/               # nhiều lớp âm thanh + phụ đề → filtergraph ffmpeg
 ├── setup/                  # cài/cập nhật công cụ ngoài; script .sh/.ps1 nhúng trong binary
 └── util/                   # exec, thống kê máy, vá PATH cho bản đóng gói
@@ -556,6 +569,8 @@ scripts/                    # vỏ bọc giữ lệnh quen thuộc; bản thật
 | OCR/ASR báo "chưa cấu hình Gemini API key" | Dán key vào **Cấu hình & API**, bấm Lưu rồi Kiểm tra kết nối. |
 | **Tải video lỗi `HTTP Error 403: Forbidden`** | **Gần như luôn là yt-dlp cũ, không phải bị chặn.** Vào **Cấu hình & API → 🧰 Công cụ trên máy** bấm **Cập nhật** ở dòng yt-dlp (hoặc `bizstudio setup yt-dlp --update`). YouTube đổi cách chống tải liên tục nên yt-dlp ra bản mới mỗi 1–3 tuần. |
 | Tải video lỗi "chưa cài yt-dlp" | Bấm **Cài** ở 🧰 Công cụ trên máy, hoặc `brew install yt-dlp` / `pip install yt-dlp`. |
+| Bị chặn "chưa xác nhận" khi clone giọng / dựng avatar | Đúng như thiết kế — tích đủ ba ô xác nhận quyền. Backend chặn độc lập nên gọi API bằng script cũng phải gửi kèm. |
+| Job đứng im ở giữa chừng sau khi mở lại app | Job đó đã bị ngắt lúc thoát; nay tự đánh dấu là hỏng. Chạy lại — bóc băng và chấm điểm đã xong sẽ được dùng lại chứ không làm lại. |
 | Timeline: kéo khối xong bấm Dựng mà video ra như cũ | Chưa lưu. Nút **Dựng video** tự lưu trước, nhưng nếu sửa xong lại tải lại trang thì mất. Bấm **Lưu timeline** cho chắc. |
 | Timeline: nghe thử không ra tiếng lớp phụ | Trình duyệt khoá âm thanh cho tới khi bạn bấm vào trang — bấm nút phát trên video một lần là được. |
 | Bấm app mà không thấy cửa sổ | Máy chưa có Chrome/Edge/Brave → app lui về mở tab ở trình duyệt mặc định. Cài Chrome bằng nút ở 🧰 Công cụ trên máy. |

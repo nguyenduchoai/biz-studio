@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"bizstudio/internal/consent"
 	"bizstudio/internal/media"
 	"bizstudio/internal/store"
 	"bizstudio/internal/tts"
@@ -60,6 +61,25 @@ func (s *Server) handleCloneCreate(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, http.StatusBadRequest, "cần đặt tên cho giọng nhân bản")
 		return
 	}
+
+	// Cổng xác nhận quyền — chặn TRƯỚC khi đụng tới file upload.
+	//
+	// Chặn ở đây chứ không chỉ ở giao diện: gọi API bằng curl hay script cũng
+	// phải đi qua cùng một cổng. Một ô tích ở giao diện chỉ chặn người dùng
+	// giao diện.
+	grant := consent.Grant{
+		Kind:      consent.KindVoice,
+		Rights:    r.FormValue("rights") == "true",
+		Adult:     r.FormValue("adult") == "true",
+		Permitted: r.FormValue("permitted") == "true",
+		Subject:   strings.TrimSpace(r.FormValue("subject")),
+		At:        time.Now(),
+	}
+	if err := consent.Check(grant, consent.KindVoice); err != nil {
+		httpErr(w, http.StatusForbidden, "%s", err)
+		return
+	}
+	s.Log("info", "clone", consent.Line(grant, consent.KindVoice)+" · giọng: "+name)
 	if r.MultipartForm == nil || len(r.MultipartForm.File["files"]) == 0 {
 		httpErr(w, http.StatusBadRequest, "chưa chọn clip mẫu (field \"files\") — %s", cloneSampleHint)
 		return

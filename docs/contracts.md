@@ -410,6 +410,41 @@ nhóm một video. Body: `{path, secondsEach, max, platform, minScore, lang, gen
 - Job chỉ mang một `Output` → trả video ĐẦU TIÊN để xem trước; danh sách đầy đủ
   ghi ở nhật ký.
 
+## Timeline nhiều lớp (internal/timeline)
+
+`GET  /api/projects/{id}/timeline` → Doc. Chưa có thì dựng mặc định từ asset dự
+án: video dài nhất làm nền, mỗi file âm thanh một lớp (vai trò đoán từ tên file
+qua `GuessRole`).
+`PUT  /api/projects/{id}/timeline` → lưu (tự `Normalize`).
+`POST /api/projects/{id}/timeline/render` → job, xuất `outputs/timeline.mp4`.
+`GET  /api/timeline/peaks?path=…&n=400` → `{peaks: [0..1]}` để vẽ sóng âm.
+
+Lưu thành FILE RIÊNG `projects/<id>/timeline.json`, KHÔNG nhét vào db.json:
+db.json nạp hết vào bộ nhớ và ghi lại toàn bộ mỗi lần đổi, mà một timeline có
+thể mang hàng trăm dòng phụ đề.
+
+### Bất biến phải giữ
+
+- **Một lớp video** duy nhất. Nhiều lớp âm thanh + một lớp phụ đề.
+- `Normalize()` là chỗ DUY NHẤT dọn số liệu, và phải **idempotent** — gọi hai
+  lần ra cùng kết quả, nếu không mỗi lần lưu timeline lại tự trôi một ít.
+- Đường dẫn trong tài liệu là **tương đối data dir** (dự án chuyển máy vẫn mở
+  được); đổi sang tuyệt đối ngay trước khi gọi ffmpeg.
+- `srcAudio=false` khi video nền không có stream âm thanh: tham chiếu `[0:a]`
+  cho file không có tiếng là lỗi cả lệnh, mà thông báo của ffmpeg không hề gợi ý.
+- **Không có phụ đề → `-c:v copy`.** Mã hoá lại chỉ vì trộn âm thanh là chậm và
+  mất chất lượng vô ích.
+- `asetpts=PTS-STARTPTS` sau mỗi `atrim`, và `adelay=…:all=1`. Thiếu asetpts thì
+  đoạn rơi sai chỗ; thiếu all=1 thì chỉ kênh trái bị đẩy, nghe thành lệch tiếng.
+- Né giọng chỉ dựng khi CÓ lớp `narration` đang bật.
+
+### Xem trước ở trình duyệt
+
+WebAudio trộn các lớp, hẹn giờ theo `video.currentTime`. Né giọng ở đây là bản
+GẦN ĐÚNG (automation theo khoảng lời đọc đã biết, không phải sidechain) — khác
+biệt nằm ở đường cong lên xuống, không nằm ở việc nhạc có lùi hay không. Phải
+nói rõ chỗ này trên giao diện.
+
 ## Cửa sổ app (internal/desktop)
 
 Binary mở giao diện trong cửa sổ app riêng thay vì tab trình duyệt. Cờ:

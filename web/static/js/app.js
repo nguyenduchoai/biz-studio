@@ -28,7 +28,8 @@
       { id: 'veo', label: 'Veo — Sinh video AI', icon: '🎥' },
       { id: 'avatar', label: 'Avatar nói', icon: '🗣️' },
       { id: 'recap', label: 'Phim → Kể chuyện', icon: '🎞️' },
-      { id: 'editor', label: 'Studio Editor', icon: '✂️' }
+      { id: 'editor', label: 'Studio Editor', icon: '✂️' },
+      { id: 'timeline', label: 'Timeline nhiều lớp', icon: '🎚️' }
     ]},
     { group: 'HỆ THỐNG', items: [
       { id: 'projects', label: 'Dự án', icon: '📁' },

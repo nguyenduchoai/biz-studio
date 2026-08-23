@@ -31,6 +31,23 @@
 
 ## Có gì mới
 
+### v2.12.0 — 22/08/2026 — Timeline nhiều lớp: âm thanh + phụ đề
+
+Anh Hoài chỉ cho một [trình dựng](https://github.com/Lexombien/lemyloi-dichvideos) fork từ [OpenCut](https://github.com/OpenCut-app/OpenCut) (85,4k sao, MIT) và hỏi editor của mình thiếu gì. Câu trả lời thật: timeline cũ chỉ là **hai hàng V1/A1 hiển thị asset dạng khối màu** — bấm vào chỉ để chọn, không kéo được, không cắt được, không có playhead. Nó là bảng kiểm kê, không phải trình dựng.
+
+Nay có timeline dựng được thật, cho **âm thanh và phụ đề**:
+
+- 🎚️ **Nhiều lớp âm thanh** — lời đọc, nhạc nền, tiếng động, mỗi lớp bao nhiêu đoạn tuỳ ý. **Kéo để dời, kéo mép để cắt, S để tách tại playhead, Delete để xoá.** Có sóng âm vẽ trên từng khối nên thấy ngay chỗ nào có tiếng nói.
+- 🔊 **Nghe thử ĐÚNG bằng bản xuất ra, không độ trễ** — trình duyệt tự trộn bằng WebAudio thay vì chờ máy chủ render. Kéo một cái là nghe được ngay.
+- 🎯 **Né lời đọc theo lớp** — bật cho lớp nhạc là nhạc tự lùi mỗi khi có lời đọc. Đo trên bản dựng thật: bật né thì đoạn đang nói nhỏ đi 2,4 dB so với khi tắt.
+- 💬 **Lớp phụ đề** — thêm/sửa/xoá dòng ngay trên timeline, hiện đè lên video lúc xem trước, ghi thẳng lên hình lúc dựng.
+- 🏷 **Đoán vai trò từ tên file** — `nhac-nen.mp3` vào thẳng lớp nhạc, `sfx-whoosh.wav` vào lớp tiếng động. Sai thì một cú bấm là sửa.
+- ⚡ **Không có phụ đề thì COPY stream hình**, không mã hoá lại — nhanh hơn nhiều lần và không mất chất lượng.
+
+**Chỉ một lớp video, và đó là chủ ý.** Âm thanh với phụ đề thì trình duyệt trộn và hiện được nên xem trước đúng 100%. Lồng video trên video bắt buộc phải ghép hình — hoặc đổi cả giao diện sang React như OpenCut, hoặc render nháp ở máy chủ rồi kéo một cái chờ một hai giây. Cả hai đều là chuyện khác; giao diện web giữ nguyên nên lúc nào làm cũng không phải viết lại.
+
+Kiểm bằng ffmpeg thật chứ không so chuỗi: 14 test dựng file, chạy filtergraph, rồi **đo âm lượng từng khoảng** để chứng minh đoạn nằm đúng giây, nhạc thật sự lùi, và file không câm.
+
 ### v2.11.0 — 21/08/2026 — Chấm điểm theo lô, prompt theo thể loại, hợp tuyển theo chủ đề
 
 Đọc [AutoClip](https://github.com/zhouxiaoka/autoclip) (6,7k sao, MIT) và soi lại mã của mình, lòi ra một lỗi đang nằm trong bản người ta đã tải về.
@@ -519,6 +536,7 @@ internal/
 ├── publishpkg/             # gói xuất bản + meta AI
 ├── vox/                    # engine render bài viết → video
 ├── desktop/                # mở giao diện trong cửa sổ app riêng (Chrome --app)
+├── timeline/               # nhiều lớp âm thanh + phụ đề → filtergraph ffmpeg
 ├── setup/                  # cài/cập nhật công cụ ngoài; script .sh/.ps1 nhúng trong binary
 └── util/                   # exec, thống kê máy, vá PATH cho bản đóng gói
 web/static/                 # SPA: index.html, css/, js/pages/*.js (nhúng vào binary)
@@ -538,6 +556,8 @@ scripts/                    # vỏ bọc giữ lệnh quen thuộc; bản thật
 | OCR/ASR báo "chưa cấu hình Gemini API key" | Dán key vào **Cấu hình & API**, bấm Lưu rồi Kiểm tra kết nối. |
 | **Tải video lỗi `HTTP Error 403: Forbidden`** | **Gần như luôn là yt-dlp cũ, không phải bị chặn.** Vào **Cấu hình & API → 🧰 Công cụ trên máy** bấm **Cập nhật** ở dòng yt-dlp (hoặc `bizstudio setup yt-dlp --update`). YouTube đổi cách chống tải liên tục nên yt-dlp ra bản mới mỗi 1–3 tuần. |
 | Tải video lỗi "chưa cài yt-dlp" | Bấm **Cài** ở 🧰 Công cụ trên máy, hoặc `brew install yt-dlp` / `pip install yt-dlp`. |
+| Timeline: kéo khối xong bấm Dựng mà video ra như cũ | Chưa lưu. Nút **Dựng video** tự lưu trước, nhưng nếu sửa xong lại tải lại trang thì mất. Bấm **Lưu timeline** cho chắc. |
+| Timeline: nghe thử không ra tiếng lớp phụ | Trình duyệt khoá âm thanh cho tới khi bạn bấm vào trang — bấm nút phát trên video một lần là được. |
 | Bấm app mà không thấy cửa sổ | Máy chưa có Chrome/Edge/Brave → app lui về mở tab ở trình duyệt mặc định. Cài Chrome bằng nút ở 🧰 Công cụ trên máy. |
 | Đóng cửa sổ mà app không thoát | Đúng như thiết kế khi còn việc đang render — xem nhật ký, xong hết sẽ tự thoát. Muốn thoát ngay: tắt tiến trình `bizstudio`. |
 | Video không preview được | Kiểm tra file có trong `data/` và URL bắt đầu bằng `/data/`. |

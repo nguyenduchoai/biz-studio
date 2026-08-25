@@ -1,0 +1,67 @@
+name: Windows native gate
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-build-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: true
+
+      - name: Unit and integration tests
+        run: go test ./...
+
+      - name: JavaScript syntax
+        shell: pwsh
+        run: |
+          Get-ChildItem web/static/js -Recurse -Filter *.js |
+            ForEach-Object { node --check $_.FullName }
+
+      - name: Build both Windows executables
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force artifacts | Out-Null
+          go build -trimpath -o artifacts/bizstudio.exe ./cmd/bizstudio
+          go build -trimpath -ldflags "-H windowsgui" -o "artifacts/Biz Studio.exe" ./cmd/bizstudio
+
+      - name: Native control and mobile-listener smoke
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP "bizstudio-smoke"
+          $process = Start-Process -FilePath "artifacts/bizstudio.exe" `
+            -ArgumentList @("-window=false", "-port", "17680", "-data", $data) -PassThru
+          try {
+            $state = $null
+            for ($i = 0; $i -lt 30; $i++) {
+              try {
+                $state = Invoke-RestMethod "http://127.0.0.1:17680/api/state"
+                break
+              } catch {
+                Start-Sleep -Seconds 1
+              }
+            }
+            if (-not $state) { throw "Biz Studio did not become ready" }
+            if ($state.app.name -ne "Biz Studio") { throw "Unexpected instance marker" }
+            $mobile = Invoke-WebRequest `
+              "http://$($state.lanIP):$($state.mobilePort)/api/setup/tools" -SkipHttpErrorCheck
+            if ($mobile.StatusCode -ne 404) { throw "Mobile listener exposed control API" }
+          } finally {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: bizstudio-windows-amd64-unsigned
+          path: artifacts/

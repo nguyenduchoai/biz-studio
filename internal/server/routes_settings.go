@@ -11,6 +11,7 @@ import (
 	neturl "net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -26,9 +27,31 @@ type toolCheck struct {
 	Detail string `json:"detail"`
 }
 
+const secretMask = "••••••••"
+
+var secretSettingKeys = map[string]bool{
+	"geminiApiKey": true, "veoApiKey": true, "openaiKey": true, "pexelsKey": true,
+}
+
+func maskedSettings(cfg store.Settings) store.Settings {
+	if cfg.GeminiAPIKey != "" {
+		cfg.GeminiAPIKey = secretMask
+	}
+	if cfg.VeoAPIKey != "" {
+		cfg.VeoAPIKey = secretMask
+	}
+	if cfg.OpenAIKey != "" {
+		cfg.OpenAIKey = secretMask
+	}
+	if cfg.PexelsKey != "" {
+		cfg.PexelsKey = secretMask
+	}
+	return cfg
+}
+
 func (s *Server) routesSettings(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/settings", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, http.StatusOK, s.st.Settings())
+		writeJSON(w, http.StatusOK, maskedSettings(s.st.Settings()))
 	})
 
 	// PUT /api/settings — GỘP vào cấu hình đang có, không thay cả khối.
@@ -47,7 +70,7 @@ func (s *Server) routesSettings(mux *http.ServeMux) {
 		}
 		s.st.SaveSettings(cfg)
 		// Trả bản đã áp defaults (SaveSettings tự áp trong store).
-		writeJSON(w, http.StatusOK, s.st.Settings())
+		writeJSON(w, http.StatusOK, maskedSettings(s.st.Settings()))
 	})
 
 	mux.HandleFunc("POST /api/settings/test", s.handleSettingsTest)
@@ -61,8 +84,8 @@ func (s *Server) handleSettingsTest(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	res := map[string]toolCheck{
-		"ffmpeg":  checkBinVersion(ctx, "ffmpeg", "-version"),
-		"claude":  checkBinVersion(ctx, binOrDefault(cfg.ClaudeBin, "claude"), "--version"),
+		"ffmpeg":  checkFFmpeg(ctx),
+		"claude":  checkClaudeReady(ctx, binOrDefault(cfg.ClaudeBin, "claude")),
 		"ytdlp":   checkYtdlp(ctx, binOrDefault(cfg.YtdlpBin, "yt-dlp")),
 		"gemini":  checkGeminiKey(cfg),
 		"openai":  checkOpenAI(cfg),
@@ -201,32 +224,15 @@ func checkChrome(ctx context.Context, cfg store.Settings) toolCheck {
 	if bin == "" {
 		return toolCheck{OK: false, Detail: "không tìm thấy Google Chrome/Chromium — cài Chrome hoặc nhập đường dẫn ở Cấu hình"}
 	}
+	if runtime.GOOS == "windows" {
+		return toolCheck{OK: true, Detail: bin}
+	}
 	return checkBinVersion(ctx, bin, "--version")
 }
 
 // findChromeBin: ChromeBin cấu hình → đường dẫn macOS quen thuộc → PATH.
 func findChromeBin(cfg store.Settings) string {
-	candidates := []string{
-		strings.TrimSpace(cfg.ChromeBin),
-		"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-		"/Applications/Chromium.app/Contents/MacOS/Chromium",
-		"google-chrome", "chromium",
-	}
-	for _, c := range candidates {
-		if c == "" {
-			continue
-		}
-		if filepath.IsAbs(c) {
-			if _, err := os.Stat(c); err == nil {
-				return c
-			}
-			continue
-		}
-		if util.Exists(c) {
-			return c
-		}
-	}
-	return ""
+	return util.FindChromium(strings.TrimSpace(cfg.ChromeBin), true)
 }
 
 func binOrDefault(bin, def string) string {
@@ -362,6 +368,12 @@ func mergeSettings(cur store.Settings, r *http.Request) (store.Settings, error) 
 		return cur, fmt.Errorf("đọc cấu hình hiện tại: %w", err)
 	}
 	for k, v := range patch {
+		if secretSettingKeys[k] {
+			var value string
+			if json.Unmarshal(v, &value) == nil && value == secretMask {
+				continue
+			}
+		}
 		merged[k] = v
 	}
 	raw, err := json.Marshal(merged)

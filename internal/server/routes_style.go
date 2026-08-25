@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -266,11 +267,24 @@ func (s *Server) handleStylePreviewHTML(w http.ResponseWriter, r *http.Request) 
 		httpErr(w, http.StatusBadRequest, "không dựng được khung xem trước: %v", err)
 		return
 	}
+	if at, parseErr := strconv.ParseFloat(q.Get("previewAt"), 64); parseErr == nil && at >= 0 && at <= 60 {
+		html = appendPreviewSeek(html, at)
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; img-src data: blob:; media-src data: blob:; font-src data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; frame-ancestors 'self'")
 	// Xem trước phải luôn là bản mới nhất — iframe không được dùng bản cache.
 	w.Header().Set("Cache-Control", "no-store, must-revalidate")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte(html))
+}
+
+func appendPreviewSeek(html string, at float64) string {
+	script := fmt.Sprintf(`<script>addEventListener('load',function(){if(typeof window.seek==='function')window.seek(%g)})</script>`, at)
+	lower := strings.ToLower(html)
+	if i := strings.LastIndex(lower, "</body>"); i >= 0 {
+		return html[:i] + script + html[i:]
+	}
+	return html + script
 }
 
 // handleStyleLogo — POST /api/styles/{id}/logo: multipart "files" (1 ảnh) →

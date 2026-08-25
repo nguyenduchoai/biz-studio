@@ -21,6 +21,13 @@ var (
 	toolsLast map[string]bool
 )
 
+func invalidateToolsCache() {
+	toolsMu.Lock()
+	toolsAt = time.Time{}
+	toolsLast = nil
+	toolsMu.Unlock()
+}
+
 func (s *Server) toolsAvail() map[string]bool {
 	toolsMu.Lock()
 	defer toolsMu.Unlock()
@@ -29,7 +36,7 @@ func (s *Server) toolsAvail() map[string]bool {
 	}
 	cfg := s.st.Settings()
 	toolsLast = map[string]bool{
-		"ffmpeg":    util.Exists("ffmpeg"),
+		"ffmpeg":    util.Exists("ffmpeg") && util.Exists("ffprobe"),
 		"claude":    util.Exists(cfg.ClaudeBin),
 		"ytdlp":     util.Exists(cfg.YtdlpBin),
 		"geminiKey": cfg.GeminiAPIKey != "",
@@ -44,6 +51,12 @@ func (s *Server) toolsAvail() map[string]bool {
 }
 
 func (s *Server) routesState(mux *http.ServeMux) {
+	mux.HandleFunc("GET /api/instance", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"app": "bizstudio", "version": Version, "dataID": s.DataDirID,
+			"platform": s.Platform, "wizardEnabled": s.Platform == "windows",
+		})
+	})
 	mux.HandleFunc("GET /api/state", func(w http.ResponseWriter, r *http.Request) {
 		running := 0
 		for _, j := range s.st.Jobs() {
@@ -52,12 +65,14 @@ func (s *Server) routesState(mux *http.ServeMux) {
 			}
 		}
 		writeJSON(w, 200, map[string]any{
-			"app":    map[string]string{"name": "Biz Studio", "version": Version},
-			"host":   util.Stats(),
-			"tools":  s.toolsAvail(),
-			"counts": map[string]int{"projects": len(s.st.Projects()), "jobsRunning": running},
-			"lanIP":  util.LanIP(),
-			"port":   s.Port,
+			"app":          map[string]string{"name": "Biz Studio", "version": Version},
+			"host":         util.Stats(),
+			"tools":        s.toolsAvail(),
+			"counts":       map[string]int{"projects": len(s.st.Projects()), "jobsRunning": running},
+			"lanIP":        util.LanIP(),
+			"port":         s.Port,
+			"mobilePort":   s.MobilePort,
+			"storageError": s.st.PersistenceError(),
 		})
 	})
 	mux.Handle("GET /api/events/stream", s.Hub)

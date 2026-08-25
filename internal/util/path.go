@@ -3,6 +3,7 @@ package util
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -22,6 +23,29 @@ func AugmentPATH() {
 		filepath.Join(home, "Library", "pnpm"),
 		filepath.Join(home, ".claude", "local"), // claude local install
 	}
+	if runtime.GOOS == "windows" {
+		local := os.Getenv("LOCALAPPDATA")
+		programFiles := os.Getenv("ProgramFiles")
+		programFilesX86 := os.Getenv("ProgramFiles(x86)")
+		windowsDir := os.Getenv("WINDIR")
+		if local != "" {
+			candidates = append(candidates,
+				filepath.Join(local, "Microsoft", "WinGet", "Links"),
+				filepath.Join(local, "Programs", "Python", "Python311"),
+				filepath.Join(local, "Programs", "Python", "Python311", "Scripts"),
+				filepath.Join(local, "Programs", "Python", "Launcher"))
+		}
+		if programFiles != "" {
+			candidates = append(candidates, filepath.Join(programFiles, "Git", "cmd"), filepath.Join(programFiles, "Git", "bin"))
+		}
+		if programFilesX86 != "" {
+			candidates = append(candidates, filepath.Join(programFilesX86, "Git", "cmd"))
+		}
+		if windowsDir != "" {
+			candidates = append(candidates, windowsDir)
+		}
+	}
+	candidates = append(candidates, systemPATHEntries()...)
 	// nvm: thêm bản node mới nhất nếu có
 	if matches, err := filepath.Glob(filepath.Join(home, ".nvm", "versions", "node", "*", "bin")); err == nil && len(matches) > 0 {
 		sort.Strings(matches)

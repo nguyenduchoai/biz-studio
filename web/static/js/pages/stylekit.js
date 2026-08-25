@@ -234,7 +234,9 @@
 
   // ---------- Khung xem trước ----------
   function frameBox(big) {
-    var frame = h('iframe', { title: 'Xem trước mẫu thiết kế', src: 'about:blank' }), off = h('div', { class: 'sk-off' });
+	// allow-scripts để animation window.seek vẫn chạy; cố ý KHÔNG
+	// allow-same-origin để CustomHTML không đọc key hay gọi control API.
+	var frame = h('iframe', { title: 'Xem trước mẫu thiết kế', src: 'about:blank', sandbox: 'allow-scripts' }), off = h('div', { class: 'sk-off' });
     var box = h('div', { class: 'sk-frame' + (big ? ' big' : '') }, frame, off);
     function overlay() { off.style.display = ''; off.innerHTML = ''; return off; }
     box.fit = function () { frame.style.transform = 'scale(' + ((box.clientWidth || STAGE_W) / STAGE_W) + ')'; };
@@ -273,9 +275,9 @@
     st.frames = st.frames.filter(function (f) { return document.body.contains(f); });
     if (!st.cur || !st.cur.id || !st.frames.length) return;
     var t = curTpl();
-    var url = '/api/styles/' + encodeURIComponent(st.cur.id) + '/preview.html?template=' + encodeURIComponent(t.id)
+	var url = '/api/styles/' + encodeURIComponent(st.cur.id) + '/preview.html?template=' + encodeURIComponent(t.id)
       + '&title=' + encodeURIComponent(t.title) + '&subtitle=' + encodeURIComponent(t.sub)
-      + '&aspect=9:16&t=' + Date.now();
+	  + '&aspect=9:16&previewAt=' + PREVIEW_T + '&t=' + Date.now();
     st.frames.forEach(function (f) { f.setLoading(); });
     fetch(url).then(function (res) {
       if (res.ok) return null;

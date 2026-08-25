@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 )
 
@@ -52,7 +53,8 @@ func Run(ctx context.Context, p *Plan, onLine func(string)) error {
 
 func runStep(ctx context.Context, s Step, onLine func(string)) error {
 	cmd := exec.CommandContext(ctx, s.Bin, s.Args...)
-	cmd.Env = append(os.Environ(), s.Env...)
+	prepareProcessTree(cmd)
+	cmd.Env = append(safeInstallerEnv(os.Environ()), s.Env...)
 	// Không có TTY: bắt các trình cài đặt bỏ tô màu và thanh tiến trình động,
 	// nếu không người dùng nhận được một mớ mã ANSI trong ô nhật ký.
 	cmd.Env = append(cmd.Env,
@@ -72,10 +74,31 @@ func runStep(ctx context.Context, s Step, onLine func(string)) error {
 		_ = pr.Close()
 		return startErr(s, err)
 	}
+	tree, err := attachProcessTree(cmd.Process)
+	if err != nil {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		_ = pw.Close()
+		_ = pr.Close()
+		return fmt.Errorf("không tạo được nhóm tiến trình an toàn cho bộ cài: %w", err)
+	}
+	defer tree.close()
+	processDone := make(chan struct{})
+	watcherDone := make(chan struct{})
+	go func() {
+		defer close(watcherDone)
+		select {
+		case <-ctx.Done():
+			tree.terminate()
+		case <-processDone:
+		}
+	}()
 	done := make(chan struct{})
 	go func() { defer close(done); pump(pr, onLine) }()
 
-	err := cmd.Wait()
+	err = cmd.Wait()
+	close(processDone)
+	<-watcherDone
 	_ = pw.Close() // báo hết dữ liệu để pump thoát
 	<-done         // đợi đọc nốt, tránh mất mấy dòng cuối (thường là dòng lỗi)
 	_ = pr.Close()
@@ -84,6 +107,34 @@ func runStep(ctx context.Context, s Step, onLine func(string)) error {
 		return fmt.Errorf("%s thất bại: %w", s.Bin, err)
 	}
 	return nil
+}
+
+// safeInstallerEnv chỉ truyền biến runtime/mạng cần cho trình cài. Allowlist
+// quan trọng hơn blacklist: PAT/JWT hoặc credential mới thêm vào môi trường
+// sau này cũng không vô tình lọt sang lifecycle script của package bên thứ ba.
+func safeInstallerEnv(env []string) []string {
+	allowed := map[string]bool{
+		"PATH": true, "HOME": true, "USERPROFILE": true, "HOMEDRIVE": true, "HOMEPATH": true,
+		"LOCALAPPDATA": true, "APPDATA": true, "PROGRAMDATA": true,
+		"PROGRAMFILES": true, "PROGRAMFILES(X86)": true,
+		"SYSTEMROOT": true, "WINDIR": true, "COMSPEC": true, "PATHEXT": true,
+		"TEMP": true, "TMP": true, "TMPDIR": true, "LANG": true, "LC_ALL": true,
+		"HTTP_PROXY": true, "HTTPS_PROXY": true, "ALL_PROXY": true, "NO_PROXY": true,
+		"SSL_CERT_FILE": true, "SSL_CERT_DIR": true, "REQUESTS_CA_BUNDLE": true, "CURL_CA_BUNDLE": true,
+	}
+	out := make([]string, 0, len(env))
+	for _, item := range env {
+		name := item
+		if i := strings.IndexByte(item, '='); i >= 0 {
+			name = item[:i]
+		}
+		u := strings.ToUpper(name)
+		if !allowed[u] {
+			continue
+		}
+		out = append(out, item)
+	}
+	return out
 }
 
 // startErr biến "executable file not found" thành câu người dùng hiểu được.
@@ -118,5 +169,21 @@ func clean(s string) string {
 	if len(s) > maxLine {
 		s = s[:maxLine] + "…"
 	}
-	return s
+	return redactInstallerLine(s)
+}
+
+var installerRedactions = []struct {
+	re   *regexp.Regexp
+	repl string
+}{
+	{regexp.MustCompile(`(?i)(https?://)[^/@\s:]+:[^/@\s]+@`), `${1}***:***@`},
+	{regexp.MustCompile(`(?i)((?:api[_-]?key|token|password)=)[^&\s]+`), `${1}***`},
+	{regexp.MustCompile(`(?i)sk-ant-[a-z0-9_-]{8,}`), `sk-ant-***`},
+}
+
+func redactInstallerLine(line string) string {
+	for _, rule := range installerRedactions {
+		line = rule.re.ReplaceAllString(line, rule.repl)
+	}
+	return line
 }

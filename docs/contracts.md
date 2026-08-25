@@ -6,7 +6,7 @@ Ngôn ngữ UI: **Tiếng Việt**. Go package path gốc: `bizstudio`.
 ## Kiến trúc
 
 ```
-cmd/bizstudio/main.go        — entry, flag -port (6868) -data (data/)
+cmd/bizstudio/main.go        — entry, flag -port (6868), -data (Windows: LocalAppData hoặc portable cũ)
 internal/store/            — JSON store (types.go, store.go, crud.go) [SCAFFOLD - KHÔNG SỬA]
 internal/server/           — HTTP server, SSE hub, helpers, state [server.go/sse.go/helpers.go/state.go/static.go SCAFFOLD - KHÔNG SỬA]
 internal/server/routes_*.go — route handlers (stub → agent thay thế)
@@ -49,11 +49,11 @@ Mọi response lỗi: `{"error": "..."}` với status 4xx/5xx.
 ### Hệ thống
 - `GET /api/state` → `{app:{name,version}, host:{cpuPct,ramPct,diskPct,ramUsedMB}, tools:{ffmpeg:bool,claude:bool,ytdlp:bool,geminiKey:bool}, counts:{projects,jobsRunning}, lanIP, port}` [SCAFFOLD có sẵn]
 - `GET /api/events/stream` — SSE [SCAFFOLD]
-- `GET /data/{path...}` — serve file trong data dir (video preview, thumb...) [SCAFFOLD]
+- `GET /data/{path...}` — chỉ serve allowlist artifact/media dưới các thư mục công khai; cấm `db.json`, instance, venv, script và directory listing.
 
 ### Settings (routes_settings.go)
-- `GET /api/settings` → store.Settings
-- `PUT /api/settings` body=store.Settings → lưu, trả settings
+- `GET /api/settings` → store.Settings nhưng mọi API key có giá trị trả sentinel che.
+- `PUT /api/settings` body=store.Settings → sentinel giữ secret cũ; chuỗi khác thay key; rỗng xóa key.
 - `POST /api/settings/test` → `{gemini:{ok,detail}, claude:{ok,detail}, ffmpeg:{ok,detail}, ytdlp:{ok,detail}}`
 - `POST /api/settings/cleanup` → xoá data/tmp + projects/*/tmp, trả `{freedMB}`
 
@@ -95,13 +95,13 @@ Mọi response lỗi: `{"error": "..."}` với status 4xx/5xx.
 ### Khác (routes_misc.go)
 - `GET/POST /api/prompts`, `PUT/DELETE /api/prompts/{id}` — CRUD PromptTemplate
 - `GET /api/logs?limit=200` → []LogEntry
-- `GET /api/qr.png?project=ID` → PNG QR trỏ `http://<lanIP>:<port>/m/<projectID>`
-- `GET /m/{projectID}` → mobile.html (trang upload từ điện thoại)
-- `POST /m/{projectID}/upload` — multipart `files` → thêm asset (dùng chung logic assets)
+- `GET /api/qr.png?project=ID` (control `127.0.0.1`) → PNG QR trỏ `http://<lanIP>:<mobilePort>/m/<projectID>?token=<random>`
+- Listener LAN mobile **không gắn `/api/*`**; chỉ có `GET /m/{projectID}?token=…` và `POST /m/{projectID}/upload?token=…`.
+- Token QR ký HMAC theo project + nonce, hết hạn 15 phút, so sánh constant-time và chỉ dùng thành công một lượt. POST multipart `files` → thêm asset; tối đa 2 lượt đồng thời, 50 file và 10 GB/lượt, deadline đọc 4 giờ.
 
 ## Module Go signatures (route agents ĐỌC code module thật trước khi gọi)
 
-- `agent.New(st *store.Store, broadcast func(string, any), dataDir string) *Runner`; `(*Runner).Start(projectID, extra string) (*store.Session, error)`; `Resume(sessionID, text string) error`; `Stop(sessionID) error`. Chạy `claude -p --output-format stream-json --verbose --dangerously-skip-permissions` (bin từ Settings.ClaudeBin, cwd=ProjectDir). Prompt build từ project (brief, editPrompt, toggles, keywords, danh sách asset + mô tả, yêu cầu output `outputs/<id>-vN.mp4` + `meta.json {status:"done", output:"..."}`). Parse NDJSON: system.init→claudeSessionId; assistant content blocks (text|tool_use)→AddEvent+SSE; result→cập nhật session (status, numTurns, costUSD). Sự kiện SSE: `session_event`, `session`.
+- `agent.New(st *store.Store, broadcast func(string, any), dataDir string) *Runner`; `(*Runner).Start(projectID, extra string) (*store.Session, error)`; `Resume(sessionID, text string) error`; `Stop(sessionID) error`. Chạy Claude CLI bằng `--safe-mode --permission-mode dontAsk`, allowlist Read/Write/Edit/Glob/Grep và lệnh media/file tối thiểu; chặn WebFetch/WebSearch; không truyền credential cloud qua env. Bin từ Settings.ClaudeBin, cwd=ProjectDir. Prompt build từ project (brief, editPrompt, toggles, keywords, danh sách asset + mô tả, yêu cầu output `outputs/<id>-vN.mp4` + `meta.json {status:"done", output:"..."}`). Parse NDJSON: system.init→claudeSessionId; assistant content blocks (text|tool_use)→AddEvent+SSE; result→cập nhật session (status, numTurns, costUSD). Sự kiện SSE: `session_event`, `session`.
 - `media.Probe(path) (Info{Duration float64, Width, Height int, FPS float64, Size int64}, error)`; `media.Thumbnail(src, dst string, t float64, w int) error`; `media.AutoCut(ctx, src, dst string, silenceDb float64, minSil float64, upd func(float64,string)) error`; `media.BurnSubs(ctx, src, srt, dst) error`; `media.ExtractAudioWav16k(ctx, src, dst) error`; `media.ExtractFrames(ctx, src, outDir string, fps float64) ([]string, error)`; `media.Concat(ctx, parts []string, dst) error`; `media.ApplyLUT(ctx, src, lut, dst) error`
 - `qc.Run(ctx, videoPath string) (Report, error)` — Report{DurationS, Width, Height, LoudnessLUFS, BlackSpans, FreezeSpans, SilenceSpans []Span{Start,End}, Warnings []string}; route lưu JSON vào projects/<id>/qc.json
 - `gemini.NewFromSettings(st) *Client` (đọc key/base/model từ Settings; nếu key rỗng → các call trả error "chưa cấu hình Gemini API key"); `GenerateText(ctx, system, user string) (string, error)`; `GenerateWithFiles(ctx, prompt string, paths []string) (string, error)` (inline_data, đoán mime); `GenerateImage(ctx, prompt, dstPNG string) error`; `TTS(ctx, text, voice, dstWav string) error`
@@ -337,7 +337,7 @@ Mục tiêu: Style Kit không chỉ điều khiển prompt sinh ảnh mà điề
 - `templates/scene.html`: thay màu/font/cỡ chữ hard-code bằng biến CSS `--bg-deep --text-main --accent --font-head --font-body --size-title --size-big --size-body` đổ từ Kit. Thêm 2 lớp mới:
   - **Logo + tên kênh**: hiện ở đáy khung theo `LogoPos`; ảnh logo nhúng base64 (render offline), tên kênh dùng font body cỡ nhỏ, mờ 0.85. Không có logo/tên thì không render gì.
   - **Tư liệu nền**: nếu `StockPaths` có ảnh/video, dùng làm nền chạy dưới lớp chữ cho các template KHÔNG có ảnh riêng (hero/bullets/quote/outro) — ảnh thì đặt cover + zoom nhẹ, video thì trích 1 khung hình đại diện (ffmpeg) rồi dùng như ảnh (giữ deterministic theo `seek(t)`).
-- `BaseTemplate=custom`: dùng `CustomHTML` thay cho template dựng sẵn; các biến `{{TITLE}} {{SUBTITLE}} {{CHANNEL_NAME}} {{ACCENT}} {{BG_DEEP}} {{TEXT_MAIN}} {{IMAGE}}` được thay trước khi render; phải tự định nghĩa `window.seek(t)` — nếu thiếu thì render tĩnh (ghi log warn, KHÔNG lỗi).
+- `BaseTemplate=custom`: dùng `CustomHTML` thay cho template dựng sẵn; các biến `{{TITLE}} {{SUBTITLE}} {{CHANNEL_NAME}} {{ACCENT}} {{BG_DEEP}} {{TEXT_MAIN}} {{IMAGE}}` được thay trước khi render; phải tự định nghĩa `window.seek(t)` — nếu thiếu thì render tĩnh. Renderer tự chèn CSP, chặn toàn bộ HTTP(S) qua CDP và không bật file-XHR đặc quyền.
 
 ### internal/text2video — áp giới hạn ký tự
 `WriteScript` và `SuggestPrompt` đọc `MaxVoiceChars`/`MaxImageChars` của bộ style đang dùng để đưa vào prompt LLM và cắt hậu kiểm.
@@ -517,7 +517,8 @@ duyệt mặc định (`open` / `rundll32` / `xdg-open`).
 Hai hành vi phải giữ:
 - **Cổng đã có bản đang chạy** → mở thêm cửa sổ rồi thoát mã 0. KHÔNG được chết
   vì "address already in use": người dùng bấm icon lần hai là chuyện thường.
-- **Đóng cửa sổ** → thoát, TRỪ KHI `store.Jobs()` còn job `running`/`queued`.
+- **Đóng cửa sổ** → thoát, TRỪ KHI `store.Jobs()` còn job `running`/`queued`
+  hoặc setup đang chạy.
   Còn việc thì giữ máy chủ, kiểm lại mỗi 15 giây, xong hết mới thoát. Giết một
   lượt render dài vì người dùng đóng nhầm cửa sổ là mất trắng công.
 
@@ -526,16 +527,29 @@ nếu không thanh tác vụ hiện icon Chrome thay vì mục Biz Studio.
 
 ## /api/setup — cài & cập nhật công cụ ngoài
 
-`GET /api/setup/tools` → `[{id, label, desc, manual, installed, detail}]`.
+Toàn bộ route setup chỉ nằm trên control listener `127.0.0.1`; request thay đổi
+trạng thái bị chặn nếu Host không phải localhost/loopback hoặc đến cross-site.
+
+`GET /api/setup/tools` → `[{id, label, desc, manual, full, windowsPackage,
+installed, ready, needsLogin, running, detail}]`.
 Chỉ kiểm tra CỤC BỘ (`--version`, import trong venv), không gọi mạng — trang Cấu
 hình gọi ngay khi mở.
+
+`GET /api/setup/full/plan` → `planID` dùng một lần/hết hạn 5 phút, danh sách thành
+phần Full còn thiếu + toàn bộ status, `needsSetup`, `needsLogin`, `running`.
+Đây là preflight/consent data bất biến của lượt wizard.
+
+`POST /api/setup/full` body `{planID, confirmed:true}` → `202`, chạy tuần tự Git → Python → FFmpeg → yt-dlp →
+browser → Claude CLI → VieNeu → Whisper. Chỉ cài thành phần thiếu; dừng ở lỗi
+đầu tiên để lượt retry bỏ qua phần đã xong. Mỗi bước chỉ báo done sau probe cục
+bộ; PATH được đọc lại từ registry Windows. Claude login không nằm trong batch.
 
 `POST /api/setup/{id}?action=install|update` → trả NGAY `{tool, action, cmds, manual}`
 rồi chạy nền. `id` nhận cả ID nội bộ lẫn tên quen: `ytdlp` = `yt-dlp` = `YT-DLP`.
 Lỗi:
 - `404` — không có công cụ đó
 - `400` — hành động lạ, hoặc máy thiếu brew/winget/sudo (message là hướng dẫn cho người dùng)
-- `409` — công cụ đó đang được cài
+- `409` — đang có một lượt cài khác (toàn hệ thống chỉ cho một package manager/venv chạy cùng lúc)
 
 `POST /api/setup/{id}/cancel` → hủy lượt đang chạy (`404` nếu không có).
 
@@ -545,8 +559,9 @@ Tiến trình phát qua SSE, sự kiện `setup`:
 {"tool":"ytdlp","state":"done"}
 {"tool":"ytdlp","state":"error","error":"…","manual":"https://…"}
 ```
-Chạy bằng context nền, KHÔNG phải context của request: đóng tab giữa chừng thì
-việc cài vẫn chạy tiếp thay vì bỏ dở một venv nửa vời.
+Chạy bằng context nền, KHÔNG phải context của request: đóng tab/cửa sổ giữa
+chừng thì việc cài vẫn chạy tiếp. Trên Windows, process tree nằm trong Job
+Object để nút Hủy dừng cả PowerShell/WinGet/pip con, không để installer mồ côi.
 
 CLI tương đương: `bizstudio setup [<công-cụ>] [--update] [--dry-run] [--data DIR]`.
 Không có tham số = liệt kê. Thiếu brew/winget trả `kind: "dependency"` (exit 3).

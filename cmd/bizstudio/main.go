@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -29,12 +28,12 @@ func main() {
 	}
 
 	port := flag.Int("port", 6868, "cổng HTTP")
-	dataDir := flag.String("data", "data", "thư mục dữ liệu")
+	dataDir := flag.String("data", util.DefaultDataDir(), "thư mục dữ liệu")
 	window := flag.Bool("window", true,
 		"mở giao diện trong cửa sổ app riêng; -window=false cho máy chủ không màn hình")
 	flag.Parse()
+	configureStartupLogging(*dataDir)
 
-	url := fmt.Sprintf("http://localhost:%d", *port)
 	openWindow := *window && desktop.HasDisplay()
 
 	// Đã có một bản đang chạy ở cổng này → mở thêm cửa sổ rồi thoát.
@@ -42,34 +41,82 @@ func main() {
 	// Người dùng bấm icon lần thứ hai là chuyện thường. Không có nhánh này thì
 	// bản thứ hai chết vì "address already in use" — với người dùng, đó là "bấm
 	// vào app mà chẳng thấy gì".
-	if alreadyRunning(*port) {
-		if openWindow {
-			st, err := store.Open(*dataDir)
-			if err != nil {
-				_ = desktop.OpenDefault(url)
+	if runningURL := runningInstanceURL(*dataDir, *port); runningURL != "" {
+		openRunningInstance(openWindow, runningURL, *dataDir)
+		log.Printf("Biz Studio đã chạy sẵn ở %s — mở thêm cửa sổ.", runningURL)
+		return
+	}
+
+	// Khóa ở cấp hệ điều hành, giữ suốt vòng đời process. Marker HTTP giúp tìm
+	// URL, còn lock mới là thứ bảo đảm không bao giờ có hai writer mở cùng db.
+	instance, acquired, err := acquireInstanceLock(*dataDir)
+	if err != nil {
+		fatalStartup("không khóa được thư mục dữ liệu: %v", err)
+	}
+	if !acquired {
+		deadline := time.Now().Add(5 * time.Second)
+		for time.Now().Before(deadline) {
+			if runningURL := runningInstanceURL(*dataDir, *port); runningURL != "" {
+				openRunningInstance(openWindow, runningURL, *dataDir)
+				log.Printf("Biz Studio đang khởi động ở %s — mở thêm cửa sổ.", runningURL)
 				return
 			}
-			if _, err := desktop.OpenWindow(st, url, *dataDir); err != nil {
-				_ = desktop.OpenDefault(url)
-			}
+			time.Sleep(100 * time.Millisecond)
 		}
-		log.Printf("Biz Studio đã chạy sẵn ở %s — mở thêm cửa sổ.", url)
+		log.Printf("Một tiến trình Biz Studio khác đang khởi động với cùng thư mục dữ liệu; vui lòng thử lại sau vài giây.")
 		return
+	}
+	defer instance.Close()
+
+	// Control API chỉ nghe loopback. Nếu cổng ưa thích bị phần mềm khác chiếm,
+	// chọn cổng trống thay vì nhận nhầm đó là Biz Studio rồi tự thoát.
+	controlLn, actualPort, err := listenControl(*port)
+	if err != nil {
+		fatalStartup("không mở được cổng điều khiển: %v", err)
+	}
+	defer controlLn.Close()
+	url := fmt.Sprintf("http://127.0.0.1:%d", actualPort)
+	if actualPort != *port {
+		log.Printf("Cổng %d đang bận — Biz Studio chuyển sang cổng %d.", *port, actualPort)
+	}
+
+	// Điện thoại chỉ được vào listener mobile tối giản (trang upload + upload),
+	// không bao giờ chạm được API cài đặt/cấu hình trên control listener.
+	lanIP := util.LanIP()
+	// Listener mobile dùng wildcard để tiếp tục hoạt động khi Wi-Fi đổi IP/VPN
+	// hoặc mạng LAN không có Internet. Mux này chỉ có trang/upload có token TTL;
+	// toàn bộ control API vẫn chỉ nằm trên loopback.
+	mobileLn, mobilePort, mobileErr := listenMobile("0.0.0.0", actualPort+1)
+	if mobileErr != nil {
+		log.Printf("không mở được cổng nhận file từ điện thoại (%v) — phần điều khiển vẫn hoạt động", mobileErr)
+		mobilePort = 0
+	} else {
+		defer mobileLn.Close()
 	}
 
 	st, err := store.Open(*dataDir)
 	if err != nil {
-		log.Fatalf("không mở được store: %v", err)
+		fatalStartup("không mở được dữ liệu: %v", err)
 	}
 
-	srv := server.New(st, *dataDir, *port)
-	// Lắng nghe TRƯỚC khi mở cửa sổ: mở sớm quá thì cửa sổ hiện trang lỗi kết
-	// nối và người dùng phải tự bấm tải lại.
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
-	if err != nil {
-		log.Fatalf("không mở được cổng %d: %v", *port, err)
+	srv := server.New(st, *dataDir, actualPort, mobilePort)
+	if err := writeInstanceFile(*dataDir, url); err != nil {
+		log.Printf("không ghi được marker tiến trình: %v", err)
 	}
 	log.Printf("🚀 Biz Studio — %s", url)
+	if mobileLn != nil {
+		log.Printf("📱 Nhận file QR — http://%s:%d", lanIP, mobilePort)
+		mobileHTTP := &http.Server{
+			Handler: srv.MobileHandler(), ReadHeaderTimeout: 10 * time.Second,
+			ReadTimeout: 0, WriteTimeout: 0,
+			IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20,
+		}
+		go func() {
+			if err := mobileHTTP.Serve(mobileLn); err != nil && err != http.ErrServerClosed {
+				log.Printf("listener điện thoại dừng: %v", err)
+			}
+		}()
+	}
 
 	if openWindow {
 		if cmd, err := desktop.OpenWindow(st, url, *dataDir); err != nil {
@@ -80,19 +127,23 @@ func main() {
 		}
 	}
 
-	if err := http.Serve(ln, srv); err != nil {
-		log.Fatal(err)
+	controlHTTP := &http.Server{
+		Handler: srv, ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout: 0, WriteTimeout: 0,
+		IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20,
+	}
+	if err := controlHTTP.Serve(controlLn); err != nil && err != http.ErrServerClosed {
+		fatalStartup("máy chủ điều khiển dừng: %v", err)
 	}
 }
 
-// alreadyRunning kiểm tra có bản Biz Studio nào đang giữ cổng này không.
-func alreadyRunning(port int) bool {
-	c, err := net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", port), 300*time.Millisecond)
-	if err != nil {
-		return false
+func openRunningInstance(openWindow bool, url, dataDir string) {
+	if !openWindow {
+		return
 	}
-	_ = c.Close()
-	return true
+	if _, err := desktop.OpenWindowDefault(url, dataDir); err != nil {
+		_ = desktop.OpenDefault(url)
+	}
 }
 
 // quitWhenWindowClosed thoát khi người dùng đóng cửa sổ app — trừ khi còn việc
@@ -106,12 +157,17 @@ func quitWhenWindowClosed(cmd *exec.Cmd, st *store.Store, url string) {
 	_ = cmd.Wait()
 	for {
 		n := runningJobs(st)
-		if n == 0 {
+		installing := server.SetupInProgress()
+		storageErr := st.PersistenceError()
+		if n == 0 && !installing && storageErr == "" {
 			log.Printf("Đã đóng cửa sổ — thoát Biz Studio.")
 			os.Exit(0)
 		}
-		log.Printf("Đã đóng cửa sổ nhưng còn %d việc đang chạy — vẫn giữ máy chủ ở %s. "+
-			"Xong hết sẽ tự thoát.", n, url)
+		if storageErr != "" {
+			log.Printf("Không thoát vì còn lỗi lưu dữ liệu chưa khắc phục: %s", storageErr)
+		}
+		log.Printf("Đã đóng cửa sổ nhưng còn %d việc và trạng thái cài đặt=%t — vẫn giữ máy chủ ở %s. "+
+			"Xong hết sẽ tự thoát.", n, installing, url)
 		time.Sleep(15 * time.Second)
 	}
 }

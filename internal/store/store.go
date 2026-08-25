@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -30,10 +31,11 @@ type db struct {
 
 // Store — JSON file store, an toàn goroutine.
 type Store struct {
-	mu      sync.RWMutex
-	d       db
-	path    string
-	DataDir string
+	mu                 sync.RWMutex
+	d                  db
+	path               string
+	DataDir            string
+	lastPersistenceErr string
 }
 
 // Open mở (hoặc tạo) store tại <dataDir>/db.json và chuẩn bị cây thư mục.
@@ -49,9 +51,20 @@ func Open(dataDir string) (*Store, error) {
 	}
 	s := &Store{path: filepath.Join(abs, "db.json"), DataDir: abs}
 	if b, err := os.ReadFile(s.path); err == nil {
+		_ = os.Chmod(s.path, 0o600)
 		if err := json.Unmarshal(b, &s.d); err != nil {
-			return nil, fmt.Errorf("db.json hỏng: %w", err)
+			backup, backupErr := os.ReadFile(s.path + ".bak")
+			if backupErr != nil || json.Unmarshal(backup, &s.d) != nil {
+				return nil, fmt.Errorf("db.json hỏng và không có backup dùng được: %w", err)
+			}
+			corrupt := s.path + ".corrupt-" + time.Now().Format("20060102-150405")
+			if renameErr := os.Rename(s.path, corrupt); renameErr != nil {
+				return nil, fmt.Errorf("khôi phục backup nhưng không giữ được db hỏng: %w", renameErr)
+			}
+			log.Printf("db.json hỏng — đã khôi phục db.json.bak; bản hỏng giữ tại %s", corrupt)
 		}
+	} else if !os.IsNotExist(err) {
+		return nil, fmt.Errorf("không đọc được db.json: %w", err)
 	}
 	s.applyDefaults()
 	s.seedPrompts()
@@ -110,19 +123,65 @@ func (s *Store) saveLocked() error {
 	if err != nil {
 		return err
 	}
+	if current, err := os.ReadFile(s.path); err == nil {
+		if err := writeSynced(s.path+".bak", current); err != nil {
+			return fmt.Errorf("ghi backup db: %w", err)
+		}
+	}
 	tmp := s.path + ".tmp"
-	if err := os.WriteFile(tmp, b, 0o644); err != nil {
+	if err := writeSynced(tmp, b); err != nil {
 		return err
 	}
-	return os.Rename(tmp, s.path)
+	if err := os.Rename(tmp, s.path); err != nil {
+		return err
+	}
+	if err := os.Chmod(s.path, 0o600); err != nil {
+		return err
+	}
+	if dir, err := os.Open(filepath.Dir(s.path)); err == nil {
+		_ = dir.Sync()
+		_ = dir.Close()
+	}
+	return nil
+}
+
+func writeSynced(path string, body []byte) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(body); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 // write chạy fn trong write lock rồi persist.
 func (s *Store) write(fn func(*db)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	before, snapshotErr := json.Marshal(s.d)
 	fn(&s.d)
-	_ = s.saveLocked()
+	if err := s.saveLocked(); err != nil {
+		if snapshotErr == nil {
+			_ = json.Unmarshal(before, &s.d)
+		}
+		s.lastPersistenceErr = err.Error()
+		log.Printf("LỖI LƯU DỮ LIỆU: %v", err)
+	} else {
+		s.lastPersistenceErr = ""
+	}
+}
+
+func (s *Store) PersistenceError() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.lastPersistenceErr
 }
 
 // NewID sinh ID dạng <prefix>_<8 hex>.

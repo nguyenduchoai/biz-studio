@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-	"io/fs"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -11,7 +11,6 @@ import (
 
 	"bizstudio/internal/store"
 	"bizstudio/internal/util"
-	"bizstudio/web"
 )
 
 func (s *Server) routesMisc(mux *http.ServeMux) {
@@ -122,7 +121,16 @@ func (s *Server) routesMisc(mux *http.ServeMux) {
 			httpErr(w, http.StatusNotFound, "không tìm thấy dự án: %s", pid)
 			return
 		}
-		target := fmt.Sprintf("http://%s:%d/m/%s", util.LanIP(), s.Port, pid)
+		if s.MobilePort <= 0 {
+			httpErr(w, http.StatusServiceUnavailable, "nhận file từ điện thoại đang tắt; kiểm tra kết nối mạng rồi khởi động lại Biz Studio")
+			return
+		}
+		lanIP := util.LanIP()
+		if ip := net.ParseIP(lanIP); ip == nil || ip.IsLoopback() {
+			httpErr(w, http.StatusServiceUnavailable, "chưa tìm thấy địa chỉ Wi-Fi/LAN; hãy kết nối cùng mạng với điện thoại rồi thử lại")
+			return
+		}
+		target := fmt.Sprintf("http://%s:%d/m/%s?token=%s", lanIP, s.MobilePort, pid, s.mobileTokenFor(pid))
 		png, err := qrcode.Encode(target, qrcode.Medium, 280)
 		if err != nil {
 			httpErr(w, http.StatusInternalServerError, "tạo mã QR thất bại: %v", err)
@@ -133,30 +141,6 @@ func (s *Server) routesMisc(mux *http.ServeMux) {
 		_, _ = w.Write(png)
 	})
 
-	// ---------- Trang mobile upload ----------
-	mux.HandleFunc("GET /m/{projectID}", func(w http.ResponseWriter, r *http.Request) {
-		b, err := fs.ReadFile(web.FS, "static/mobile.html")
-		if err != nil {
-			httpErr(w, http.StatusInternalServerError, "không đọc được trang mobile: %v", err)
-			return
-		}
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write(b)
-	})
-
-	mux.HandleFunc("POST /m/{projectID}/upload", func(w http.ResponseWriter, r *http.Request) {
-		pid := r.PathValue("projectID")
-		if _, ok := s.st.Project(pid); !ok {
-			httpErr(w, http.StatusNotFound, "không tìm thấy dự án: %s", pid)
-			return
-		}
-		assets, err := saveUploadedAssets(s, pid, r)
-		if err != nil {
-			httpErr(w, http.StatusBadRequest, "tải file lên thất bại: %v", err)
-			return
-		}
-		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "count": len(assets)})
-	})
 }
 
 func promptExists(st *store.Store, id string) bool {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"bizstudio/internal/setup"
+	"bizstudio/internal/util"
 )
 
 // installMax — trần thời gian cho một lượt cài. faster-whisper kèm model
@@ -24,19 +25,24 @@ var (
 // toolStatus — một công cụ kèm tình trạng trên máy này.
 type toolStatus struct {
 	setup.Tool
-	Installed bool   `json:"installed"`
-	Detail    string `json:"detail"`
+	Installed  bool   `json:"installed"`
+	Ready      bool   `json:"ready"`
+	NeedsLogin bool   `json:"needsLogin,omitempty"`
+	Running    bool   `json:"running"`
+	Detail     string `json:"detail"`
 }
 
 func (s *Server) routesSetup(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/setup/tools", s.handleSetupTools)
+	mux.HandleFunc("GET /api/setup/full/plan", s.handleSetupFullPlan)
+	mux.HandleFunc("POST /api/setup/full", s.handleSetupFullRun)
 
 	// POST /api/setup/{id}?action=install|update — chạy nền, tiến trình phát qua
 	// SSE. Trả ngay để trình duyệt không phải giữ một kết nối treo 30 phút.
 	mux.HandleFunc("POST /api/setup/{id}", s.handleSetupRun)
 
 	mux.HandleFunc("POST /api/setup/{id}/cancel", func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
+		id := canonicalSetupID(r.PathValue("id"))
 		runningMu.Lock()
 		cancel, ok := running[id]
 		runningMu.Unlock()
@@ -55,38 +61,9 @@ func (s *Server) routesSetup(mux *http.ServeMux) {
 // mạng. Trang Cấu hình gọi hàm này ngay khi mở, mà một lần chờ API bên ngoài
 // trả lời là đủ để trang trông như bị treo.
 func (s *Server) handleSetupTools(w http.ResponseWriter, r *http.Request) {
-	cfg := s.st.Settings()
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-
-	tools := setup.Tools()
-	out := make([]toolStatus, len(tools))
-	var wg sync.WaitGroup
-	for i, t := range tools {
-		wg.Add(1)
-		// Chạy song song: dò venv phải khởi động Python, tuần tự là mấy giây.
-		go func(i int, t setup.Tool) {
-			defer wg.Done()
-			var c toolCheck
-			switch t.ID {
-			case "ffmpeg":
-				c = checkBinVersion(ctx, "ffmpeg", "-version")
-			case "ytdlp":
-				c = checkYtdlp(ctx, binOrDefault(cfg.YtdlpBin, "yt-dlp"))
-			case "chrome":
-				c = checkChrome(ctx, cfg)
-			case "vieneu":
-				c = s.checkVieNeu(ctx)
-			case "whisper":
-				c = s.checkWhisper(ctx)
-			default:
-				c = toolCheck{Detail: "chưa có cách kiểm tra"}
-			}
-			out[i] = toolStatus{Tool: t, Installed: c.OK, Detail: c.Detail}
-		}(i, t)
-	}
-	wg.Wait()
-	writeJSON(w, http.StatusOK, out)
+	writeJSON(w, http.StatusOK, s.setupStatuses(ctx))
 }
 
 func (s *Server) handleSetupRun(w http.ResponseWriter, r *http.Request) {
@@ -96,28 +73,26 @@ func (s *Server) handleSetupRun(w http.ResponseWriter, r *http.Request) {
 		httpErr(w, http.StatusNotFound, "không có công cụ %q", id)
 		return
 	}
+	id = tool.ID
 	action := r.URL.Query().Get("action")
 	if action == "" {
 		action = "install"
 	}
 
+	ctx, cancel, ok := beginSetup(id, installMax)
+	if !ok {
+		httpErr(w, http.StatusConflict, "đang có một lượt cài đặt khác — chờ xong rồi thử lại")
+		return
+	}
+
 	plan, err := setup.BuildPlan(tool, action, s.DataDir, filepath.Join(s.DataDir, "tmp"))
 	if err != nil {
+		endSetup(id, cancel)
 		// Không cài tự động được (thiếu brew/winget, cần sudo…) — đây là hướng
 		// dẫn cho người dùng chứ không phải sự cố máy chủ.
 		httpErr(w, http.StatusBadRequest, "%s", err)
 		return
 	}
-
-	runningMu.Lock()
-	if _, busy := running[id]; busy {
-		runningMu.Unlock()
-		httpErr(w, http.StatusConflict, "%s đang được cài — chờ xong rồi thử lại", tool.Label)
-		return
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), installMax)
-	running[id] = cancel
-	runningMu.Unlock()
 
 	go s.runSetup(ctx, cancel, tool, plan)
 	writeJSON(w, http.StatusOK, plan)
@@ -130,10 +105,7 @@ func (s *Server) handleSetupRun(w http.ResponseWriter, r *http.Request) {
 // đang cài nửa vời.
 func (s *Server) runSetup(ctx context.Context, cancel context.CancelFunc, t setup.Tool, plan *setup.Plan) {
 	defer func() {
-		cancel()
-		runningMu.Lock()
-		delete(running, t.ID)
-		runningMu.Unlock()
+		endSetup(t.ID, cancel)
 	}()
 
 	emit := func(ev map[string]any) {
@@ -161,6 +133,57 @@ func (s *Server) runSetup(ctx context.Context, cancel context.CancelFunc, t setu
 		emit(map[string]any{"state": "error", "error": msg, "manual": t.Manual})
 		return
 	}
+	util.AugmentPATH()
+	invalidateToolsCache()
+	verifyCtx, verifyCancel := context.WithTimeout(ctx, 30*time.Second)
+	status := s.setupToolStatus(verifyCtx, t)
+	verifyCancel()
+	if !status.Installed {
+		msg := "bộ cài đã chạy xong nhưng Biz Studio chưa tìm thấy công cụ; hãy khởi động lại Biz Studio rồi thử kiểm tra lại"
+		s.Log("error", "setup", verb+" "+t.Label+" chưa xác minh được: "+status.Detail)
+		emit(map[string]any{"state": "error", "error": msg, "manual": t.Manual, "restartRequired": true})
+		return
+	}
 	s.Log("info", "setup", verb+" "+t.Label+" thành công")
 	emit(map[string]any{"state": "done"})
+}
+
+func beginSetup(id string, max time.Duration) (context.Context, context.CancelFunc, bool) {
+	runningMu.Lock()
+	defer runningMu.Unlock()
+	if len(running) > 0 {
+		return nil, nil, false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), max)
+	running[id] = cancel
+	return ctx, cancel, true
+}
+
+func endSetup(id string, cancel context.CancelFunc) {
+	cancel()
+	runningMu.Lock()
+	delete(running, id)
+	runningMu.Unlock()
+}
+
+func setupIsRunning(id string) bool {
+	runningMu.Lock()
+	defer runningMu.Unlock()
+	_, ok := running[id]
+	return ok
+}
+
+func canonicalSetupID(id string) string {
+	if tool, ok := setup.Find(id); ok {
+		return tool.ID
+	}
+	return id
+}
+
+// SetupInProgress cho vòng đời desktop biết không được tắt backend giữa lúc
+// WinGet/PowerShell/pip còn đang ghi dở vào máy hoặc venv.
+func SetupInProgress() bool {
+	runningMu.Lock()
+	defer runningMu.Unlock()
+	return len(running) > 0
 }

@@ -6,6 +6,7 @@
 param([string]$Data = "data")
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $false   # tự kiểm tra $LASTEXITCODE
+$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 
 $Venv = Join-Path $Data "vieneu\venv"
 Write-Host "🦜 Cài VieNeu-TTS vào $Venv …"
@@ -35,8 +36,8 @@ $VenvPy = Join-Path $Venv "Scripts\python.exe"
 $VenvPip = Join-Path $Venv "Scripts\pip.exe"
 
 & $VenvPip install --quiet --upgrade pip
-Write-Host "→ pip install vieneu (CPU/ONNX, không cần GPU)…"
-& $VenvPip install vieneu
+Write-Host "→ pip install vieneu 3.2.3 (bản đã kiểm với Biz Studio)…"
+& $VenvPip install "vieneu==3.2.3"
 if ($LASTEXITCODE -ne 0) { Write-Error "❌ pip install vieneu thất bại"; exit 1 }
 
 # torch/torchaudio chỉ cần cho Clone voice (trích đặc trưng giọng từ clip mẫu).
@@ -60,7 +61,7 @@ with open(out, "w", encoding="utf-8") as f:
     json.dump(voices, f, ensure_ascii=False, indent=1)
 print(f"✅ {len(voices)} giọng preset — đã ghi {out}")
 '@
-$tmp = Join-Path $env:TEMP "bizstudio-vieneu-voices.py"
+$tmp = Join-Path $env:TEMP ("bizstudio-vieneu-voices-" + [guid]::NewGuid().ToString("N") + ".py")
 Set-Content -Path $tmp -Value $snippet -Encoding UTF8
 $env:DATA_DIR = $Data
 & $VenvPy $tmp

@@ -37,13 +37,17 @@ func (s *Server) handleAssetUpload(w http.ResponseWriter, r *http.Request) {
 // saveUploadedAssets đọc multipart field "files", lưu vào projects/<id>/assets/
 // và tạo Asset records. Dùng chung cho /api/projects/{id}/assets và /m/{id}/upload.
 func saveUploadedAssets(s *Server, projectID string, r *http.Request) ([]store.Asset, error) {
-	if err := r.ParseMultipartForm(2 << 30); err != nil {
+	if err := r.ParseMultipartForm(64 << 20); err != nil {
 		return nil, fmt.Errorf("không đọc được dữ liệu upload: %w", err)
 	}
 	if r.MultipartForm == nil || len(r.MultipartForm.File["files"]) == 0 {
 		return nil, fmt.Errorf("không có file nào trong trường 'files'")
 	}
+	defer r.MultipartForm.RemoveAll()
 	files := r.MultipartForm.File["files"]
+	if len(files) > mobileUploadMaxFile {
+		return nil, fmt.Errorf("tối đa %d file mỗi lượt", mobileUploadMaxFile)
+	}
 	assetsDir := filepath.Join(s.ProjectDir(projectID), "assets")
 	baseOrder := len(s.st.AssetsByProject(projectID))
 

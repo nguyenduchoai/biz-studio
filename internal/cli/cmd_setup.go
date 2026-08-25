@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"bizstudio/internal/setup"
+	"bizstudio/internal/util"
 )
 
 // runSetup cài hoặc cập nhật một công cụ ngoài.
@@ -21,7 +22,7 @@ func runSetup(args []string) Result {
 	f := fs("setup")
 	update := f.Bool("update", false, "cập nhật thay vì cài mới")
 	dry := f.Bool("dry-run", false, "chỉ in lệnh sẽ chạy, không chạy")
-	data := f.String("data", "data", "thư mục data của studio")
+	data := f.String("data", util.DefaultDataDir(), "thư mục data của studio")
 	if err := parse(f, args); err != nil {
 		return Fail("setup", Usage("%s", err))
 	}

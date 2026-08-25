@@ -1,10 +1,18 @@
 #!/usr/bin/env bash
 # Đóng gói Biz Studio đa nền tảng: dmg (macOS), zip (Windows), tar.gz (Linux).
-# Dùng: ./scripts/build-release.sh [version]   (mặc định 1.0.0)
+# Dùng: ./scripts/build-release.sh <version>
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="${1:-1.0.0}"
+VERSION="${1:-}"
+if [ -z "$VERSION" ]; then
+  echo "Thiếu version. Dùng: ./scripts/build-release.sh 2.14.0" >&2
+  exit 2
+fi
+if [ "${ALLOW_DIRTY:-0}" != "1" ] && [ -n "$(git status --porcelain)" ]; then
+  echo "Worktree đang có thay đổi. Commit/test xong trước khi build release; chỉ RC nội bộ mới dùng ALLOW_DIRTY=1." >&2
+  exit 2
+fi
 LDFLAGS="-s -w -X bizstudio/internal/server.Version=${VERSION}"
 rm -rf dist
 mkdir -p dist
@@ -35,7 +43,14 @@ Bấm đúp "Biz Studio.exe" — mở ra cửa sổ app, không cần trình duy
 (Cửa sổ dùng Chrome hoặc Microsoft Edge đã có sẵn trên máy. Windows 10/11
 luôn có Edge nên không phải cài thêm gì.)
 
-Đóng cửa sổ là thoát. Nếu còn việc đang render, máy chủ vẫn chạy tới khi xong.
+Đóng cửa sổ là thoát. Nếu còn việc đang render/cài đặt, máy chủ vẫn chạy tới khi xong.
+
+Lần mở đầu:
+  1. Xem danh sách và bấm "Cài đầy đủ thành phần còn thiếu".
+  2. Chờ Git, Python, FFmpeg, yt-dlp, trình duyệt, Claude CLI, VieNeu và
+     Whisper cài xong. Có thể mất lâu vì model giọng/bóc băng khá lớn.
+  3. Mở PowerShell, chạy: claude auth login
+     Sau khi đăng nhập xong, quay lại Biz Studio bấm "Kiểm tra lại".
 
 Dòng lệnh — dùng bizstudio.exe (bản có console):
   bizstudio.exe setup                  liệt kê công cụ cài được
@@ -43,9 +58,10 @@ Dòng lệnh — dùng bizstudio.exe (bản có console):
   bizstudio.exe -port 8080             đổi cổng
   bizstudio.exe -window=false          chỉ chạy máy chủ, không mở cửa sổ
 
-Yêu cầu: ffmpeg trong PATH (https://ffmpeg.org) — hoặc bấm Cài trong
-Cấu hình & API. Tùy chọn: Claude CLI, yt-dlp.
-Dữ liệu lưu tại thư mục data\ cạnh file exe.
+Windows cần App Installer/WinGet (có sẵn trên Windows 10/11 cập nhật). Bộ cài
+chỉ cài phần còn thiếu và hỏi xác nhận trước khi chạy.
+Dữ liệu cài mới: %LOCALAPPDATA%\BizStudio
+Nâng cấp portable: nếu data\db.json nằm cạnh EXE, Biz Studio giữ nguyên dữ liệu đó.
 EOF
 (cd dist/win && zip -q -r "../BizStudio-windows-amd64.zip" .)
 
@@ -129,6 +145,12 @@ EOF
 }
 make_app arm64
 make_app amd64
+
+# Tạo sau CẢ Windows/Linux/macOS để manifest không bỏ sót DMG. Basename tương
+# đối giúp `cd dist && shasum -a 256 -c SHA256SUMS.txt` chạy được ở máy nhận.
+(cd dist && : > SHA256SUMS.txt && for artifact in ./*.zip ./*.tar.gz ./*.dmg; do
+  [ -f "$artifact" ] && shasum -a 256 "$artifact" >> SHA256SUMS.txt
+done)
 
 # Dọn thư mục trung gian, giữ artifact
 rm -rf dist/win dist/linux-amd64 dist/linux-arm64 dist/mac-arm64 dist/mac-amd64

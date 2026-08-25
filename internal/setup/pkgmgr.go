@@ -47,7 +47,8 @@ func brewStep(t Tool, action string) (Step, error) {
 }
 
 func wingetStep(t Tool, action string) (Step, error) {
-	if !have("winget") {
+	winget, err := exec.LookPath("winget")
+	if err != nil {
 		return Step{}, fmt.Errorf("máy chưa có winget (App Installer) — cài từ Microsoft Store, "+
 			"hoặc tải thủ công tại %s", t.Manual)
 	}
@@ -61,8 +62,8 @@ func wingetStep(t Tool, action string) (Step, error) {
 	// -e khớp đúng ID; hai cờ accept để không treo ở màn hình hỏi đồng ý.
 	return Step{
 		Label: "winget " + verb + " " + t.pkg.winget,
-		Bin:   "winget",
-		Args: []string{verb, "--id", t.pkg.winget, "-e", "--silent",
+		Bin:   winget,
+		Args: []string{verb, "--id", t.pkg.winget, "--exact", "--source", "winget", "--silent",
 			"--accept-package-agreements", "--accept-source-agreements"},
 	}, nil
 }

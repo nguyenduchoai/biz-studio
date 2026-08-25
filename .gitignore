@@ -1,6 +1,7 @@
 # Dữ liệu runtime & build
 data/
 dist/
+artifacts/
 /bizstudio
 /bizstudio.exe
 

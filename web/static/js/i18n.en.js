@@ -1989,5 +1989,23 @@
     "Ảnh của ai (để sau còn tra lại)": "Whose photo (so you can check back later)",
     "vd: Chị Lan — đã ký giấy đồng ý": "e.g. Lan — signed consent form on file",
     "Còn thiếu xác nhận: ": "Still unconfirmed: ",
+
+    /* Windows first-run bootstrap */
+    "Thiết lập Biz Studio": "Set up Biz Studio",
+    "Cài đầy đủ thư viện để đưa vào vận hành": "Install all runtime dependencies",
+    "Đang kiểm tra máy…": "Checking this computer…",
+    "Không kiểm tra được bộ cài": "Could not check the installer",
+    "Thiết lập lần đầu": "First-time setup",
+    "Cài các thư viện cần thiết ngay trong ứng dụng; không cần tự gõ lệnh cài.": "Install required dependencies inside the app; no manual install commands needed.",
+    "Cài đầy đủ thành phần còn thiếu": "Install all missing components",
+    "Hủy cài đặt": "Cancel installation",
+    "Bước riêng: đăng nhập Claude": "Separate step: sign in to Claude",
+    "Claude CLI đã được cài. Mở PowerShell, chạy lệnh dưới đây và đăng nhập trực tiếp với Claude. Biz Studio không đọc hay lưu thông tin đăng nhập.": "Claude CLI is installed. Open PowerShell, run the command below, and sign in directly with Claude. Biz Studio does not read or store your credentials.",
+    "Kiểm tra lại": "Check again",
+    "Máy đã sẵn sàng vận hành": "This computer is ready",
+    "Vào Biz Studio": "Open Biz Studio",
+    "Công cụ nền được Claude CLI và các quy trình dự án khuyên dùng.": "A foundational tool recommended for Claude CLI and project workflows.",
+    "Nền tảng để cài VieNeu-TTS và faster-whisper trên máy.": "Runtime used to install VieNeu-TTS and faster-whisper locally.",
+    "CLI chính thức cho Phiên AI, dịch thuật và tác vụ Claude.": "Official CLI for AI sessions, translation, and Claude tasks.",
   });
 })();

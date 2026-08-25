@@ -36,8 +36,8 @@ fi
 
 $ARCH_PREFIX python3 -m venv "$VENV"
 $ARCH_PREFIX "$VENV/bin/pip" install --quiet --upgrade pip
-echo "→ pip install vieneu (CPU/ONNX, không cần GPU)…"
-$ARCH_PREFIX "$VENV/bin/pip" install vieneu
+echo "→ pip install vieneu 3.2.3 (bản đã kiểm với Biz Studio)…"
+$ARCH_PREFIX "$VENV/bin/pip" install "vieneu==3.2.3"
 
 # torch/torchaudio chỉ cần cho Clone voice (trích đặc trưng giọng từ clip mẫu).
 # Bỏ qua bằng: SKIP_CLONE=1 ./scripts/setup-vieneu.sh

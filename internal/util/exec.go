@@ -37,11 +37,30 @@ func Exists(bin string) bool {
 // LanIP trả IP LAN của máy (cho QR kết nối điện thoại).
 func LanIP() string {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		return "127.0.0.1"
+	if err == nil {
+		ip := conn.LocalAddr().(*net.UDPAddr).IP
+		_ = conn.Close()
+		if ip4 := ip.To4(); ip4 != nil && !ip4.IsLoopback() {
+			return ip4.String()
+		}
 	}
-	defer conn.Close()
-	return conn.LocalAddr().(*net.UDPAddr).IP.String()
+	// LAN cô lập không có route Internet vẫn phải quét QR được. Duyệt interface
+	// đang up, ưu tiên IPv4 private thay vì trả 127.0.0.1 (điện thoại không thể
+	// kết nối loopback của máy tính).
+	ifaces, _ := net.Interfaces()
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, _ := iface.Addrs()
+		for _, addr := range addrs {
+			ip, _, err := net.ParseCIDR(addr.String())
+			if err == nil && ip.To4() != nil && ip.IsPrivate() {
+				return ip.String()
+			}
+		}
+	}
+	return "127.0.0.1"
 }
 
 func truncate(s string, n int) string {

@@ -42,8 +42,8 @@ fi
 
 $ARCH_PREFIX python3 -m venv "$VENV"
 $ARCH_PREFIX "$VENV/bin/pip" install --quiet --upgrade pip
-echo "→ pip install faster-whisper (CPU/CTranslate2, không cần GPU)…"
-$ARCH_PREFIX "$VENV/bin/pip" install faster-whisper
+echo "→ pip install faster-whisper 1.2.1 (bản cố định của Biz Studio)…"
+$ARCH_PREFIX "$VENV/bin/pip" install "faster-whisper==1.2.1"
 
 # Tải sẵn model để lần bóc băng đầu không phải chờ (small ~500 MB).
 # Bỏ qua bằng: SKIP_MODEL=1 ./scripts/setup-whisper.sh

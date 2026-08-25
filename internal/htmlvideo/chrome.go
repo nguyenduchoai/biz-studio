@@ -5,47 +5,28 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/cdproto/runtime"
 	"github.com/chromedp/chromedp"
 
 	"bizstudio/internal/store"
+	"bizstudio/internal/util"
 )
-
-// Thứ tự dò Chrome theo contracts v1.1.
-var chromeAppCandidates = []string{
-	"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-	"/Applications/Chromium.app/Contents/MacOS/Chromium",
-}
-
-var chromePathBins = []string{"google-chrome", "chromium"}
 
 // FindChrome dò binary Chrome/Chromium: Settings().ChromeBin → app macOS → PATH.
 func FindChrome(st *store.Store) (string, error) {
-	if bin := strings.TrimSpace(st.Settings().ChromeBin); bin != "" {
-		if fileExists(bin) {
-			return bin, nil
-		}
-		if p, err := exec.LookPath(bin); err == nil {
-			return p, nil
-		}
-		return "", fmt.Errorf("đường dẫn trình duyệt trong Cấu hình & API không tồn tại: %s", bin)
+	configured := strings.TrimSpace(st.Settings().ChromeBin)
+	if bin := util.FindChromium(configured, true); bin != "" {
+		return bin, nil
 	}
-	for _, c := range chromeAppCandidates {
-		if fileExists(c) {
-			return c, nil
-		}
+	if configured != "" {
+		return "", fmt.Errorf("đường dẫn trình duyệt trong Cấu hình & API không tồn tại: %s", configured)
 	}
-	for _, b := range chromePathBins {
-		if p, err := exec.LookPath(b); err == nil {
-			return p, nil
-		}
-	}
-	return "", fmt.Errorf("không tìm thấy Google Chrome/Chromium — hãy cài Google Chrome hoặc điền đường dẫn trình duyệt trong Cấu hình & API")
+	return "", fmt.Errorf("không tìm thấy Chrome/Edge/Chromium — hãy cài trình duyệt hoặc điền đường dẫn trong Cấu hình & API")
 }
 
 // browser — MỘT phiên Chrome headless dùng chung cho cả video
@@ -63,7 +44,7 @@ func newBrowser(parent context.Context, chromeBin string, w, h int) (*browser, e
 		chromedp.Flag("hide-scrollbars", true),
 		chromedp.Flag("disable-gpu", true),
 		chromedp.Flag("mute-audio", true),
-		chromedp.Flag("allow-file-access-from-files", true),
+		chromedp.Flag("disable-background-networking", true),
 		chromedp.Flag("force-device-scale-factor", "1"),
 		// Lần khởi động Chrome đầu tiên trên macOS có thể chậm (Gatekeeper
 		// quét binary) — nới thời gian chờ URL DevTools so với mặc định 20s.
@@ -72,7 +53,14 @@ func newBrowser(parent context.Context, chromeBin string, w, h int) (*browser, e
 	allocCtx, cancelAlloc := chromedp.NewExecAllocator(parent, opts...)
 	tabCtx, cancelTab := chromedp.NewContext(allocCtx)
 	b := &browser{ctx: tabCtx, cancels: []context.CancelFunc{cancelTab, cancelAlloc}}
-	if err := chromedp.Run(tabCtx, chromedp.EmulateViewport(int64(w), int64(h))); err != nil {
+	if err := chromedp.Run(tabCtx,
+		network.Enable(),
+		network.SetBlockedURLs().WithURLPatterns([]*network.BlockPattern{
+			{URLPattern: "http://*:*/*", Block: true},
+			{URLPattern: "https://*:*/*", Block: true},
+		}),
+		chromedp.EmulateViewport(int64(w), int64(h)),
+	); err != nil {
 		b.close()
 		return nil, fmt.Errorf("khởi động Chrome headless thất bại (%s): %w", chromeBin, err)
 	}

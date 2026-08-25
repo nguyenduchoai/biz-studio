@@ -211,7 +211,8 @@ func sizeRatio(v, def int) float64 {
 const (
 	customStageTag = `id="stage"`
 	customSeekShim = `<script>if (typeof window.seek !== 'function') { window.seek = function () {}; }</script>`
-	customHead     = `<!doctype html><html lang="vi"><head><meta charset="utf-8">` +
+	customCSP      = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: file:; media-src data: file:; font-src data: file:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri 'none'">`
+	customHead     = `<!doctype html><html lang="vi"><head><meta charset="utf-8">` + customCSP +
 		`<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden}</style></head><body>`
 )
 
@@ -233,6 +234,10 @@ func buildCustomHTML(k *store.StyleKit, sc Scene, imgURI string) string {
 	var b strings.Builder
 	if !strings.Contains(strings.ToLower(body), "<html") {
 		b.WriteString(customHead)
+	} else if i := strings.Index(strings.ToLower(body), "<head>"); i >= 0 {
+		body = body[:i+len("<head>")] + customCSP + body[i+len("<head>"):]
+	} else {
+		body = customCSP + body
 	}
 	b.WriteString(body)
 	// #stage là mốc chờ trang sẵn sàng trước khi chụp frame — trang tự viết

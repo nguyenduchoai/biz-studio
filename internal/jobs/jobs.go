@@ -12,12 +12,32 @@ type Broadcast func(event string, data any)
 
 // Manager — chạy tác vụ nền, tự cập nhật store + SSE.
 type Manager struct {
-	st  *store.Store
-	pub Broadcast
+	st    *store.Store
+	pub   Broadcast
+	queue chan queuedJob
+}
+
+type queuedJob struct {
+	job *store.Job
+	fn  func(upd func(progress float64, detail string)) (string, error)
 }
 
 func New(st *store.Store, pub Broadcast) *Manager {
-	m := &Manager{st: st, pub: pub}
+	limit := st.Settings().Threads
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > 16 {
+		limit = 16
+	}
+	queueCap := limit * 4
+	if queueCap < 4 {
+		queueCap = 4
+	}
+	m := &Manager{st: st, pub: pub, queue: make(chan queuedJob, queueCap)}
+	for i := 0; i < limit; i++ {
+		go m.worker()
+	}
 	m.reapStale()
 	return m
 }
@@ -52,40 +72,55 @@ func (m *Manager) Submit(kind, projectID, detail string,
 	m.st.SaveJob(j)
 	m.pub("job", *j)
 
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				j.Status, j.Error = "error", fmt.Sprintf("panic: %v", r)
-				m.finish(j)
-			}
-		}()
-		j.Status = "running"
-		m.st.SaveJob(j)
-		m.pub("job", *j)
-
-		lastPub := time.Now()
-		upd := func(p float64, d string) {
-			j.Progress = p
-			if d != "" {
-				j.Detail = d
-			}
-			if time.Since(lastPub) > 300*time.Millisecond {
-				m.st.SaveJob(j)
-				m.pub("job", *j)
-				lastPub = time.Now()
-			}
-		}
-
-		out, err := fn(upd)
-		if err != nil {
-			j.Status, j.Error = "error", err.Error()
-			m.st.AddLog("error", kind, err.Error())
-		} else {
-			j.Status, j.Progress, j.Output = "done", 100, out
-		}
+	select {
+	case m.queue <- queuedJob{job: j, fn: fn}:
+	default:
+		j.Status = "error"
+		j.Error = "hàng đợi đã đầy — chờ các tác vụ hiện tại xong rồi thử lại"
 		m.finish(j)
-	}()
+	}
 	return j
+}
+
+func (m *Manager) worker() {
+	for item := range m.queue {
+		m.run(item)
+	}
+}
+
+func (m *Manager) run(item queuedJob) {
+	j, fn := item.job, item.fn
+	defer func() {
+		if r := recover(); r != nil {
+			j.Status, j.Error = "error", fmt.Sprintf("panic: %v", r)
+			m.finish(j)
+		}
+	}()
+	j.Status = "running"
+	m.st.SaveJob(j)
+	m.pub("job", *j)
+
+	lastPub := time.Now()
+	upd := func(p float64, d string) {
+		j.Progress = p
+		if d != "" {
+			j.Detail = d
+		}
+		if time.Since(lastPub) > 300*time.Millisecond {
+			m.st.SaveJob(j)
+			m.pub("job", *j)
+			lastPub = time.Now()
+		}
+	}
+
+	out, err := fn(upd)
+	if err != nil {
+		j.Status, j.Error = "error", err.Error()
+		m.st.AddLog("error", j.Kind, err.Error())
+	} else {
+		j.Status, j.Progress, j.Output = "done", 100, out
+	}
+	m.finish(j)
 }
 
 func (m *Manager) finish(j *store.Job) {

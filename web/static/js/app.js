@@ -190,9 +190,15 @@
       pct(host.ramPct) + '% | Disk: ' + pct(host.diskPct) + '%';
     $('ramUsed').textContent = 'RAM: ' + (host.ramUsedMB || 0) + ' MB';
 
-    // Backend OK
-    $('backendDot').className = 'backend-dot';
-    $('backendText').textContent = TR('Backend hoạt động');
+    // Backend + lưu bền. Nếu disk/antivirus chặn atomic rename, tuyệt đối
+    // không được tô xanh khiến người dùng tưởng dữ liệu đã an toàn.
+    if (st.storageError) {
+      $('backendDot').className = 'backend-dot err';
+      $('backendText').textContent = 'Lỗi lưu dữ liệu — xem Nhật ký';
+    } else {
+      $('backendDot').className = 'backend-dot';
+      $('backendText').textContent = TR('Backend hoạt động');
+    }
 
     // Sidebar: dung lượng + version
     var dp = Number(host.diskPct) || 0;
@@ -224,17 +230,31 @@
 
   // ---------- Init ----------
 
+  function initialRoute() {
+    var openRequestedPage = function () {
+      if (!location.hash) {
+        location.hash = '#/dashboard';
+      } else {
+        route();
+      }
+    };
+	if (!window.SetupWizard || parseHash().id === 'setup' || !SetupWizard.firstRunNeeded()) {
+	  openRequestedPage();
+	  return;
+	}
+	API.get('/api/instance').then(function (instance) {
+	  if (instance && instance.wizardEnabled) location.hash = '#/setup';
+	  else openRequestedPage();
+	}).catch(openRequestedPage);
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     renderNav();
     initTheme();
     initLang();
     $('settingsBtn').onclick = function () { App.navigate('settings'); };
     window.addEventListener('hashchange', route);
-    if (!location.hash) {
-      location.hash = '#/dashboard'; // hashchange sẽ gọi route()
-    } else {
-      route();
-    }
+	initialRoute();
     pollState();
     setInterval(pollState, 5000);
   });

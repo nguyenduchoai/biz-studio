@@ -7,6 +7,7 @@
 param([string]$Data = "data")
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $false   # tự kiểm tra $LASTEXITCODE
+$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 
 $Venv = Join-Path $Data "whisper\venv"
 $Models = Join-Path $Data "whisper\models"
@@ -40,8 +41,8 @@ $VenvPy = Join-Path $Venv "Scripts\python.exe"
 $VenvPip = Join-Path $Venv "Scripts\pip.exe"
 
 & $VenvPip install --quiet --upgrade pip
-Write-Host "→ pip install faster-whisper (CPU/CTranslate2, không cần GPU)…"
-& $VenvPip install faster-whisper
+Write-Host "→ pip install faster-whisper 1.2.1 (bản cố định của Biz Studio)…"
+& $VenvPip install "faster-whisper==1.2.1"
 if ($LASTEXITCODE -ne 0) { Write-Error "❌ pip install faster-whisper thất bại"; exit 1 }
 
 # Tải sẵn model để lần bóc băng đầu không phải chờ (small ~500 MB).
@@ -56,7 +57,7 @@ root = os.environ["MODELS_DIR"]
 WhisperModel(name, device="auto", compute_type="auto", download_root=root)
 print(f"✅ Model {name} đã sẵn sàng trong {root}")
 '@
-  $tmp = Join-Path $env:TEMP "bizstudio-whisper-model.py"
+  $tmp = Join-Path $env:TEMP ("bizstudio-whisper-model-" + [guid]::NewGuid().ToString("N") + ".py")
   Set-Content -Path $tmp -Value $snippet -Encoding UTF8
   $env:WHISPER_MODEL = $Model
   $env:MODELS_DIR = $Models

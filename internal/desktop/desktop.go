@@ -22,6 +22,7 @@ import (
 
 	"bizstudio/internal/htmlvideo"
 	"bizstudio/internal/store"
+	"bizstudio/internal/util"
 )
 
 // appWindowSize — kích thước cửa sổ mở lần đầu. Sau đó Chromium tự nhớ kích
@@ -94,6 +95,17 @@ func FindBrowser(st *store.Store) string {
 // trình duyệt mặc định rồi — thà một tab bình thường còn hơn màn hình trắng.
 func OpenWindow(st *store.Store, url, dataDir string) (*exec.Cmd, error) {
 	bin := FindBrowser(st)
+	return openWindow(bin, url, dataDir)
+}
+
+// OpenWindowDefault mở cửa sổ phụ mà không mở Store lần thứ hai. Nhánh này
+// dùng khi người dùng double-click EXE trong lúc tiến trình chính đang giữ khóa
+// dữ liệu; mở lại db.json ở đây vừa thừa vừa tạo nguy cơ hai writer.
+func OpenWindowDefault(url, dataDir string) (*exec.Cmd, error) {
+	return openWindow(util.FindChromium("", true), url, dataDir)
+}
+
+func openWindow(bin, url, dataDir string) (*exec.Cmd, error) {
 	if bin == "" {
 		return nil, OpenDefault(url)
 	}

@@ -31,6 +31,14 @@
 
 ## Có gì mới
 
+### Bản đang hoàn thiện — Bootstrap Windows và QR upload tách biệt
+
+- 🧰 **Mở EXE lần đầu có wizard Cài đầy đủ**: Git, Python 3.11, FFmpeg + ffprobe, yt-dlp, Chrome (nếu máy chưa có Edge/Chromium), Claude CLI, VieNeu-TTS và faster-whisper. Chỉ cài phần còn thiếu, hiện đúng package WinGet, hỏi xác nhận trước khi chạy, có nhật ký và nút Hủy.
+- 🔐 **Đăng nhập Claude là bước riêng có chủ ý**: bộ cài chỉ cài CLI chính thức `Anthropic.ClaudeCode`; người dùng tự chạy `claude auth login`. Biz Studio chỉ đọc trạng thái `loggedIn`, không đọc email, tổ chức hay credential.
+- 📱 **Điện thoại chỉ upload tài nguyên**: control API chạy trên `127.0.0.1`; cổng LAN riêng chỉ có trang QR và endpoint upload, kèm token ký riêng cho từng dự án, hết hạn sau 15 phút và dùng thành công đúng một lượt. Tối đa 2 lượt đồng thời, mỗi lượt 50 file/10 GB. Điện thoại không gọi được API cài thư viện, cấu hình hay job.
+- 🔁 **Cổng 6868 bị chiếm không còn làm EXE tự thoát**: chỉ coi là Biz Studio khi `/api/instance` trả đúng marker; nếu là phần mềm khác, app tự chọn cổng trống và mở đúng URL mới.
+- 🪟 **Dò dependency đúng kiểu Windows**: refresh WinGet/Python/Git PATH ngay sau mỗi gói; dò Chrome/Edge trong Program Files và LocalAppData; FFmpeg chỉ sẵn sàng khi có cả `ffmpeg` lẫn `ffprobe`.
+
 ### v2.13.0 — 23/08/2026 — Cổng xác nhận quyền, cache bước nặng, ảnh lưới kiểm nhanh
 
 Đọc [lanshu-create-ai-presenter-video](https://github.com/cclank/lanshu-create-ai-presenter-video) (MIT). Nó không phải thư viện mã — 12 file, ~47 KB, phần lớn là hướng dẫn quy trình cho AI agent, còn phần sinh video thì giao cho provider bên ngoài. Nhưng ba quy tắc của nó chỉ ra ba lỗ hổng có thật trong Biz Studio.
@@ -76,7 +84,7 @@ Không lấy từ AutoClip: Celery + Redis + FastAPI + React. Biz Studio là m�
 Trước đây bấm vào Biz Studio là trình duyệt bật lên một tab lẫn giữa mười tab khác, có thanh địa chỉ, có nút back — nhìn không ra một phần mềm. Nay nó mở **cửa sổ app riêng**.
 
 - 🪟 **Cửa sổ app thật**: không thanh địa chỉ, không tab, không nút back, có mục riêng trên Dock/taskbar. Chạy trên nền Chrome/Edge/Brave đã có sẵn ở chế độ `--app`, hồ sơ riêng nên không đụng vào phiên đăng nhập và tab đang mở của bạn.
-- 🚪 **Đóng cửa sổ là thoát** — nhả cổng luôn, không để lại tiến trình ma. **Trừ khi còn việc đang render**: khi đó máy chủ vẫn sống và nói rõ còn mấy việc, xong hết mới tự thoát. Đóng nhầm cửa sổ không mất một tiếng render.
+- 🚪 **Đóng cửa sổ là thoát** — nhả cổng luôn, không để lại tiến trình ma. **Trừ khi còn việc đang render hoặc bộ cài Full đang chạy**: khi đó máy chủ vẫn sống tới khi xong. Đóng nhầm cửa sổ không làm hỏng lượt render/WinGet/pip đang ghi dở.
 - 🔁 **Bấm mở lần hai không còn lỗi**: trước đây bản thứ hai chết vì "address already in use" — với người dùng là "bấm vào app mà chẳng thấy gì". Nay nó mở thêm cửa sổ vào bản đang chạy rồi thoát.
 - 🪟 **Windows có hai file**: `Biz Studio.exe` bấm đúp ra cửa sổ app, **không kèm cửa sổ console đen**; `bizstudio.exe` giữ console cho dòng lệnh. Không gộp được vì cờ `-H windowsgui` cắt luôn stdout, gộp là lệnh `setup` câm.
 - 🐧 **Linux có `.desktop`** để hiện trong menu ứng dụng, `StartupWMClass` khớp `--class` nên thanh tác vụ hiện Biz Studio chứ không phải icon Chrome.
@@ -344,7 +352,7 @@ Biz Studio là **một binary Go duy nhất** nhúng sẵn toàn bộ giao diệ
 Nguyên tắc thiết kế:
 
 - **Điều phối, không tái phát minh**: mọi việc nặng (encode, cắt, phân tích, AI) giao cho công cụ chuyên dụng — Biz Studio điều phối chúng qua job queue và stream kết quả về UI.
-- **Mọi tác vụ dài là một Job**: chạy nền bằng goroutine, tiến độ đẩy realtime qua SSE (`/api/events/stream`), trạng thái lưu bền trong `data/db.json`.
+- **Mọi tác vụ dài là một Job**: worker pool giới hạn theo `Threads`, hàng chờ có capacity và trả lỗi rõ khi đầy; tiến độ đẩy realtime qua SSE (`/api/events/stream`), trạng thái lưu bền trong `data/db.json`.
 - **Mỗi dự án là một thư mục**: `data/projects/<id>/` chứa `assets/` (nguồn), `outputs/` (kết quả), `publish/` (gói xuất bản) — dễ backup, dễ soi.
 - **Local-first**: dữ liệu và video của bạn không rời khỏi máy, trừ phần văn bản/media bạn chủ động gửi tới AI (Claude/Gemini).
 
@@ -354,7 +362,7 @@ Nguyên tắc thiết kế:
 
 1. **Chuẩn bị dự án**: tải asset lên (hoặc quét QR gửi từ điện thoại), viết *Mô tả video gốc* + *Yêu cầu edit*, mô tả từng asset và đánh thứ tự, bật/tắt: tự cắt ngắn, tạo phụ đề, làm nổi bật key chính, thêm keyword.
 2. **Build prompt**: server tổng hợp toàn bộ thành một prompt tiếng Việt chi tiết (thông số khung hình, danh sách asset kèm mô tả, các yêu cầu, quy ước output).
-3. **Chạy Claude CLI**: `claude -p --output-format stream-json --dangerously-skip-permissions` với thư mục làm việc là thư mục dự án. Claude tự khám phá asset bằng `ffprobe`, tự viết và chạy lệnh `ffmpeg`, tự kiểm tra kết quả.
+3. **Chạy Claude CLI**: `claude -p --output-format stream-json --safe-mode --permission-mode dontAsk` với thư mục làm việc là thư mục dự án. Claude chỉ được đọc/ghi/sửa trong workspace và gọi nhóm lệnh media/file đã cho phép (`ffmpeg`, `ffprobe`, `mkdir`, `cp`, `mv`); WebFetch/WebSearch bị chặn.
 4. **Stream realtime**: từng dòng stream-json (khởi tạo, suy nghĩ, tool call, kết quả) được parse → lưu event → đẩy qua SSE → panel "AI của project" hiển thị y như bạn đang nhìn AI làm việc.
 5. **Nhận kết quả**: AI ghi video vào `outputs/` + file `meta.json {"status":"done","output":"..."}`. Server đọc meta, cập nhật video output, pipeline 6 bước (Phân tích → Dựng scene → Render draft → Lắp draft → Render final → Hoàn thành) chuyển xanh.
 6. **Dặn dò thêm**: chưa ưng? Gõ vào ô *"Dặn dò thêm cho AI…"* — phiên được resume (`--resume <session>`) với đầy đủ ngữ cảnh cũ, AI sửa tiếp.
@@ -365,9 +373,11 @@ Nguyên tắc thiết kế:
 
 ### Yêu cầu
 
-> **Không phải cài tay.** Mở **Cấu hình & API → 🧰 Công cụ trên máy**, bấm **Cài** hoặc **Cập nhật**
-> ngay cạnh từng dòng — dùng chính trình quản lý gói của máy (brew / winget / apt), nhật ký chạy hiện
-> ngay trong trang. Máy chủ không màn hình: `bizstudio setup yt-dlp --update`.
+> **Không phải cài từng thư viện bằng tay.** Mở EXE lần đầu, chọn **Cài đầy đủ thành phần còn thiếu**.
+> Biz Studio hiện danh sách gói trước khi chạy, dùng trình quản lý gói của máy (brew / winget / apt),
+> và hiện nhật ký ngay trong trang. Riêng đăng nhập Claude phải do chính người dùng thực hiện bằng
+> `claude auth login`; ứng dụng không nhận hay lưu credential. Máy chủ không màn hình:
+> `bizstudio setup yt-dlp --update`.
 >
 > Lỗi `HTTP Error 403: Forbidden` khi tải video hầu như luôn là do **yt-dlp cũ**, không phải bị chặn.
 > Thẻ này nói thẳng bản của bạn bao nhiêu ngày tuổi và cập nhật trong một cú bấm.
@@ -375,7 +385,8 @@ Nguyên tắc thiết kế:
 | Công cụ | Bắt buộc? | Cài đặt |
 |---|---|---|
 | **ffmpeg + ffprobe** | ✅ Bắt buộc | macOS: `brew install ffmpeg` · Windows: [ffmpeg.org](https://ffmpeg.org/download.html) · Linux: `apt install ffmpeg` |
-| **Claude CLI** (đăng nhập subscription) | Cho Phiên AI, dịch thuật, meta xuất bản | `npm i -g @anthropic-ai/claude-code` rồi chạy `claude` đăng nhập |
+| **Claude CLI** (đăng nhập subscription) | Cho Phiên AI, dịch thuật, meta xuất bản | wizard dùng WinGet package chính thức `Anthropic.ClaudeCode`; sau đó chạy `claude auth login` |
+| **Git + Python 3.11** | Git được Claude khuyên dùng; Python chạy VieNeu/Whisper | nằm trong wizard Cài đầy đủ trên Windows |
 | **Gemini API key** | Cho OCR/ASR, ảnh AI, TTS Gemini, thumbnail AI | Lấy tại [aistudio.google.com](https://aistudio.google.com/apikey), dán vào **Cấu hình & API** |
 | **yt-dlp** | Cho module Tải Video | một cú bấm ở Cấu hình — **nhớ cập nhật thường xuyên**, bản cũ sinh lỗi 403 |
 | **Google Chrome / Chromium** | Cho module HTML Video (render frame) | tự dò bản đã cài, hoặc nhập đường dẫn ở Cấu hình |
@@ -389,7 +400,7 @@ Nguyên tắc thiết kế:
 Tải bản phù hợp từ trang [Releases](../../releases):
 
 - **macOS**: mở `BizStudio-macos-*.dmg`, kéo **Biz Studio.app** vào Applications, mở app (lần đầu: chuột phải → Open để qua Gatekeeper).
-- **Windows**: giải nén `BizStudio-windows-amd64.zip`, bấm đúp **`Biz Studio.exe`**. (`bizstudio.exe` là bản có console, dùng cho dòng lệnh.)
+- **Windows**: giải nén `BizStudio-windows-amd64.zip`, bấm đúp **`Biz Studio.exe`**, xác nhận danh sách rồi chọn **Cài đầy đủ**. (`bizstudio.exe` là bản có console, dùng cho dòng lệnh.) Cài mới lưu tại `%LOCALAPPDATA%\BizStudio`; khi nâng cấp bản portable cũ, nếu có `data\db.json` cạnh EXE thì ứng dụng tiếp tục dùng dữ liệu cũ.
 - **Linux**: giải nén `BizStudio-linux-*.tar.gz`, chạy `./bizstudio`. Chép `bizstudio.desktop` vào `~/.local/share/applications/` để hiện trong menu ứng dụng.
 
 Cả ba đều mở thẳng **cửa sổ app riêng** — không thanh địa chỉ, không tab. Đóng cửa sổ là thoát; còn việc đang render thì máy chủ giữ tới khi xong.
@@ -415,10 +426,10 @@ go run ./cmd/bizstudio
 ## Đóng gói exe / dmg / linux
 
 ```bash
-./scripts/build-release.sh
+./scripts/build-release.sh 2.14.0
 ```
 
-Script cross-compile và đóng gói vào `dist/`:
+Script từ chối thiếu version/worktree bẩn, cross-compile và đóng gói vào `dist/`:
 
 | File | Nền tảng |
 |---|---|
@@ -430,7 +441,7 @@ Script cross-compile và đóng gói vào `dist/`:
 
 ## Cấu hình
 
-Tất cả trong trang **Cấu hình & API** (lưu tại `data/db.json`):
+Tất cả trong trang **Cấu hình & API** (lưu tại DataDir; DB quyền riêng `0600`, có backup/recovery). API chỉ trả khóa dạng che, không trả secret thô:
 
 | Mục | Ý nghĩa |
 |---|---|
@@ -498,7 +509,7 @@ Backend là REST thuần — bạn có thể tự động hóa mọi thứ khôn
 | `POST /api/studio/broll` | Ghép một thư mục clip tư liệu thành dải hình khớp đúng độ dài lời đọc |
 | `POST /api/t2v/sessions` (`templateId`) · `PUT …/{id}` (`templateId`) | Tạo phiên Text → Video theo khuôn; đổi hoặc gỡ khuôn của phiên đã có |
 | `GET /api/tools/voices` · `GET /api/jobs` · `GET /api/logs` · CRUD `/api/prompts` | Tra cứu |
-| `GET /api/qr.png?project=ID` · `GET /m/{id}` | QR + trang upload điện thoại |
+| `GET /api/qr.png?project=ID` | Sinh QR có token; trang mobile/upload chạy trên listener LAN riêng |
 
 Chi tiết request/response: [`docs/contracts.md`](docs/contracts.md).
 
@@ -576,7 +587,9 @@ scripts/                    # vỏ bọc giữ lệnh quen thuộc; bản thật
 | Bấm app mà không thấy cửa sổ | Máy chưa có Chrome/Edge/Brave → app lui về mở tab ở trình duyệt mặc định. Cài Chrome bằng nút ở 🧰 Công cụ trên máy. |
 | Đóng cửa sổ mà app không thoát | Đúng như thiết kế khi còn việc đang render — xem nhật ký, xong hết sẽ tự thoát. Muốn thoát ngay: tắt tiến trình `bizstudio`. |
 | Video không preview được | Kiểm tra file có trong `data/` và URL bắt đầu bằng `/data/`. |
-| Điện thoại không mở được trang QR | Điện thoại phải cùng mạng Wi-Fi; kiểm tra firewall cho phép cổng 6868. |
+| Điện thoại không mở được trang QR | Điện thoại phải cùng mạng Wi-Fi; cho phép **cổng mobile đang hiện trong `/api/state`/QR** qua Windows Firewall. Control API 6868 chỉ nghe localhost và không mở ra LAN. |
+| Windows báo cổng 6868 đang bận | App tự chọn cổng control còn trống và mở đúng URL. Nếu vẫn không thấy cửa sổ, chạy `bizstudio.exe -window=false` một lần để xem lỗi nền. |
+| Claude hiện “đã cài, cần đăng nhập” | Mở PowerShell mới, chạy `claude auth login`, hoàn tất trong cửa sổ Claude rồi bấm **Kiểm tra lại** trong wizard. |
 | Muốn đổi cổng / thư mục dữ liệu | `./bizstudio -port 8080 -data /duong/dan/khac` |
 | Avatar nói báo "máy này không có GPU NVIDIA" | Đúng như vậy — LongCat bắt buộc CUDA, không chạy trên Apple Silicon hay CPU. Cài trên một máy có GPU rồi chuyển sang chế độ **remote**. |
 | Avatar nói: "không kết nối được máy GPU" | Máy GPU phải đang chạy `scripts/longcat-worker.py`; kiểm tra firewall mở cổng 7070 và địa chỉ điền đúng dạng `http://<ip>:7070`. |

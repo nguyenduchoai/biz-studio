@@ -152,7 +152,12 @@ func (r *Runner) buildCmd(projectID, prompt, resumeID string) (*exec.Cmd, io.Rea
 	if bin == "" {
 		bin = "claude"
 	}
-	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"}
+	args := []string{
+		"-p", "--output-format", "stream-json", "--verbose", "--safe-mode",
+		"--permission-mode", "dontAsk",
+		"--allowedTools", "Read,Write,Edit,Glob,Grep,Bash(ffmpeg *),Bash(ffprobe *),Bash(mkdir *),Bash(cp *),Bash(mv *)",
+		"--disallowedTools", "WebFetch,WebSearch",
+	}
 	if cfg.ClaudeModel != "" {
 		args = append(args, "--model", cfg.ClaudeModel)
 	}
@@ -169,7 +174,7 @@ func (r *Runner) buildCmd(projectID, prompt, resumeID string) (*exec.Cmd, io.Rea
 
 	cmd := exec.Command(bin, args...)
 	cmd.Dir = dir
-	cmd.Env = os.Environ()
+	cmd.Env = safeAgentEnv(os.Environ())
 	cmd.Stdin = strings.NewReader(prompt)
 	var errBuf bytes.Buffer
 	cmd.Stderr = &errBuf
@@ -178,6 +183,26 @@ func (r *Runner) buildCmd(projectID, prompt, resumeID string) (*exec.Cmd, io.Rea
 		return nil, nil, nil, fmt.Errorf("không mở được stdout pipe: %w", err)
 	}
 	return cmd, stdout, &errBuf, nil
+}
+
+func safeAgentEnv(env []string) []string {
+	allowed := map[string]bool{
+		"PATH": true, "HOME": true, "USERPROFILE": true, "LOCALAPPDATA": true,
+		"APPDATA": true, "SYSTEMROOT": true, "WINDIR": true, "COMSPEC": true,
+		"PATHEXT": true, "TEMP": true, "TMP": true, "TMPDIR": true,
+		"LANG": true, "LC_ALL": true, "NO_COLOR": true,
+	}
+	out := make([]string, 0, len(env))
+	for _, item := range env {
+		name := item
+		if i := strings.IndexByte(item, '='); i >= 0 {
+			name = item[:i]
+		}
+		if allowed[strings.ToUpper(name)] {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 // readStream đọc từng dòng NDJSON từ stdout của claude. Trả true nếu đã nhận event "result".

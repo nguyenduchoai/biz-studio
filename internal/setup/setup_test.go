@@ -29,6 +29,21 @@ func TestEmbeddedScriptsExistForEveryPlatform(t *testing.T) {
 	}
 }
 
+func TestPythonInstallScriptsPinCorePackages(t *testing.T) {
+	want := map[string]string{"setup-vieneu": "vieneu==3.2.3", "setup-whisper": "faster-whisper==1.2.1"}
+	for script, version := range want {
+		for _, ext := range []string{".sh", ".ps1"} {
+			body, err := scriptFile(script + ext)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(string(body), version) {
+				t.Errorf("%s%s chưa pin %s", script, ext, version)
+			}
+		}
+	}
+}
+
 // Script .sh đã bị bỏ dòng cd theo vị trí file (giờ nó chạy từ thư mục tạm).
 // Nếu ai đó thêm lại, thư mục data sẽ trỏ vào internal/setup và venv mọc ra sai
 // chỗ — hỏng lặng lẽ, chỉ lộ ra khi người dùng bấm nút.
@@ -154,6 +169,9 @@ func TestFindUnknownTool(t *testing.T) {
 // bộ là bắt học một cái tên chỉ có trong mã nguồn.
 func TestFindAcceptsNamesPeopleActuallyType(t *testing.T) {
 	cases := map[string]string{
+		"git":            "git",
+		"python3":        "python",
+		"py":             "python",
 		"ytdlp":          "ytdlp",
 		"yt-dlp":         "ytdlp",
 		"YT-DLP":         "ytdlp",
@@ -171,6 +189,8 @@ func TestFindAcceptsNamesPeopleActuallyType(t *testing.T) {
 		"Google Chrome":  "chrome",
 		"google-chrome":  "chrome",
 		"chromium":       "chrome",
+		"claude cli":     "claude",
+		"Claude Code":    "claude",
 	}
 	for name, wantID := range cases {
 		got, ok := Find(name)
@@ -199,5 +219,29 @@ func TestNoDuplicateNamesAcrossTools(t *testing.T) {
 			}
 			seen[k] = tool.ID
 		}
+	}
+}
+
+func TestFullInstallCatalogContainsWindowsPrerequisitesAndClaude(t *testing.T) {
+	want := []string{"git", "python", "ffmpeg", "ytdlp", "chrome", "claude", "vieneu", "whisper"}
+	got := make([]string, 0, len(Tools()))
+	for _, tool := range Tools() {
+		if tool.WindowsPackage != tool.pkg.winget {
+			t.Fatalf("%s: WindowsPackage %q lệch pkg.winget %q", tool.ID, tool.WindowsPackage, tool.pkg.winget)
+		}
+		if tool.Full {
+			got = append(got, tool.ID)
+		}
+	}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("catalog Full = %v, muốn %v", got, want)
+	}
+	claude, ok := Find("claude cli")
+	if !ok || claude.pkg.winget != "Anthropic.ClaudeCode" {
+		t.Fatalf("Claude CLI thiếu package WinGet chính thức: %#v", claude)
+	}
+	python, ok := Find("python")
+	if !ok || python.pkg.winget == "" {
+		t.Fatalf("Python prerequisite chưa có package WinGet: %#v", python)
 	}
 }

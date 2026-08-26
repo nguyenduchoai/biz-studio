@@ -97,6 +97,10 @@ jobs:
             echo "Tag không hợp lệ: $tag (cần dạng v2.14.0 hoặc v2.14.0-rc.1)" >&2
             exit 2
           fi
+          if ! grep -Fxq "<!-- release: $tag -->" RELEASE_NOTES.md; then
+            echo "RELEASE_NOTES.md chưa được cập nhật cho $tag" >&2
+            exit 2
+          fi
           echo "RELEASE_VERSION=${tag#v}" >> "$GITHUB_ENV"
 
       - name: Build release packages
@@ -122,6 +126,8 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: bizstudio-${{ github.ref_name }}-release
@@ -140,6 +146,9 @@ jobs:
           tag="$GITHUB_REF_NAME"
           if gh release view "$tag" >/dev/null 2>&1; then
             gh release upload "$tag" dist/* --clobber
+            gh release edit "$tag" \
+              --title "Biz Studio $tag" \
+              --notes-file RELEASE_NOTES.md
             exit 0
           fi
 
@@ -147,7 +156,7 @@ jobs:
             release create "$tag" dist/*
             --verify-tag
             --title "Biz Studio $tag"
-            --generate-notes
+            --notes-file RELEASE_NOTES.md
           )
           if [[ "$tag" == *-* ]]; then
             args+=(--prerelease)

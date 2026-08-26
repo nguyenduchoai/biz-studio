@@ -52,8 +52,9 @@ func TestDatabaseIsOwnerOnly(t *testing.T) {
 	if !user.User.Sid.Equals(aceSID) {
 		t.Fatalf("db.json ACL thuộc %s, muốn user hiện tại %s", aceSID, user.User.Sid)
 	}
-	if ace.Mask&windows.GENERIC_ALL == 0 {
-		t.Fatalf("db.json ACL mask = %#x, thiếu GENERIC_ALL", ace.Mask)
+	const fileAllAccess windows.ACCESS_MASK = windows.STANDARD_RIGHTS_REQUIRED | windows.SYNCHRONIZE | 0x1ff
+	if ace.Mask&fileAllAccess != fileAllAccess {
+		t.Fatalf("db.json ACL mask = %#x, muốn FILE_ALL_ACCESS %#x", ace.Mask, fileAllAccess)
 	}
 }
 

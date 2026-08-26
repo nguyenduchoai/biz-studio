@@ -439,6 +439,21 @@ Script từ chối thiếu version/worktree bẩn, cross-compile và đóng gói
 
 (Tạo .dmg cần chạy trên macOS — script tự bỏ qua bước dmg trên hệ khác.)
 
+### Phát hành tự động bằng tag
+
+GitHub Actions chỉ tạo Release khi có tag phiên bản đúng dạng `vX.Y.Z` hoặc
+prerelease như `vX.Y.Z-rc.1`:
+
+```bash
+git tag -a v2.14.0 -m "Biz Studio v2.14.0"
+git push origin v2.14.0
+```
+
+Pipeline chạy test và smoke native trên Windows trước, sau đó đóng đủ gói
+Windows, macOS và Linux, kiểm SHA256 rồi tạo GitHub Release. Tag có hậu tố như
+`-rc.1`, `-beta.1` hoặc `-alpha.1` tự được đánh dấu là prerelease. Push commit
+thông thường vào `main` không tạo Release.
+
 ## Cấu hình
 
 Tất cả trong trang **Cấu hình & API** (lưu tại DataDir; DB quyền riêng `0600`, có backup/recovery). API chỉ trả khóa dạng che, không trả secret thô:

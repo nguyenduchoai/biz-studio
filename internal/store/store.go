@@ -51,7 +51,9 @@ func Open(dataDir string) (*Store, error) {
 	}
 	s := &Store{path: filepath.Join(abs, "db.json"), DataDir: abs}
 	if b, err := os.ReadFile(s.path); err == nil {
-		_ = os.Chmod(s.path, 0o600)
+		if err := secureFilePermissions(s.path); err != nil {
+			return nil, fmt.Errorf("giới hạn quyền db.json: %w", err)
+		}
 		if err := json.Unmarshal(b, &s.d); err != nil {
 			backup, backupErr := os.ReadFile(s.path + ".bak")
 			if backupErr != nil || json.Unmarshal(backup, &s.d) != nil {
@@ -135,7 +137,7 @@ func (s *Store) saveLocked() error {
 	if err := os.Rename(tmp, s.path); err != nil {
 		return err
 	}
-	if err := os.Chmod(s.path, 0o600); err != nil {
+	if err := secureFilePermissions(s.path); err != nil {
 		return err
 	}
 	if dir, err := os.Open(filepath.Dir(s.path)); err == nil {
@@ -158,7 +160,10 @@ func writeSynced(path string, body []byte) error {
 		_ = f.Close()
 		return err
 	}
-	return f.Close()
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return secureFilePermissions(path)
 }
 
 // write chạy fn trong write lock rồi persist.

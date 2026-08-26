@@ -84,6 +84,7 @@ func (s *Store) applyDefaults() {
 	if c.ClaudeBin == "" {
 		c.ClaudeBin = "claude"
 	}
+	c.ClaudeModel = normalizeClaudeModel(c.ClaudeModel)
 	if c.YtdlpBin == "" {
 		c.YtdlpBin = "yt-dlp"
 	}

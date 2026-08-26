@@ -468,7 +468,7 @@ Tất cả trong trang **Cấu hình & API** (lưu tại DataDir; DB quyền ri�
 | **API Trực Tiếp** (tab riêng) | Base URL + Key + Model endpoint OpenAI-compatible — thêm 1 engine cho Dịch thuật/tách cảnh |
 | **Media Xu hướng** (tab riêng) | Pexels API key — tự chèn ảnh stock theo từ khóa cảnh |
 | Chrome bin | Đường dẫn trình duyệt render HTML Video (mặc định tự dò) |
-| Claude bin / model | Đường dẫn `claude` CLI + model tùy chọn |
+| Claude bin / model | Đường dẫn `claude` CLI + model; mặc định `claude-opus-5` |
 | yt-dlp bin / Thư mục tải / Cookies / Chất lượng / Luồng | Cấu hình tải video |
 | Giao diện / Kích thước / Gradient / Hiệu năng | Tuỳ biến UI (sáng/tối, scale…) |
 | Nhớ bản dịch / Cache TTS | Tăng tốc thao tác lặp lại |

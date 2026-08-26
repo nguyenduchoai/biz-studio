@@ -28,6 +28,10 @@ func TestClaudeRunnerUsesRestrictedNonInteractivePermissions(t *testing.T) {
 			t.Errorf("runner thiếu %q: %v", want, cmd.Args)
 		}
 	}
+	modelIndex := slices.Index(cmd.Args, "--model")
+	if modelIndex < 0 || modelIndex+1 >= len(cmd.Args) || cmd.Args[modelIndex+1] != "claude-opus-5" {
+		t.Fatalf("runner chưa dùng Claude Opus 5: %v", cmd.Args)
+	}
 }
 
 func TestSafeAgentEnvDoesNotPassCloudCredentials(t *testing.T) {

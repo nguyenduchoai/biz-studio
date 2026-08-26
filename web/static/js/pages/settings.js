@@ -295,7 +295,7 @@
         modelField('Model Veo', st, 'veoModel', 'rỗng = veo-3.1-fast-generate-preview', 'video'),
         'Bấm nạp danh sách để lấy đúng model Veo đang phục vụ — Google đã gỡ hẳn các model Veo 3.0 cũ.'),
       textField('Claude bin', st, 'claudeBin', 'claude'),
-      textField('Claude model (tùy chọn)', st, 'claudeModel', 'VD: claude-sonnet-4-5'),
+      textField('Claude model', st, 'claudeModel', 'Mặc định: claude-opus-5'),
       textField('yt-dlp bin', st, 'ytdlpBin', 'yt-dlp'),
       textField('Thư mục tải về', st, 'downloadDir', 'data/downloads'),
       textField('File Cookies', st, 'cookiesFile', 'Đường dẫn file cookies.txt (tùy chọn)'),

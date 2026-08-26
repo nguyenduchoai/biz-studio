@@ -1,4 +1,4 @@
-<!-- release: v2.14.0-rc.1 -->
+<!-- release: v2.14.0-rc.2 -->
 
 ## Biz Studio giúp bạn làm video dễ hơn
 
@@ -16,6 +16,8 @@ gói để xuất bản.
   Biz Studio tự tìm cổng trống và mở đúng địa chỉ mới.
 - **Giữ dữ liệu riêng tư:** dự án và khóa cấu hình tiếp tục nằm trên máy của bạn;
   điện thoại chỉ được gửi tài nguyên, không điều khiển phần cài đặt hay tác vụ.
+- **Dùng đúng Claude Opus 5:** cài mới chọn sẵn Opus 5; cấu hình Opus 4.8 cũ
+  được nâng tự động để tránh lỗi khi bắt đầu phiên biên tập.
 
 ### Chọn bản tải về
 

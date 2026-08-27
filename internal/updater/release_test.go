@@ -27,7 +27,9 @@ func TestCheckAndPreparePrerelease(t *testing.T) {
 		case "/pkg":
 			_, _ = w.Write(pkg)
 		case "/sums":
-			fmt.Fprintf(w, "%s  BizStudio-windows-amd64.zip\n", hex.EncodeToString(sum[:]))
+			// build-release.sh chạy shasum trên glob ./..., đúng như manifest thật
+			// được tải từ GitHub Release.
+			fmt.Fprintf(w, "%s  ./BizStudio-windows-amd64.zip\n", hex.EncodeToString(sum[:]))
 		default:
 			http.NotFound(w, r)
 		}

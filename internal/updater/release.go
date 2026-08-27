@@ -259,7 +259,11 @@ func findAsset(assets []asset, name string) *asset {
 func checksumFor(manifest []byte, name string) (string, error) {
 	for _, line := range strings.Split(string(manifest), "\n") {
 		fields := strings.Fields(line)
-		if len(fields) >= 2 && strings.TrimPrefix(fields[1], "*") == name {
+		if len(fields) >= 2 {
+			manifestName := strings.TrimPrefix(strings.TrimPrefix(fields[1], "*"), "./")
+			if manifestName != name {
+				continue
+			}
 			if len(fields[0]) != 64 {
 				break
 			}

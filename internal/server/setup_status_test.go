@@ -16,3 +16,16 @@ func TestPythonVersionSupported(t *testing.T) {
 		}
 	}
 }
+
+func TestWindowsPythonCandidatesPrefer311Launcher(t *testing.T) {
+	candidates := pythonCandidates("windows")
+	if len(candidates) < 2 {
+		t.Fatalf("thiếu Python candidates: %#v", candidates)
+	}
+	if candidates[0].bin != "py" || len(candidates[0].args) < 1 || candidates[0].args[0] != "-3.11" {
+		t.Fatalf("candidate đầu = %#v, muốn py -3.11", candidates[0])
+	}
+	if candidates[1].bin != "py" || len(candidates[1].args) < 1 || candidates[1].args[0] != "-3" {
+		t.Fatalf("candidate dự phòng = %#v, muốn py -3", candidates[1])
+	}
+}

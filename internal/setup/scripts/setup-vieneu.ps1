@@ -12,38 +12,43 @@ $Venv = Join-Path $Data "vieneu\venv"
 Write-Host "🦜 Cài VieNeu-TTS vào $Venv …"
 New-Item -ItemType Directory -Force -Path (Join-Path $Data "vieneu") | Out-Null
 
-# py launcher là cách chuẩn trên Windows; python.exe trong Store lắm khi chỉ là
-# một cái stub mở Microsoft Store nên thử py trước.
+# Ưu tiên đúng Python 3.11 do bộ cài Full quản lý và loại Windows Store stub.
 $Py = $null
-foreach ($c in @(@("py", "-3"), @("python", ""), @("python3", ""))) {
+foreach ($c in @(@("py", "-3.11"), @("py", "-3"), @("python", ""), @("python3", ""))) {
   $bin = $c[0]
-  if (Get-Command $bin -ErrorAction SilentlyContinue) {
+  if (-not (Get-Command $bin -ErrorAction SilentlyContinue)) { continue }
+  $candidateArgs = @()
+  if ($c[1]) { $candidateArgs += $c[1] }
+  & $bin @candidateArgs -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) and sys.maxsize > 2**32 else 2)" 2>$null
+  if ($LASTEXITCODE -eq 0) {
     $Py = $c
     break
   }
 }
 if (-not $Py) {
-  Write-Error "❌ Cần Python 3.10+ — cài tại https://www.python.org/downloads/ (nhớ tích 'Add python.exe to PATH')"
+  Write-Error "❌ Cần Python 3.10+ 64-bit — cài tại https://www.python.org/downloads/ (nhớ tích 'Add python.exe to PATH')"
   exit 1
 }
 
 $pyArgs = @()
 if ($Py[1]) { $pyArgs += $Py[1] }
+$PythonInfo = & $Py[0] @pyArgs -c "import sys; print(sys.executable + ' | Python ' + '.'.join(map(str, sys.version_info[:3])))"
+Write-Host "✓ Đã nhận Python: $PythonInfo"
 & $Py[0] @pyArgs -m venv $Venv
 if ($LASTEXITCODE -ne 0) { Write-Error "❌ Tạo venv thất bại"; exit 1 }
 
 $VenvPy = Join-Path $Venv "Scripts\python.exe"
-$VenvPip = Join-Path $Venv "Scripts\pip.exe"
 
-& $VenvPip install --quiet --upgrade pip
+& $VenvPy -m pip install --quiet --upgrade pip
+if ($LASTEXITCODE -ne 0) { Write-Warning "Không nâng được pip; tiếp tục dùng pip hiện có trong venv." }
 Write-Host "→ pip install vieneu 3.2.3 (bản đã kiểm với Biz Studio)…"
-& $VenvPip install "vieneu==3.2.3"
+& $VenvPy -m pip install "vieneu==3.2.3"
 if ($LASTEXITCODE -ne 0) { Write-Error "❌ pip install vieneu thất bại"; exit 1 }
 
 # torch/torchaudio chỉ cần cho Clone voice (trích đặc trưng giọng từ clip mẫu).
 if ($env:SKIP_CLONE -ne "1") {
   Write-Host "→ pip install torch torchaudio (cho tính năng Clone voice, ~300 MB)…"
-  & $VenvPip install torch torchaudio
+  & $VenvPy -m pip install torch torchaudio
   if ($LASTEXITCODE -ne 0) { Write-Error "❌ pip install torch thất bại"; exit 1 }
 } else {
   Write-Host "→ Bỏ qua torch/torchaudio — Clone voice sẽ không dùng được."

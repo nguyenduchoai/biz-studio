@@ -47,7 +47,7 @@ func Tools() []Tool {
 			Manual: "https://www.python.org/downloads/", Full: true,
 			script: "setup-vieneu", aliases: []string{"tts", "giọng"}},
 		{ID: "whisper", Label: "faster-whisper", Desc: "Bóc băng offline có mốc từng từ (cho phụ đề karaoke).",
-			Manual: "https://www.python.org/downloads/", Full: true,
+			Manual: "https://pypi.org/project/faster-whisper/", Full: true,
 			script: "setup-whisper", aliases: []string{"asr"}},
 	}
 	for i := range tools {

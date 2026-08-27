@@ -70,16 +70,33 @@ func checkFFmpeg(ctx context.Context) toolCheck {
 	return toolCheck{OK: true, Detail: ffmpeg.Detail + " · ffprobe OK"}
 }
 
+type pythonCandidate struct {
+	bin  string
+	args []string
+}
+
+func pythonCandidates(goos string) []pythonCandidate {
+	if goos == "windows" {
+		return []pythonCandidate{
+			{bin: "py", args: []string{"-3.11", "--version"}},
+			{bin: "py", args: []string{"-3", "--version"}},
+			{bin: "python3", args: []string{"--version"}},
+			{bin: "python", args: []string{"--version"}},
+		}
+	}
+	return []pythonCandidate{
+		{bin: "python3", args: []string{"--version"}},
+		{bin: "python", args: []string{"--version"}},
+	}
+}
+
 func checkPython(ctx context.Context) toolCheck {
-	type candidate struct {
-		bin  string
-		args []string
-	}
-	candidates := []candidate{{"python3", []string{"--version"}}, {"python", []string{"--version"}}}
 	if runtime.GOOS == "windows" {
-		candidates = append([]candidate{{"py", []string{"-3", "--version"}}}, candidates...)
+		// Python vừa được WinGet/bộ cài tay thêm vào registry nhưng process Biz
+		// Studio đang chạy chưa tự nhận PATH mới.
+		util.AugmentPATH()
 	}
-	for _, c := range candidates {
+	for _, c := range pythonCandidates(runtime.GOOS) {
 		if !util.Exists(c.bin) {
 			continue
 		}
@@ -88,7 +105,7 @@ func checkPython(ctx context.Context) toolCheck {
 			return res
 		}
 	}
-	return toolCheck{Detail: "cần Python 3.10 trở lên (bộ cài Full dùng Python 3.11)"}
+	return toolCheck{Detail: "cần Python 3.10 trở lên, bản 64-bit (bộ cài Full dùng Python 3.11)"}
 }
 
 func pythonVersionSupported(version string) bool {

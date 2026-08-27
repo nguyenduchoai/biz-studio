@@ -24,7 +24,15 @@ import (
 // In NDJSON từng segment ra stdout để Go báo tiến độ khi file dài.
 const whisperRunner = `#!/usr/bin/env python3
 # Runner faster-whisper cho Biz Studio (tu sinh — dung sua tay).
-import argparse, json, sys
+import argparse, json, os, sys
+
+# Windows 10, antivirus và proxy doanh nghiệp thường chặn Xet hoặc symlink.
+# Dùng đường HTTP chuẩn của Hugging Face và cho mạng chậm thêm thời gian.
+if sys.platform == "win32":
+    os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+    os.environ.setdefault("HF_HUB_ETAG_TIMEOUT", "30")
+    os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "60")
 
 def emit(obj):
     sys.stdout.write(json.dumps(obj, ensure_ascii=False) + "\n")

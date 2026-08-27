@@ -36,6 +36,17 @@ jobs:
           Get-ChildItem web/static/js -Recurse -Filter *.js |
             ForEach-Object { node --check $_.FullName }
 
+      - name: Windows Python and Whisper installer smoke
+        shell: pwsh
+        run: |
+          $data = Join-Path $env:RUNNER_TEMP "bizstudio-whisper-setup"
+          $env:WHISPER_MODEL = "__bizstudio_missing_model__"
+          & ./internal/setup/scripts/setup-whisper.ps1 $data
+          if ($LASTEXITCODE -ne 0) { throw "Whisper installer failed" }
+          $python = Join-Path $data "whisper/venv/Scripts/python.exe"
+          & $python -c "import faster_whisper, importlib.metadata as m; print(m.version('faster-whisper'))"
+          if ($LASTEXITCODE -ne 0) { throw "Whisper venv is not importable" }
+
       - name: Build both Windows executables
         shell: pwsh
         run: |

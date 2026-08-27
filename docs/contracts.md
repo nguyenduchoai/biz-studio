@@ -575,7 +575,7 @@ CLI tương đương: `bizstudio setup [<công-cụ>] [--update] [--dry-run] [--
 Không có tham số = liệt kê. Thiếu brew/winget trả `kind: "dependency"` (exit 3).
 
 ### scripts/setup-whisper.sh
-Tạo venv `data/whisper/venv`, `pip install faster-whisper`, tải sẵn model theo `WhisperModel`, in hướng dẫn. Bỏ qua model bằng `SKIP_MODEL=1`.
+Tạo venv `data/whisper/venv`, `pip install faster-whisper`, kiểm tra import và tải sẵn model. Tải model là bước tối ưu best-effort: nếu mạng/proxy chặn thì bộ cài vẫn hoàn tất và lần bóc băng đầu sẽ tải lại. Bỏ qua model bằng `SKIP_MODEL=1`.
 
 ### internal/media — AutoCut v2
 `AutoCutGuarded(ctx, src, dst string, tr *whisper.Transcript, opt AutoCutOpt, upd) (Report, error)`

@@ -533,8 +533,19 @@ Chỉ kiểm tra CỤC BỘ (`--version`, import trong venv), không gọi mạn
 hình gọi ngay khi mở.
 
 `GET /api/setup/full/plan` → `planID` dùng một lần/hết hạn 5 phút, danh sách thành
-phần Full còn thiếu + toàn bộ status, `needsSetup`, `needsLogin`, `running`.
+phần Full còn thiếu + toàn bộ status, `needsSetup`, `needsLogin`, `running`,
+`windowsPreparing`, và
+`windows {supported, winGetReady, firewallReady, networkReady, phoneReady,
+networkCategory, needsPreparation, ruleName, detail}`.
 Đây là preflight/consent data bất biến của lượt wizard.
+
+`GET /api/setup/windows/status` → kiểm tra WinGet, rule Firewall của đúng binary
+hiện tại và loại mạng đang dùng. Không tự đổi mạng Public sang Private.
+
+`POST /api/setup/windows/firewall` body `{confirmed:true}` → chạy PowerShell hệ
+thống qua UAC, thay rule cũ cùng tên bằng rule Inbound/Allow/TCP chỉ cho đúng
+`Biz Studio.exe` trên profile Private/Domain, rồi đọc lại để xác minh. Control
+listener vẫn chỉ bind `127.0.0.1`; rule không biến route quản trị thành LAN API.
 
 `POST /api/setup/full` body `{planID, confirmed:true}` → `202`, chạy tuần tự Git → Python → FFmpeg → yt-dlp →
 browser → Claude CLI → VieNeu → Whisper. Chỉ cài thành phần thiếu; dừng ở lỗi

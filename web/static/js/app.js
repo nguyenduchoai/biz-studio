@@ -292,13 +292,19 @@
         route();
       }
     };
-	if (!window.SetupWizard || parseHash().id === 'setup' || !SetupWizard.firstRunNeeded()) {
+	if (!window.SetupWizard || parseHash().id === 'setup') {
 	  openRequestedPage();
 	  return;
 	}
 	API.get('/api/instance').then(function (instance) {
-	  if (instance && instance.wizardEnabled) location.hash = '#/setup';
-	  else openRequestedPage();
+	  if (!instance || !instance.wizardEnabled) { openRequestedPage(); return; }
+	  if (SetupWizard.firstRunNeeded()) { location.hash = '#/setup'; return; }
+	  // Kiểm tra nhẹ mỗi lần mở: portable EXE có thể đã bị di chuyển, làm rule
+	  // Firewall cũ không còn khớp dù wizard từng hoàn tất.
+	  API.get('/api/setup/windows/status').then(function (status) {
+		if (status && status.needsPreparation) location.hash = '#/setup';
+		else openRequestedPage();
+	  }).catch(openRequestedPage);
 	}).catch(openRequestedPage);
   }
 

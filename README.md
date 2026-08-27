@@ -40,7 +40,9 @@ Tải gói phù hợp tại trang [GitHub Releases](../../releases):
 
 ### Windows
 
-Giải nén ZIP rồi bấm đúp **Biz Studio.exe**. Lần đầu mở, chọn **Cài đầy đủ thành phần còn thiếu**. Ứng dụng kiểm tra và cài Git, Python, FFmpeg, yt-dlp, trình duyệt, Claude CLI, VieNeu-TTS và faster-whisper bằng trình quản lý gói của máy.
+Giải nén ZIP rồi bấm đúp **Biz Studio.exe**. Ở lần mở đầu, Biz Studio kiểm tra App Installer/WinGet, xin quyền Windows khi cần để điện thoại gửi file qua mạng Private và cài các thành phần còn thiếu. Rule Firewall chỉ áp dụng cho đúng file **Biz Studio.exe** trên mạng Private/Domain.
+
+Nếu máy chưa có WinGet, bấm **Cài App Installer / WinGet**, cài từ Microsoft rồi mở lại Biz Studio. Không cần tắt Windows Firewall; nếu Wi-Fi đang để Public, đổi thuộc tính mạng sang Private trước khi quét QR.
 
 Đăng nhập Claude là bước riêng: mở PowerShell và chạy `claude auth login`. Biz Studio không nhận hoặc lưu thông tin đăng nhập Claude.
 
@@ -106,7 +108,7 @@ data/
 | Claude chưa chạy | Chạy `claude --version`, sau đó `claude auth login` |
 | Tải video lỗi 403 | Vào Cấu hình & API → Công cụ trên máy → cập nhật yt-dlp |
 | Cổng 6868 đang bận | Ứng dụng tự chọn cổng trống; nếu cần xem lỗi, chạy `bizstudio.exe -window=false` |
-| QR không mở trên điện thoại | Hai thiết bị phải cùng Wi-Fi và firewall phải cho phép cổng mobile đang hiển thị |
+| QR không mở trên điện thoại | Hai thiết bị phải cùng Wi-Fi; trên Windows hãy để mạng là Private rồi mở lại Biz Studio để kiểm tra Firewall |
 | VieNeu/Whisper chưa sẵn sàng | Bấm Cài tại Cấu hình & API → Công cụ trên máy |
 | Timeline dựng khác lúc nghe thử | Bấm Lưu; nút Dựng video cũng tự lưu trước khi chạy |
 

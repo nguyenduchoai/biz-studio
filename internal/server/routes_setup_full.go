@@ -27,18 +27,16 @@ func (s *Server) handleSetupFullPlan(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
 	statuses := s.setupStatuses(ctx)
+	windows := setup.CheckWindowsReadiness(ctx)
 	selected := make([]toolStatus, 0, len(statuses))
 	needsLogin := false
-	running := false
+	running := fullSetupPlanRunning(statuses)
 	for _, status := range statuses {
 		if status.Full && !status.Installed {
 			selected = append(selected, status)
 		}
 		if status.ID == "claude" && status.NeedsLogin {
 			needsLogin = true
-		}
-		if status.Running {
-			running = true
 		}
 	}
 	planID := ""
@@ -50,14 +48,28 @@ func (s *Server) handleSetupFullPlan(w http.ResponseWriter, r *http.Request) {
 		planID = s.createFullSetupGrant(ids, time.Now())
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"planID":     planID,
-		"tools":      selected,
-		"statuses":   statuses,
-		"needsLogin": needsLogin,
-		"needsSetup": len(selected) > 0 || needsLogin,
-		"running":    running,
-		"note":       "Chỉ cài thành phần còn thiếu. VieNeu và Whisper có thể tải model lớn; Claude đăng nhập riêng sau khi cài.",
+		"planID":           planID,
+		"tools":            selected,
+		"statuses":         statuses,
+		"needsLogin":       needsLogin,
+		"needsSetup":       len(selected) > 0 || needsLogin || windows.NeedsPreparation,
+		"running":          running,
+		"windowsPreparing": setupIsRunning(windowsPrepareID),
+		"windows":          windows,
+		"note":             "Chỉ cài thành phần còn thiếu. VieNeu và Whisper có thể tải model lớn; Claude đăng nhập riêng sau khi cài.",
 	})
+}
+
+func fullSetupPlanRunning(statuses []toolStatus) bool {
+	if setupIsRunning(windowsPrepareID) {
+		return true
+	}
+	for _, status := range statuses {
+		if status.Running {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) handleSetupFullRun(w http.ResponseWriter, r *http.Request) {

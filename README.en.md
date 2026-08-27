@@ -38,7 +38,9 @@ Download the appropriate package from [GitHub Releases](../../releases):
 | Linux 64-bit | `BizStudio-linux-amd64.tar.gz` |
 | Linux ARM64 | `BizStudio-linux-arm64.tar.gz` |
 
-On Windows, unzip the package and open **Biz Studio.exe**. The first-run wizard can install missing Git, Python, FFmpeg, yt-dlp, browser, Claude CLI, VieNeu-TTS, and faster-whisper components.
+On Windows, unzip the package and open **Biz Studio.exe**. The first-run wizard checks App Installer/WinGet, requests UAC approval when needed so phones can upload on Private networks, and installs missing components. The firewall rule is limited to the exact **Biz Studio.exe** path and Private/Domain profiles.
+
+If WinGet is unavailable, use **Install App Installer / WinGet**, install it from Microsoft, then reopen Biz Studio. Keep Windows Firewall enabled and set the current Wi-Fi network to Private before scanning a QR code.
 
 Claude sign-in remains a separate user-controlled step: run `claude auth login`. Biz Studio never receives or stores Claude credentials.
 

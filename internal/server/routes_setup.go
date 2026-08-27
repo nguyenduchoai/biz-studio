@@ -36,6 +36,8 @@ func (s *Server) routesSetup(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/setup/tools", s.handleSetupTools)
 	mux.HandleFunc("GET /api/setup/full/plan", s.handleSetupFullPlan)
 	mux.HandleFunc("POST /api/setup/full", s.handleSetupFullRun)
+	mux.HandleFunc("GET /api/setup/windows/status", s.handleWindowsSetupStatus)
+	mux.HandleFunc("POST /api/setup/windows/firewall", s.handleWindowsFirewallSetup)
 
 	// POST /api/setup/{id}?action=install|update — chạy nền, tiến trình phát qua
 	// SSE. Trả ngay để trình duyệt không phải giữ một kết nối treo 30 phút.

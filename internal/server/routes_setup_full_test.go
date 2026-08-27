@@ -21,3 +21,14 @@ func TestFullSetupGrantIsExactOneTimeAndExpires(t *testing.T) {
 		t.Fatal("grant hết hạn vẫn dùng được")
 	}
 }
+
+func TestFullSetupPlanReportsWindowsPreparationAsRunning(t *testing.T) {
+	_, cancel, ok := beginSetup(windowsPrepareID, time.Minute)
+	if !ok {
+		t.Fatal("không tạo được lượt chuẩn bị Windows")
+	}
+	defer endSetup(windowsPrepareID, cancel)
+	if !fullSetupPlanRunning(nil) {
+		t.Fatal("plan không báo running khi cửa sổ UAC đang chờ")
+	}
+}

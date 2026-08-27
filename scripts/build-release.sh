@@ -150,7 +150,9 @@ make_app amd64
 # Tạo sau CẢ Windows/Linux/macOS để manifest không bỏ sót DMG. Basename tương
 # đối giúp `cd dist && shasum -a 256 -c SHA256SUMS.txt` chạy được ở máy nhận.
 (cd dist && : > SHA256SUMS.txt && for artifact in ./*.zip ./*.tar.gz ./*.dmg; do
-  [ -f "$artifact" ] && shasum -a 256 "$artifact" >> SHA256SUMS.txt
+  [ -f "$artifact" ] || continue
+  # Không ghi tiền tố "./" để cả bộ cập nhật của RC3 cũng đọc được manifest.
+  shasum -a 256 "${artifact#./}" >> SHA256SUMS.txt
 done)
 
 # Dọn thư mục trung gian, giữ artifact

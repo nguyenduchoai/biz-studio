@@ -8,6 +8,8 @@ param([string]$Data = "data")
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $false   # tự kiểm tra $LASTEXITCODE
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
+$env:PYTHONUTF8 = "1"
+$env:PYTHONIOENCODING = "utf-8"
 
 $Venv = Join-Path $Data "whisper\venv"
 $Models = Join-Path $Data "whisper\models"

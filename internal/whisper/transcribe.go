@@ -133,6 +133,9 @@ func runStreaming(ctx context.Context, bin string, argv []string,
 	upd func(float64, string)) (*Transcript, error) {
 
 	cmd := exec.CommandContext(ctx, bin, argv...)
+	// Windows 10 thường mặc định stdout Python là cp1252. Transcript tiếng Việt
+	// và NDJSON phải luôn đi qua pipe bằng UTF-8 để không vỡ giữa chừng.
+	cmd.Env = pythonUTF8Env(os.Environ())
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, fmt.Errorf("không mở được luồng kết quả: %w", err)
@@ -172,6 +175,10 @@ func runStreaming(ctx context.Context, bin string, argv []string,
 		return acc, nil
 	}
 	return nil, nil
+}
+
+func pythonUTF8Env(base []string) []string {
+	return append(base, "PYTHONUTF8=1", "PYTHONIOENCODING=utf-8")
 }
 
 // applyLine xử lý 1 dòng NDJSON: cập nhật transcript tích luỹ + tiến độ.

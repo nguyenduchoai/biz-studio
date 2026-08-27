@@ -59,6 +59,7 @@ func runStep(ctx context.Context, s Step, onLine func(string)) error {
 	// nếu không người dùng nhận được một mớ mã ANSI trong ô nhật ký.
 	cmd.Env = append(cmd.Env,
 		"NO_COLOR=1", "TERM=dumb", "PYTHONUNBUFFERED=1",
+		"PYTHONUTF8=1", "PYTHONIOENCODING=utf-8",
 		"PIP_PROGRESS_BAR=off", "PIP_DISABLE_PIP_VERSION_CHECK=1",
 		"HOMEBREW_NO_AUTO_UPDATE=1", "HOMEBREW_NO_COLOR=1", "HOMEBREW_NO_ENV_HINTS=1",
 		"DEBIAN_FRONTEND=noninteractive")

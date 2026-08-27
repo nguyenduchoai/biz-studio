@@ -18,6 +18,8 @@ func TestWindowsPythonScriptsValidateInterpreterAndPrefer311(t *testing.T) {
 			`sys.maxsize > 2**32`,
 			`$VenvPy -m pip`,
 			`Python 3.10+ 64-bit`,
+			`$env:PYTHONUTF8 = "1"`,
+			`$env:PYTHONIOENCODING = "utf-8"`,
 		} {
 			if !strings.Contains(script, want) {
 				t.Errorf("%s thiếu %q", name, want)

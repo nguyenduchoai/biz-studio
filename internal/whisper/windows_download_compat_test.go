@@ -16,3 +16,12 @@ func TestRunnerUsesWindowsFriendlyHubDownloadSettings(t *testing.T) {
 		}
 	}
 }
+
+func TestStreamingForcesPythonUTF8ForWindowsTranscript(t *testing.T) {
+	env := strings.Join(pythonUTF8Env([]string{"PATH=test"}), "\n")
+	for _, want := range []string{"PYTHONUTF8=1", "PYTHONIOENCODING=utf-8"} {
+		if !strings.Contains(env, want) {
+			t.Errorf("runStreaming thiếu %s", want)
+		}
+	}
+}

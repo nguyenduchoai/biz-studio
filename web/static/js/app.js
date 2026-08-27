@@ -8,31 +8,31 @@
   function TR(s) { return (window.I18N && window.I18N.t) ? window.I18N.t(s) : s; }
 
   var NAV = [
-    { group: 'BẢNG ĐIỀU KHIỂN', items: [
-      { id: 'dashboard', label: 'Tổng quan', icon: '📊' }
+    { group: 'BẮT ĐẦU', items: [
+      { id: 'dashboard', label: 'Tổng quan', icon: '📊' },
+      { id: 'projects', label: 'Dự án', icon: '📁' },
+      { id: 'studio', label: 'Xưởng làm sẵn', icon: '🧰' }
     ]},
-    { group: 'MODULE SÁNG TẠO', items: [
-      { id: 'studio', label: 'Xưởng làm sẵn', icon: '🧰' },
+    { group: 'TẠO NỘI DUNG', items: [
+      { id: 'ideas', label: 'Ý tưởng & Hàng đợi', icon: '💡' },
+      { id: 'text2video', label: 'Text → Video', icon: '📜' },
+      { id: 'article', label: 'Bài viết → Video', icon: '📰' },
+      { id: 'htmlvideo', label: 'HTML Video', icon: '🧩' },
+      { id: 'vox', label: 'Vox-Director', icon: '🎬' }
+    ]},
+    { group: 'BIÊN TẬP & ÂM THANH', items: [
+      { id: 'editor', label: 'Biên tập video', icon: '🎚️' },
       { id: 'download', label: 'Tải Video', icon: '⬇️' },
       { id: 'ocr', label: 'OCR / ASR', icon: '📝' },
       { id: 'translate', label: 'Dịch thuật', icon: '🌐' },
       { id: 'tts', label: 'TTS / Giọng đọc', icon: '🎙️' },
-      { id: 'article', label: 'Bài viết → Video', icon: '📰' },
-      { id: 'vox', label: 'Vox-Director', icon: '🎬' },
-      { id: 'htmlvideo', label: 'HTML Video', icon: '🧩' },
-      { id: 'text2video', label: 'Text → Video', icon: '📜' },
+      { id: 'look', label: 'Diện mạo', icon: '🌈' }
+    ]},
+    { group: 'THƯ VIỆN', items: [
       { id: 'stylekit', label: 'Style Kit', icon: '🎨' },
-      { id: 'characters', label: 'Nhân vật', icon: '🧑‍🎤' },
-      { id: 'ideas', label: 'Ý tưởng & Hàng đợi', icon: '💡' },
-      { id: 'look', label: 'Diện mạo', icon: '🌈' },
-      { id: 'veo', label: 'Veo — Sinh video AI', icon: '🎥' },
-      { id: 'avatar', label: 'Avatar nói', icon: '🗣️' },
-      { id: 'recap', label: 'Phim → Kể chuyện', icon: '🎞️' },
-      { id: 'editor', label: 'Studio Editor', icon: '✂️' },
-      { id: 'timeline', label: 'Timeline nhiều lớp', icon: '🎚️' }
+      { id: 'characters', label: 'Nhân vật', icon: '🧑‍🎤' }
     ]},
     { group: 'HỆ THỐNG', items: [
-      { id: 'projects', label: 'Dự án', icon: '📁' },
       { id: 'settings', label: 'Cấu hình & API', icon: '⚙️' },
       { id: 'logs', label: 'Nhật ký', icon: '🧾' }
     ]}
@@ -94,6 +94,11 @@
 
   function route() {
     var r = parseHash();
+    // Giữ link cũ nhưng gom Editor và Timeline về đúng một màn hình.
+    if (r.id === 'timeline') {
+      r.id = 'editor';
+      history.replaceState(null, '', '#/editor' + (r.param ? '/' + encodeURIComponent(r.param) : ''));
+    }
     if (typeof App._cleanup === 'function') {
       try { App._cleanup(); } catch (e) { console.error('Lỗi cleanup trang cũ:', e); }
     }
@@ -228,6 +233,55 @@
     });
   }
 
+  // ---------- Cập nhật từ GitHub Release ----------
+
+  function checkForUpdate() {
+    API.get('/api/update').then(function (info) {
+      if (!info || !info.available) return;
+      showUpdateBanner(info);
+    }).catch(function (err) {
+      // Mất mạng không được làm phiền luồng dựng video. Người dùng vẫn có thể
+      // xem lỗi kết nối trong Nhật ký nếu cần.
+      console.info('Không kiểm tra được bản cập nhật:', err.message);
+    });
+  }
+
+  function showUpdateBanner(info) {
+    var banner = $('updateBanner');
+    banner.hidden = false;
+    banner.innerHTML = '';
+    var textHost = h('div', { class: 'update-banner-text' },
+      h('b', null, TR('Có bản cập nhật Biz Studio') + ' ' + info.version),
+      h('span', null, 'Bản mới sẽ được tải đúng cho máy này và kiểm tra an toàn trước khi cài.'));
+    var install = UI.btn(info.ready ? 'Cài & khởi động lại' : 'Cập nhật ngay', {
+      small: true,
+      onclick: function () {
+        install.disabled = true;
+        install.textContent = info.ready ? 'Đang khởi động lại…' : 'Đang tải và kiểm tra…';
+        var prepare = info.ready ? Promise.resolve(info) : API.post('/api/update/download');
+        prepare.then(function (ready) {
+          info = ready;
+          install.textContent = 'Đang cài bản mới…';
+          return API.post('/api/update/apply');
+        }).then(function () {
+          install.textContent = 'Đang khởi động lại…';
+        }).catch(function (err) {
+          install.disabled = false;
+          install.textContent = 'Thử cập nhật lại';
+          UI.toast('Cập nhật thất bại: ' + err.message, 'error');
+        });
+      }
+    });
+    var later = UI.btn('Để sau', {
+      variant: 'ghost', small: true,
+      onclick: function () { banner.hidden = true; }
+    });
+    banner.appendChild(textHost);
+    banner.appendChild(h('div', { class: 'row', style: { flexWrap: 'nowrap' } },
+      h('a', { class: 'btn btn-ghost btn-sm', href: info.releaseUrl, target: '_blank', rel: 'noopener' }, 'Xem bản mới'),
+      later, install));
+  }
+
   // ---------- Init ----------
 
   function initialRoute() {
@@ -254,8 +308,9 @@
     initLang();
     $('settingsBtn').onclick = function () { App.navigate('settings'); };
     window.addEventListener('hashchange', route);
-	initialRoute();
+    initialRoute();
     pollState();
     setInterval(pollState, 5000);
+    setTimeout(checkForUpdate, 1200);
   });
 })();

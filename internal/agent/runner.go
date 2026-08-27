@@ -158,9 +158,6 @@ func (r *Runner) buildCmd(projectID, prompt, resumeID string) (*exec.Cmd, io.Rea
 		"--allowedTools", "Read,Write,Edit,Glob,Grep,Bash(ffmpeg *),Bash(ffprobe *),Bash(mkdir *),Bash(cp *),Bash(mv *)",
 		"--disallowedTools", "WebFetch,WebSearch",
 	}
-	if cfg.ClaudeModel != "" {
-		args = append(args, "--model", cfg.ClaudeModel)
-	}
 	if resumeID != "" {
 		args = append(args, "--resume", resumeID)
 	}

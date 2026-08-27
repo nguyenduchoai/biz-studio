@@ -13,6 +13,7 @@ import (
 
 	"bizstudio/internal/jobs"
 	"bizstudio/internal/store"
+	"bizstudio/internal/updater"
 	"bizstudio/internal/util"
 )
 
@@ -33,6 +34,7 @@ type Server struct {
 	mobileUploads chan struct{}
 	setupPlanMu   sync.Mutex
 	setupPlans    map[string]fullSetupGrant
+	Updater       *updater.Manager
 }
 
 func New(st *store.Store, dataDir string, port, mobilePort int) *Server {
@@ -50,6 +52,7 @@ func New(st *store.Store, dataDir string, port, mobilePort int) *Server {
 		mobileUsed:    make(map[string]time.Time),
 		mobileUploads: make(chan struct{}, 2),
 		setupPlans:    make(map[string]fullSetupGrant),
+		Updater:       updater.New(Version, abs),
 	}
 	s.Jobs = jobs.New(st, s.Hub.Broadcast)
 
@@ -57,15 +60,13 @@ func New(st *store.Store, dataDir string, port, mobilePort int) *Server {
 	s.routesStatic(s.mux)
 	s.routesSettings(s.mux)
 	s.routesSetup(s.mux)
+	s.routesUpdate(s.mux)
 	s.routesProjects(s.mux)
 	s.routesAssets(s.mux)
 	s.routesSessions(s.mux)
 	s.routesTools(s.mux)
 	s.routesLook(s.mux)
-	s.routesVeo(s.mux)
-	s.routesAvatar(s.mux)
 	s.routesModels(s.mux)
-	s.routesRecap(s.mux)
 	s.routesCharsBible(s.mux)
 	s.routesStudio(s.mux)
 	s.routesHighlight(s.mux)

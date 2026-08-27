@@ -31,7 +31,6 @@ type ModelGroups struct {
 	Text  []ModelInfo `json:"text"`  // sinh văn bản (tách cảnh, dịch, viết kịch bản)
 	Image []ModelInfo `json:"image"` // sinh ảnh (storyboard, thumbnail)
 	TTS   []ModelInfo `json:"tts"`   // đọc giọng
-	Video []ModelInfo `json:"video"` // sinh video (Veo)
 	Total int         `json:"total"`
 }
 
@@ -100,8 +99,6 @@ func (c *Client) ListModels(ctx context.Context) (ModelGroups, error) {
 	out.Total = len(all)
 	for _, m := range all {
 		switch {
-		case has(m.Methods, "predictLongRunning"):
-			out.Video = append(out.Video, m)
 		case isTTS(m):
 			out.TTS = append(out.TTS, m)
 		case isImage(m):
@@ -113,7 +110,6 @@ func (c *Client) ListModels(ctx context.Context) (ModelGroups, error) {
 	sortNewestFirst(out.Text)
 	sortNewestFirst(out.Image)
 	sortNewestFirst(out.TTS)
-	sortNewestFirst(out.Video)
 	return out, nil
 }
 
@@ -137,7 +133,7 @@ func has(list []string, want string) bool {
 
 // sortNewestFirst xếp model theo thứ tự hữu ích cho người chọn:
 //
-//  1. Dòng model — gemini/veo trước, imagen sau, gemma và model lạ cuối.
+//  1. Dòng model — gemini trước, imagen sau, gemma và model lạ cuối.
 //     So số phiên bản giữa hai dòng khác nhau là vô nghĩa: gemma-4 không hề
 //     mới hơn hay mạnh hơn gemini-3.6, chỉ là đánh số riêng.
 //  2. Bí danh "-latest" lên đầu dòng của nó — đây là lựa chọn an toàn nhất cho
@@ -165,7 +161,7 @@ func sortNewestFirst(ms []ModelInfo) {
 // familyRank — dòng model nào nên hiện trước.
 func familyRank(id string) int {
 	switch {
-	case strings.HasPrefix(id, "gemini-"), strings.HasPrefix(id, "veo-"):
+	case strings.HasPrefix(id, "gemini-"):
 		return 3
 	case strings.HasPrefix(id, "imagen-"):
 		return 2

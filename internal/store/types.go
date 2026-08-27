@@ -291,28 +291,6 @@ type LogEntry struct {
 type Settings struct {
 	GeminiAPIKey string `json:"geminiApiKey"`
 
-	// Veo — sinh video bằng AI. Đây là tính năng TRẢ PHÍ TÍNH THEO GIÂY trên
-	// khoá Google của người dùng, nên tách riêng khoá: người dùng có thể để
-	// khoá Veo ở một dự án Google đã bật thanh toán, khác khoá Gemini thường.
-	// Rỗng = dùng lại GeminiAPIKey.
-	VeoAPIKey     string `json:"veoApiKey"`
-	VeoModel      string `json:"veoModel"`      // rỗng = veo-3.1-fast-generate-preview
-	VeoResolution string `json:"veoResolution"` // 720p | 1080p | 4k
-	VeoSeconds    int    `json:"veoSeconds"`    // 4 | 6 | 8
-
-	// LongCat — dựng video người nói từ ảnh + giọng (LongCat-Video-Avatar).
-	// Model 13,6 tỉ tham số, BẮT BUỘC GPU NVIDIA — không có bản cho Apple
-	// Silicon hay CPU. Nên có hai chế độ: chạy ngay trên máy có GPU (local),
-	// hoặc đẩy việc sang máy GPU khác đang chạy scripts/longcat-worker.py
-	// (remote) — máy cá nhân làm bàn điều khiển, máy GPU làm xưởng render.
-	LongCatMode       string `json:"longcatMode"`       // "" tắt | local | remote
-	LongCatPython     string `json:"longcatPython"`     // rỗng = dò venv cạnh mã nguồn
-	LongCatRepo       string `json:"longcatRepo"`       // thư mục mã nguồn LongCat-Video
-	LongCatCheckpoint string `json:"longcatCheckpoint"` // thư mục trọng số model
-	LongCatWorkerURL  string `json:"longcatWorkerUrl"`  // vd http://192.168.1.50:7070
-	LongCatGPUs       int    `json:"longcatGpus"`       // số GPU, 0 = 1
-	LongCatInt8       bool   `json:"longcatInt8"`       // nén INT8 cho đỡ VRAM
-
 	GeminiBase  string `json:"geminiBase"`
 	GeminiModel string `json:"geminiModel"`
 
@@ -324,7 +302,6 @@ type Settings struct {
 	GeminiTTSModel   string `json:"geminiTtsModel"`   // rỗng = gemini-2.5-flash-preview-tts
 
 	ClaudeBin            string `json:"claudeBin"`
-	ClaudeModel          string `json:"claudeModel"`
 	YtdlpBin             string `json:"ytdlpBin"`
 	DownloadDir          string `json:"downloadDir"`
 	CookiesFile          string `json:"cookiesFile"`

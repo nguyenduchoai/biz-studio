@@ -121,7 +121,7 @@ KHÔNG dùng framework/CDN. ES modules KHÔNG dùng — script thường theo th
 - `Bus.on(event, fn)` / `Bus.off(event, fn)` — SSE events: `job`, `session_event`, `session`, `log`.
 - `UI.*` helpers: `h(tag, attrs, ...children)` (attrs: class, onclick, value...; children: node|string), `UI.card({title, desc, icon, body, foot})`, `UI.btn(label, {variant:'primary|ghost|danger', icon, onclick, small})`, `UI.toggle(label, desc, checked, onchange)`, `UI.slider(label, {min,max,step,value,oninput})`, `UI.select(label, options[{value,label}], value, onchange)`, `UI.field(label, inputEl)`, `UI.input({value,placeholder,type,oninput})`, `UI.textarea({...})`, `UI.dropzone({hint, accept, multiple, onfiles})`, `UI.table(cols[{key,label,w}], rows[], renderCell?)`, `UI.chip(text, {onremove})`, `UI.progress(pct)`, `UI.toast(msg, type)`, `UI.modal({title, body, actions})`, `UI.empty(msg)`, `UI.fmtBytes(n)`, `UI.fmtDur(s)`, `UI.timeAgo(iso)`.
 - Đăng ký trang: `App.pages['<id>'] = { title:'...', subtitle:'...', render(el, param){...} }`. Router hash: `#/<id>` hoặc `#/<id>/<param>` (vd `#/projects/prj_x`).
-- Nav (app.js quản lý, id trang): `dashboard` Tổng quan; nhóm MODULE SÁNG TẠO: `download` Tải Video, `ocr` OCR / ASR, `translate` Dịch thuật, `tts` TTS / Giọng đọc, `article` Bài viết → Video, `vox` Vox-Director, `editor` Studio Editor; nhóm HỆ THỐNG: `projects` Dự án, `settings` Cấu hình & API, `logs` Nhật ký. Trang `prompts` (Quản lý prompt) không nằm nav, mở qua `#/prompts`.
+- Nav (app.js quản lý): Bắt đầu (`dashboard`, `projects`, `studio`); Tạo nội dung (`ideas`, `text2video`, `article`, `htmlvideo`, `vox`); Biên tập & âm thanh (`editor`, `download`, `ocr`, `translate`, `tts`, `look`); Thư viện (`stylekit`, `characters`); Hệ thống (`settings`, `logs`). Link cũ `#/timeline[/project]` được chuyển sang `#/editor[/project]`. Trang `prompts` không nằm nav, mở qua `#/prompts`.
 
 ### Design tokens (nova.css `:root`)
 `--blue:#2563EB; --blue-h:#1D4ED8; --green:#10B981; --red:#EF4444; --amber:#F59E0B; --bg:#F5F7FB; --card:#FFF; --border:#E5EAF2; --text:#0F172A; --muted:#64748B; --r-card:14px; --r-input:10px; --sidebar-w:230px; --statusbar-h:38px;` Dark theme: `[data-theme=dark]` đổi bg #0B1220, card #111A2C, border #1E293B, text #E2E8F0, muted #94A3B8. Font: Inter, -apple-system, sans-serif. Layout: `.shell{display:grid;grid-template-columns:var(--sidebar-w) 1fr}`, header module (title+subtitle+actions), `.workspace` scroll, status bar cố định đáy hiển thị trạng thái + CPU/RAM/Disk (poll /api/state 5s) + chấm xanh "Backend hoạt động".
@@ -211,7 +211,7 @@ Thư mục dữ liệu phiên: `data/text2video/<sessionID>/` — `seg-<i>.wav`,
 
 ### internal/text2video
 - `FetchArticle(ctx, url string) (title, text string, err error)` — GET (User-Agent trình duyệt, timeout 30s, giới hạn 5MB), bóc text: ưu tiên `<article>`/`<main>`, bỏ `<script>/<style>/<nav>/<footer>/<header>/<aside>`, giải mã HTML entity, gộp khoảng trắng, giữ xuống dòng giữa các block; lỗi HTTP/khác HTML → lỗi tiếng Việt rõ.
-- `WriteScript(ctx, st, src string, engine, model string, targetSeconds int) ([]store.T2VSegment, error)` — prompt tiếng Việt: viết kịch bản ĐỌC (văn nói tự nhiên, không markdown/emoji/ký hiệu), chia thành các đoạn 1–3 câu, mỗi đoạn 1 ý; nếu targetSeconds>0 ước lượng ~15 ký tự/giây để canh độ dài; trả JSON mảng string. engine: `claude` (claude CLI `-p --output-format text`, thêm `--model <model>` nếu model≠""), `gemini`, `openai`. Chars = utf8.RuneCountInString.
+- `WriteScript(ctx, st, src string, engine, model string, targetSeconds int) ([]store.T2VSegment, error)` — prompt tiếng Việt: viết kịch bản ĐỌC (văn nói tự nhiên, không markdown/emoji/ký hiệu), chia thành các đoạn 1–3 câu, mỗi đoạn 1 ý; nếu targetSeconds>0 ước lượng ~15 ký tự/giây để canh độ dài; trả JSON mảng string. engine: `claude` (Claude CLI tự chọn model mặc định, Biz Studio không truyền `--model`), `gemini`, `openai`. Chars = utf8.RuneCountInString.
 - `BuildVoice(ctx, st, sess *store.T2VSession, workDir string, upd func(float64,string)) error` — TTS từng đoạn (tts.Speak) → `seg-<i>.wav` → ffprobe đo **Seconds thật** ghi vào segment → concat toàn bộ thành `voice.wav` (chuẩn hoá 44100 mono trước khi concat) → ghi `transcript.json` `{"language":"vi","duration":<tổng>,"segments":[{"index","start","end","text"}]}` → cập nhật sess.VoicePath/TranscriptPath/VoiceSeconds.
 - `BuildVideoHTML(ctx, st, sess, workDir, upd) (string, error)` — mỗi segment → 1 cảnh htmlvideo (template `hero` cho đoạn đầu, `bullets`/`quote` xen kẽ, `outro` đoạn cuối), Duration = Seconds thật của đoạn, Narration=false (đã có voice.wav) → render → **ghép voice.wav vào** (thay audio) → mp4.
 - `BuildProject(ctx, st, sess, projectDir string) (projectID string, err error)` — tạo `store.Project` (kích thước từ sess), copy `voice.wav` + `transcript.json` vào assets, đặt BriefDesc/EditPrompt mô tả yêu cầu dựng video bám theo giọng đọc; trả projectID để route khởi động phiên AI.
@@ -412,16 +412,13 @@ nhóm một video. Body: `{path, secondsEach, max, platform, minScore, lang, gen
 
 ## Cổng xác nhận quyền (internal/consent)
 
-Bắt buộc trước hai việc: nhân bản giọng (`POST /api/tools/clone-voices`) và làm
-ảnh chân dung nói (`POST /api/tools/avatar`).
+Bắt buộc trước việc nhân bản giọng (`POST /api/tools/clone-voices`).
 
 Ba xác nhận, thiếu cái nào trả **403** và nêu ĐÍCH DANH cái đó:
 `rights` (có quyền dùng tư liệu) · `adult` (đủ 18 tuổi) · `permitted` (người đó
 đồng ý). Kèm `subject` — ghi ai, để sau còn tra lại.
 
 - Clone giọng nhận qua **form field** (multipart): `rights=true&adult=true&permitted=true&subject=…`
-- Avatar nhận qua **JSON body**: `{"rights":true,"adult":true,"permitted":true,"subject":"…"}`
-
 **Chặn ở backend, không chỉ ở giao diện.** Ô tích chỉ chặn người dùng giao diện;
 ai gọi bằng curl hay script phải đi qua cùng một cổng. Mỗi lượt qua cổng ghi một
 dòng nhật ký làm bằng chứng — bằng chứng chỉ có giá trị khi còn đọc lại được.
@@ -464,7 +461,7 @@ kết bằng khung đen, một ô đen ở góc lưới trông y hệt lỗi th�
 
 Lỗi dựng ảnh KHÔNG làm hỏng lượt QC: báo cáo số vẫn còn nguyên giá trị.
 
-## Timeline nhiều lớp (internal/timeline)
+## Biên tập video nhiều lớp (internal/timeline)
 
 `GET  /api/projects/{id}/timeline` → Doc. Chưa có thì dựng mặc định từ asset dự
 án: video dài nhất làm nền, mỗi file âm thanh một lớp (vai trò đoán từ tên file

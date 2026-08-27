@@ -87,9 +87,6 @@ func claudeText(ctx context.Context, st *store.Store, prompt string) (string, er
 	cctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 	args := []string{"-p", "--output-format", "text"}
-	if cfg.ClaudeModel != "" {
-		args = append(args, "--model", cfg.ClaudeModel)
-	}
 	cmd := exec.CommandContext(cctx, bin, args...)
 	cmd.Stdin = strings.NewReader(prompt)
 	var so, se bytes.Buffer

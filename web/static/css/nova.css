@@ -188,6 +188,24 @@ body {
   min-width: 0;
 }
 
+.update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 18px;
+  color: var(--text);
+  background: var(--blue-soft);
+  border-bottom: 1px solid var(--border);
+}
+.update-banner[hidden] { display: none; }
+.update-banner-text { display: flex; flex-direction: column; min-width: 0; }
+.update-banner-text span { color: var(--muted); font-size: 12px; }
+
+@media (max-width: 800px) {
+  .update-banner { align-items: flex-start; flex-direction: column; }
+}
+
 /* Topbar */
 .topbar {
   display: flex;

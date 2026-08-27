@@ -13,8 +13,10 @@
 
   window.I18N.add({
     // ---------- sidebar ----------
-    'BẢNG ĐIỀU KHIỂN': 'DASHBOARD',
-    'MODULE SÁNG TẠO': 'CREATIVE MODULES',
+    'BẮT ĐẦU': 'GET STARTED',
+    'TẠO NỘI DUNG': 'CREATE',
+    'BIÊN TẬP & ÂM THANH': 'EDIT & AUDIO',
+    'THƯ VIỆN': 'LIBRARY',
     'HỆ THỐNG': 'SYSTEM',
     'Tổng quan': 'Overview',
     'Xưởng làm sẵn': 'Preset Workshop',
@@ -30,14 +32,20 @@
     'Nhân vật': 'Characters',
     'Ý tưởng & Hàng đợi': 'Ideas & Queue',
     'Diện mạo': 'Look',
-    'Veo — Sinh video AI': 'Veo — AI Video',
-    'Avatar nói': 'Talking Avatar',
-    'Phim → Kể chuyện': 'Film → Narration',
-    'Studio Editor': 'Studio Editor',
+    'Biên tập video': 'Video Editor',
     'Dự án': 'Projects',
     'Cấu hình & API': 'Settings & API',
     'Nhật ký': 'Logs',
     'Video AI Studio': 'AI Video Studio',
+    'Xem trước, cắt khoảng lặng và dựng nhiều lớp âm thanh, tiếng động, phụ đề trong một nơi':
+      'Preview, remove silence, and edit layered audio, sound effects, and subtitles in one place',
+    'Có bản cập nhật Biz Studio': 'Biz Studio update available',
+    'Bản mới sẽ được tải đúng cho máy này và kiểm tra an toàn trước khi cài.':
+      'The correct package for this computer will be downloaded and verified before installation.',
+    'Cập nhật ngay': 'Update now',
+    'Cài & khởi động lại': 'Install & restart',
+    'Xem bản mới': 'View release',
+    'Để sau': 'Later',
 
     // ---------- page subtitles ----------
     'Toàn cảnh studio: dự án, tác vụ và công cụ': 'Studio at a glance: projects, jobs and tools',
@@ -1958,6 +1966,11 @@
     "💾 Lưu timeline": "💾 Save timeline",
     "⬆ Dựng video": "⬆ Build video",
     "Đã lưu timeline": "Timeline saved",
+    "Tạo một dự án và thêm media trước đã — bản dựng dùng media của dự án.": "Create a project and add media first — the edit uses the project's media.",
+    "Không mở được bản dựng: ": "Could not open edit: ",
+    "🎚️ Dòng thời gian": "🎚️ Timeline",
+    "💾 Lưu bản dựng": "💾 Save edit",
+    "Đã lưu bản dựng": "Edit saved",
     "Lưu thất bại: ": "Save failed: ",
     "Lưu trước khi dựng thất bại: ": "Saving before build failed: ",
     "Không dựng được: ": "Could not build: ",

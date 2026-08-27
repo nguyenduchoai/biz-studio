@@ -30,15 +30,12 @@ type toolCheck struct {
 const secretMask = "••••••••"
 
 var secretSettingKeys = map[string]bool{
-	"geminiApiKey": true, "veoApiKey": true, "openaiKey": true, "pexelsKey": true,
+	"geminiApiKey": true, "openaiKey": true, "pexelsKey": true,
 }
 
 func maskedSettings(cfg store.Settings) store.Settings {
 	if cfg.GeminiAPIKey != "" {
 		cfg.GeminiAPIKey = secretMask
-	}
-	if cfg.VeoAPIKey != "" {
-		cfg.VeoAPIKey = secretMask
 	}
 	if cfg.OpenAIKey != "" {
 		cfg.OpenAIKey = secretMask
@@ -56,7 +53,7 @@ func (s *Server) routesSettings(mux *http.ServeMux) {
 
 	// PUT /api/settings — GỘP vào cấu hình đang có, không thay cả khối.
 	//
-	// Trước đây đây là phép thay toàn bộ: gửi lên `{"veoModel":"x"}` là mọi
+	// Trước đây đây là phép thay toàn bộ: gửi lên một trường là mọi
 	// trường khác bị xoá sạch, kể cả API key. Giao diện luôn gửi đủ mọi trường
 	// nên không lộ ra, nhưng bất cứ ai gọi API bằng curl/script — hoặc gọi
 	// nhầm — đều mất trắng cấu hình mà không có cách khôi phục (store ghi đè

@@ -1,5 +1,5 @@
 /* ============================================================
-   Biz Studio — Timeline nhiều lớp (âm thanh + phụ đề) trên một lớp video nền.
+   Biz Studio — Biên tập video nhiều lớp (âm thanh + phụ đề) trên một lớp video nền.
 
    Chỉ một lớp video là chủ ý, không phải làm dở: nhiều lớp âm thanh và phụ đề
    thì trình duyệt tự trộn và tự hiện được nên xem trước ĐÚNG bằng bản xuất ra.
@@ -53,9 +53,9 @@
 
   // ---------- trang ----------
 
-  App.pages['timeline'] = {
-    title: 'Timeline nhiều lớp',
-    subtitle: 'Xếp lời đọc, nhạc nền, tiếng động và phụ đề lên video — nghe thử ngay, không phải render',
+  App.pages['editor'] = {
+    title: 'Biên tập video',
+    subtitle: 'Xem trước, cắt khoảng lặng và dựng nhiều lớp âm thanh, tiếng động, phụ đề trong một nơi',
     render: function (el, param) { injectStyles(); boot(el, param); }
   };
 
@@ -69,7 +69,7 @@
         el.innerHTML = '';
         el.appendChild(UI.card({
           title: 'Chưa có dự án nào', icon: '🎬',
-          body: h('div', { class: 'muted' }, 'Tạo một dự án và thêm media trước đã — Timeline dựng trên media của dự án.')
+          body: h('div', { class: 'muted' }, 'Tạo một dự án và thêm media trước đã — bản dựng dùng media của dự án.')
         }));
         return;
       }
@@ -89,7 +89,7 @@
       draw(el, projects, id, r[0] || {}, (r[1] && r[1].assets) || []);
     }).catch(function (e) {
       el.innerHTML = '';
-      el.appendChild(h('div', { class: 'text-red' }, 'Không mở được timeline: ' + e.message));
+      el.appendChild(h('div', { class: 'text-red' }, 'Không mở được bản dựng: ' + e.message));
     });
   }
 
@@ -483,13 +483,13 @@
     }
 
     // --- lưu & dựng
-    var saveBtn = UI.btn('💾 Lưu timeline', {
+    var saveBtn = UI.btn('💾 Lưu bản dựng', {
       onclick: function () {
         saveBtn.disabled = true;
         API.put('/api/projects/' + encodeURIComponent(projectID) + '/timeline', doc)
           .then(function (saved) {
             doc = saved; st.dirty = false;
-            UI.toast('Đã lưu timeline');
+            UI.toast('Đã lưu bản dựng');
             repaint(); refreshTracks(); refreshProps();
           })
           .catch(function (e) { saveBtn.disabled = false; UI.toast('Lưu thất bại: ' + e.message, 'error'); });
@@ -515,7 +515,7 @@
     });
 
     var projSel = UI.select(null, projects.map(function (p) { return { value: p.id, label: p.name }; }),
-      projectID, function (v) { engine.destroy(); location.hash = '#/timeline/' + v; });
+      projectID, function (v) { engine.destroy(); location.hash = '#/editor/' + v; });
 
     var zoomSlider = UI.slider(null, {
       min: 2, max: 60, step: 1, value: st.zoom,
@@ -537,12 +537,21 @@
     // rò ra mỗi lần vào lại.
     App._cleanup = function () { document.removeEventListener('keydown', onKey); engine.destroy(); };
 
+    var resultLine = h('div');
+
     // --- lắp ráp
     el.appendChild(h('div', { class: 'card' },
       h('div', { class: 'row-between', style: { flexWrap: 'wrap', gap: '8px' } },
         h('div', { class: 'row', style: { gap: '8px' } },
           h('span', { class: 'muted', style: { fontSize: '12px' } }, 'Dự án'), projSel),
-        h('div', { class: 'row', style: { gap: '8px' } }, renderBtn, saveBtn))));
+        h('div', { class: 'row', style: { gap: '8px' } },
+          UI.btn('✂ Cắt khoảng lặng', {
+            variant: 'ghost',
+            onclick: function () { EditorTools.openAutocut(assets, resultLine); }
+          }),
+          h('a', { class: 'btn btn-ghost', href: '#/projects/' + projectID }, '📦 Mở dự án'),
+          renderBtn, saveBtn)),
+      resultLine));
 
     el.appendChild(h('div', { class: 'grid-2 mt-16', style: { alignItems: 'start' } },
       h('div', { class: 'card' }, h('div', { class: 'card-title' }, '🖥️ Xem trước'), stage,
@@ -553,7 +562,7 @@
 
     el.appendChild(h('div', { class: 'card mt-16' },
       h('div', { class: 'row-between', style: { marginBottom: '8px', flexWrap: 'wrap', gap: '8px' } },
-        h('div', { class: 'card-title', style: { margin: 0 } }, '🎚️ Timeline'),
+        h('div', { class: 'card-title', style: { margin: 0 } }, '🎚️ Dòng thời gian'),
         h('div', { class: 'row', style: { gap: '8px', flexWrap: 'nowrap', width: '240px' } },
           h('span', { class: 'muted', style: { fontSize: '12px', flex: 'none' } }, '🔍'), zoomSlider)),
       wrap,

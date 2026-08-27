@@ -19,8 +19,7 @@ type Tool struct {
 	aliases    []string
 }
 
-// Tools là catalog và thứ tự cài Full. LongCat không nằm đây vì worker đó yêu
-// cầu máy Linux có NVIDIA/CUDA, không phải dependency Windows thông thường.
+// Tools là catalog và thứ tự cài Full.
 func Tools() []Tool {
 	tools := []Tool{
 		{ID: "git", Label: "Git for Windows", Desc: "Công cụ nền được Claude CLI và các quy trình dự án khuyên dùng.",

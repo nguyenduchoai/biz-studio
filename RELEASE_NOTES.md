@@ -1,23 +1,16 @@
-<!-- release: v2.14.0-rc.2 -->
+<!-- release: v2.14.0-rc.3 -->
 
-## Biz Studio giúp bạn làm video dễ hơn
+## Biz Studio gọn hơn và dễ vận hành hơn
 
-Biz Studio biến ý tưởng, bài viết và video thô thành video hoàn chỉnh ngay trên
-máy của bạn: tự hỗ trợ biên tập, phụ đề, giọng đọc, kiểm tra chất lượng và đóng
-gói để xuất bản.
+Biz Studio hỗ trợ bạn biến nội dung và tài nguyên thô thành video hoàn chỉnh ngay trên máy: chuẩn bị nội dung, tạo giọng đọc, biên tập, kiểm tra chất lượng và đóng gói để đăng.
 
-### Điểm mới trong bản này
+### Điểm mới
 
-- **Cài đặt đơn giản hơn:** lần mở đầu có thể chọn cài đầy đủ các thành phần còn
-  thiếu như FFmpeg, Python, yt-dlp, Claude CLI, giọng Việt và bóc băng.
-- **Gửi tài nguyên từ điện thoại:** quét QR để đưa ảnh, video hoặc âm thanh vào
-  dự án khi điện thoại và máy tính dùng chung Wi-Fi.
-- **Mở ứng dụng ổn định hơn:** nếu cổng mặc định đang được phần mềm khác sử dụng,
-  Biz Studio tự tìm cổng trống và mở đúng địa chỉ mới.
-- **Giữ dữ liệu riêng tư:** dự án và khóa cấu hình tiếp tục nằm trên máy của bạn;
-  điện thoại chỉ được gửi tài nguyên, không điều khiển phần cài đặt hay tác vụ.
-- **Dùng đúng Claude Opus 5:** cài mới chọn sẵn Opus 5; cấu hình Opus 4.8 cũ
-  được nâng tự động để tránh lỗi khi bắt đầu phiên biên tập.
+- **Menu dễ tìm hơn:** tính năng được sắp theo đúng công việc từ bắt đầu, tạo nội dung, biên tập, thư viện đến hệ thống.
+- **Một màn biên tập duy nhất:** xem trước, cắt khoảng lặng, sắp nhiều lớp âm thanh, tiếng động và phụ đề tại **Biên tập video**.
+- **Claude luôn dùng model phù hợp:** Biz Studio để Claude CLI tự chọn model hiện hành theo tài khoản, tránh lỗi do tên model cũ.
+- **Cập nhật ngay trong ứng dụng:** khi có GitHub Release mới, Biz Studio tải đúng gói cho máy, kiểm tra an toàn rồi khởi động lại; dự án vẫn được giữ nguyên.
+- **Tập trung vào luồng dùng được ngay:** giao diện đã bỏ các mục cần dịch vụ trả phí hoặc máy GPU riêng, giúp phần mềm nhẹ và rõ hơn.
 
 ### Chọn bản tải về
 
@@ -26,5 +19,4 @@ gói để xuất bản.
 - **Mac Intel:** `BizStudio-macos-amd64.dmg`
 - **Linux:** chọn gói `amd64` hoặc `arm64` phù hợp với máy
 
-Đây là bản RC để dùng thử trước khi phát hành chính thức. Nếu đang dùng Biz
-Studio cho công việc quan trọng, hãy giữ lại bản cũ để có thể quay lại khi cần.
+Đây là bản RC để kiểm tra trên máy thật trước khi phát hành chính thức.

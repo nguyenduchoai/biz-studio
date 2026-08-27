@@ -146,23 +146,20 @@ func runScriptLLM(ctx context.Context, st *store.Store, engine, model, prompt st
 		}
 		return cli.ChatText(ctx, scriptSystem, prompt)
 	case "claude":
-		return runClaudeScript(ctx, set.ClaudeBin, model, scriptSystem+"\n\n"+prompt)
+		return runClaudeScript(ctx, set.ClaudeBin, scriptSystem+"\n\n"+prompt)
 	default:
 		return "", fmt.Errorf("engine viết kịch bản không hỗ trợ: %q (hỗ trợ \"claude\", \"gemini\", \"openai\")", engine)
 	}
 }
 
-// runClaudeScript chạy Claude CLI: <bin> -p --output-format text [--model M],
-// prompt đưa qua stdin. Lỗi bọc kèm gợi ý từ util.ClaudeFailReason.
-func runClaudeScript(ctx context.Context, bin, model, prompt string) (string, error) {
+// runClaudeScript để chính Claude CLI chọn model mặc định của tài khoản.
+// Prompt đưa qua stdin. Lỗi bọc kèm gợi ý từ util.ClaudeFailReason.
+func runClaudeScript(ctx context.Context, bin, prompt string) (string, error) {
 	bin = strings.TrimSpace(bin)
 	if bin == "" {
 		bin = "claude"
 	}
 	args := []string{"-p", "--output-format", "text"}
-	if model != "" {
-		args = append(args, "--model", model)
-	}
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Stdin = strings.NewReader(prompt)
 	var so, se bytes.Buffer

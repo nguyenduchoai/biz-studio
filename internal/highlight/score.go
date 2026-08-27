@@ -288,18 +288,15 @@ func runLLM(ctx context.Context, st *store.Store, prompt string) (string, error)
 	case strings.TrimSpace(set.GeminiAPIKey) != "":
 		return gemini.NewFromSettings(st).GenerateText(ctx, scoreSystem, prompt)
 	default:
-		return runClaude(ctx, set.ClaudeBin, set.ClaudeModel, scoreSystem+"\n\n"+prompt)
+		return runClaude(ctx, set.ClaudeBin, scoreSystem+"\n\n"+prompt)
 	}
 }
 
-func runClaude(ctx context.Context, bin, model, prompt string) (string, error) {
+func runClaude(ctx context.Context, bin, prompt string) (string, error) {
 	if strings.TrimSpace(bin) == "" {
 		bin = "claude"
 	}
 	args := []string{"-p", "--output-format", "text"}
-	if m := strings.TrimSpace(model); m != "" {
-		args = append(args, "--model", m)
-	}
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Stdin = strings.NewReader(prompt)
 	var so, se bytes.Buffer

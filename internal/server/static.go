@@ -35,8 +35,8 @@ func (s *Server) routesStatic(mux *http.ServeMux) {
 
 var publicDataRoots = map[string]bool{
 	"projects": true, "downloads": true, "uploads": true, "styles": true,
-	"characters": true, "text2video": true, "tmp": true, "avatar": true,
-	"veo": true, "music": true, "sfx": true, "recap": true,
+	"characters": true, "text2video": true, "tmp": true,
+	"music": true, "sfx": true,
 }
 
 var publicDataExtensions = map[string]bool{

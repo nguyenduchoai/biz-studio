@@ -269,3 +269,4 @@
 .mt-8 { margin-top: 8px; } .mt-16 { margin-top: 16px; }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .row-between { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.update-inline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }

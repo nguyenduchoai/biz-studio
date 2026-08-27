@@ -13,10 +13,19 @@ import (
 	"bizstudio/internal/desktop"
 	"bizstudio/internal/server"
 	"bizstudio/internal/store"
+	"bizstudio/internal/updater"
 	"bizstudio/internal/util"
 )
 
 func main() {
+	if len(os.Args) == 3 && os.Args[1] == "__apply-update" {
+		if err := updater.Apply(os.Args[2]); err != nil {
+			_ = os.WriteFile(os.Args[2]+".error.txt", []byte(err.Error()), 0o600)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// App mở từ Finder (dmg) chỉ có PATH tối thiểu — bổ sung để thấy claude/ffmpeg/yt-dlp.
 	util.AugmentPATH()
 

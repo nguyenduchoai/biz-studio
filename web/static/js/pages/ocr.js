@@ -130,7 +130,7 @@
     var box = h('div', {
       style: { marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '10px' }
     }, h('div', { class: 'muted', style: { fontSize: '12px' } },
-      'File kèm theo — transcript dùng cho “Cắt khoảng lặng an toàn” bên Studio Editor, ' +
+      'File kèm theo — transcript dùng cho “Cắt khoảng lặng an toàn” bên Biên tập video, ' +
       'file .ass dùng để burn phụ đề karaoke vào video.'));
     items.forEach(function (it) { box.appendChild(extraFileRow(it)); });
     return box;

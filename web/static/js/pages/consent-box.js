@@ -1,9 +1,7 @@
 /* ============================================================
-   Biz Studio — khối xác nhận quyền trước khi nhân bản mặt/giọng người thật.
+   Biz Studio — khối xác nhận quyền trước khi nhân bản giọng người thật.
 
-   Dùng chung cho trang Clone giọng và trang Avatar để lời hỏi giống hệt nhau ở
-   cả hai chỗ. Hỏi hai kiểu khác nhau cho cùng một việc thì người dùng không
-   biết mình đang cam kết cái gì.
+   Dùng cho Clone giọng để ba xác nhận quyền luôn có cùng ý nghĩa.
 
    Đây chỉ là lớp giao diện. Backend chặn độc lập (internal/consent) — gọi API
    bằng curl vẫn phải đi qua cổng đó.

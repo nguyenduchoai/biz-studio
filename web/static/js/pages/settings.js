@@ -272,30 +272,7 @@
       withNote(
         modelField('Model đọc giọng (Gemini TTS)', st, 'geminiTtsModel', 'rỗng = gemini-2.5-flash-preview-tts', 'tts'),
         'Chỉ dùng khi chọn engine Gemini; giọng VieNeu trên máy không cần model này.'),
-      withNote(
-        passwordField('Khoá Veo — sinh video AI (TRẢ PHÍ)', st, 'veoApiKey',
-          'Để trống = dùng chung khoá Gemini ở trên'),
-        '⚠️ Veo tính tiền theo GIÂY video và không có bậc miễn phí — dự án Google phải bật thanh toán. ' +
-        'Clip 8 giây tốn khoảng $0.40 (lite) đến $3.20 (chuẩn). Chi phí luôn hiện trước khi bấm tạo.'),
-      withNote(
-        UI.select('Avatar nói — engine LongCat', [
-          { value: '', label: 'Tắt' },
-          { value: 'local', label: 'Chạy trên máy này (cần GPU NVIDIA)' },
-          { value: 'remote', label: 'Đẩy sang máy GPU khác' }
-        ], st.longcatMode || '', function (v) { st.longcatMode = v; }),
-        'LongCat-Video-Avatar là model 13,6 tỉ tham số, BẮT BUỘC GPU NVIDIA — không có bản cho Apple Silicon hay CPU. ' +
-        'Máy thường vẫn dùng được bằng chế độ "remote": cài trên máy GPU bằng ./scripts/setup-longcat.sh rồi chạy scripts/longcat-worker.py ở đó.'),
-      withNote(
-        textField('Địa chỉ máy GPU (chế độ remote)', st, 'longcatWorkerUrl', 'http://192.168.1.50:7070'),
-        'Địa chỉ máy đang chạy longcat-worker.py.'),
-      textField('LongCat — thư mục mã nguồn', st, 'longcatRepo', 'vd: data/longcat/LongCat-Video'),
-      textField('LongCat — thư mục trọng số', st, 'longcatCheckpoint', 'vd: …/weights/LongCat-Video-Avatar-1.5'),
-      textField('LongCat — python', st, 'longcatPython', 'rỗng = dò venv cạnh mã nguồn'),
-      withNote(
-        modelField('Model Veo', st, 'veoModel', 'rỗng = veo-3.1-fast-generate-preview', 'video'),
-        'Bấm nạp danh sách để lấy đúng model Veo đang phục vụ — Google đã gỡ hẳn các model Veo 3.0 cũ.'),
       textField('Claude bin', st, 'claudeBin', 'claude'),
-      textField('Claude model', st, 'claudeModel', 'Mặc định: claude-opus-5'),
       textField('yt-dlp bin', st, 'ytdlpBin', 'yt-dlp'),
       textField('Thư mục tải về', st, 'downloadDir', 'data/downloads'),
       textField('File Cookies', st, 'cookiesFile', 'Đường dẫn file cookies.txt (tùy chọn)'),

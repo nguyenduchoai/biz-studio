@@ -140,8 +140,9 @@ EOF
       "dist/BizStudio-macos-$arch.dmg"
   else
     echo "  (bỏ qua .dmg — hdiutil chỉ có trên macOS)"
-    tar -czf "dist/BizStudio-macos-$arch.tar.gz" -C "dist/mac-$arch" "Biz Studio.app"
   fi
+  # Gói tar.gz dành cho bộ tự cập nhật; DMG vẫn là gói cài thủ công.
+  tar -czf "dist/BizStudio-macos-$arch.tar.gz" -C "dist/mac-$arch" "Biz Studio.app"
 }
 make_app arm64
 make_app amd64

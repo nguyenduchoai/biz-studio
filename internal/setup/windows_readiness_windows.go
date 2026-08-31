@@ -5,7 +5,6 @@ package setup
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,12 +15,6 @@ import (
 
 	"bizstudio/internal/util"
 )
-
-type windowsProbe struct {
-	FirewallReady   bool   `json:"firewallReady"`
-	NetworkReady    bool   `json:"networkReady"`
-	NetworkCategory string `json:"networkCategory"`
-}
 
 func checkWindowsReadiness(ctx context.Context) WindowsReadiness {
 	status := WindowsReadiness{Supported: true, RuleName: WindowsFirewallRuleName}
@@ -43,9 +36,9 @@ func checkWindowsReadiness(ctx context.Context) WindowsReadiness {
 		status.Detail = "không kiểm tra được Windows Firewall: " + compactPowerShellError(out, err)
 		return status
 	}
-	var probe windowsProbe
-	if err := json.Unmarshal([]byte(strings.TrimSpace(string(out))), &probe); err != nil {
-		status.Detail = "Windows Firewall trả kết quả không hợp lệ"
+	probe, err := parseWindowsProbeOutput(out)
+	if err != nil {
+		status.Detail = "Windows Firewall trả kết quả không hợp lệ: " + err.Error()
 		return status
 	}
 	status.FirewallReady = probe.FirewallReady
@@ -114,12 +107,17 @@ func wingetAvailable(ctx context.Context) bool {
 func probeWindowsScript(exe, lanIP string) string {
 	return `[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
 $ErrorActionPreference = 'Stop'
+$WarningPreference = 'SilentlyContinue'
+$InformationPreference = 'SilentlyContinue'
+$VerbosePreference = 'SilentlyContinue'
+$DebugPreference = 'SilentlyContinue'
+$ProgressPreference = 'SilentlyContinue'
 $netSecurityModule = Join-Path $PSHOME 'Modules\NetSecurity\NetSecurity.psd1'
 $netConnectionModule = Join-Path $PSHOME 'Modules\NetConnection\NetConnection.psd1'
 $netTCPIPModule = Join-Path $PSHOME 'Modules\NetTCPIP\NetTCPIP.psd1'
-Import-Module -Name $netSecurityModule -Force -ErrorAction Stop
-Import-Module -Name $netConnectionModule -Force -ErrorAction Stop
-Import-Module -Name $netTCPIPModule -Force -ErrorAction Stop
+Import-Module -Name $netSecurityModule -Force -ErrorAction Stop | Out-Null
+Import-Module -Name $netConnectionModule -Force -ErrorAction Stop | Out-Null
+Import-Module -Name $netTCPIPModule -Force -ErrorAction Stop | Out-Null
 $exePath = '` + psQuote(exe) + `'
 $lanIP = '` + psQuote(lanIP) + `'
 $ruleName = '` + psQuote(WindowsFirewallRuleName) + `'
@@ -150,11 +148,14 @@ $categories = @($profiles | ForEach-Object { [string]$_.NetworkCategory } | Sort
 $hasPrivateNetwork = [bool]($categories | Where-Object { $_ -eq 'Private' -or $_ -eq 'DomainAuthenticated' })
 $hasPublicNetwork = [bool]($categories | Where-Object { $_ -eq 'Public' })
 $networkReady = $hasPrivateNetwork -and -not $hasPublicNetwork
-[pscustomobject]@{
+$payload = [pscustomobject]@{
+  protocol = 1
   firewallReady = [bool]$firewallReady
   networkReady = [bool]$networkReady
   networkCategory = ($categories -join ', ')
-} | ConvertTo-Json -Compress`
+} | ConvertTo-Json -Compress
+$payloadBytes = [Text.Encoding]::UTF8.GetBytes($payload)
+[Console]::Out.WriteLine('` + windowsProbeFramePrefix + `' + [Convert]::ToBase64String($payloadBytes))`
 }
 
 func configureFirewallScript(exe string) string {

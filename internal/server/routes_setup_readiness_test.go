@@ -27,6 +27,9 @@ func TestWindowsSetupStatusContract(t *testing.T) {
 	if runtime.GOOS != "windows" && status.Supported {
 		t.Fatalf("non-Windows lại báo supported: %+v", status)
 	}
+	if runtime.GOOS == "windows" && status.Detail != "" {
+		t.Fatalf("Windows endpoint trả probe lỗi bên trong HTTP 200: %+v", status)
+	}
 }
 
 func TestWindowsFirewallSetupRequiresExplicitConfirmation(t *testing.T) {

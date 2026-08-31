@@ -3,7 +3,9 @@
 package setup
 
 import (
+	"context"
 	"encoding/base64"
+	"os/exec"
 	"strings"
 	"testing"
 	"unicode/utf16"
@@ -49,10 +51,46 @@ func TestProbeWindowsScriptMatchesCurrentExecutable(t *testing.T) {
 		"$rules.Count -eq 1",
 		"$profileMask -eq 3",
 		"$hasPublicNetwork",
+		windowsProbeFramePrefix,
+		"ToBase64String",
+		"protocol = 1",
 	} {
 		if !strings.Contains(script, want) {
 			t.Fatalf("probe thiếu %q:\n%s", want, script)
 		}
+	}
+}
+
+func TestNoisyWindowsPowerShellOutputKeepsProbeReadable(t *testing.T) {
+	ps, err := systemPowerShell()
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload := framedWindowsProbe(t, `{"protocol":1,"firewallReady":true,"networkReady":true,"networkCategory":"Private"}`)
+	script := `[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false)
+Write-Output 'host banner before payload'
+Write-Warning 'simulated module warning'
+[Console]::Error.WriteLine('simulated stderr noise')
+[Console]::Out.WriteLine('` + psQuote(payload) + `')
+Write-Verbose 'trailing verbose output' -Verbose`
+	out, runErr := exec.Command(ps, "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+		"-EncodedCommand", encodePowerShell(script)).CombinedOutput()
+	if runErr != nil {
+		t.Fatalf("PowerShell noisy probe lỗi: %v\n%s", runErr, out)
+	}
+	probe, err := parseWindowsProbeOutput(out)
+	if err != nil {
+		t.Fatalf("không đọc được framed payload: %v\n%s", err, out)
+	}
+	if !probe.FirewallReady || !probe.NetworkReady || probe.NetworkCategory != "Private" {
+		t.Fatalf("probe = %+v", probe)
+	}
+}
+
+func TestCheckWindowsReadinessReturnsStructuredResult(t *testing.T) {
+	status := CheckWindowsReadiness(context.Background())
+	if !status.Supported || status.Detail != "" {
+		t.Fatalf("Windows readiness không đọc được: %+v", status)
 	}
 }
 

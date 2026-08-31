@@ -540,7 +540,9 @@ networkCategory, needsPreparation, ruleName, detail}`.
 Đây là preflight/consent data bất biến của lượt wizard.
 
 `GET /api/setup/windows/status` → kiểm tra WinGet, rule Firewall của đúng binary
-hiện tại và loại mạng đang dùng. Không tự đổi mạng Public sang Private.
+hiện tại và loại mạng đang dùng. Kết quả PowerShell dùng payload Base64 có marker
+phiên bản riêng để warning/encoding của Windows không làm hỏng dữ liệu máy đọc.
+Không tự đổi mạng Public sang Private.
 
 `POST /api/setup/windows/firewall` body `{confirmed:true}` → chạy PowerShell hệ
 thống qua UAC, thay rule cũ cùng tên bằng rule Inbound/Allow/TCP chỉ cho đúng

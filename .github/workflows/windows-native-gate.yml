@@ -72,6 +72,9 @@ jobs:
             }
             if (-not $state) { throw "Biz Studio did not become ready" }
             if ($state.app.name -ne "Biz Studio") { throw "Unexpected instance marker" }
+            $windows = Invoke-RestMethod "http://127.0.0.1:17680/api/setup/windows/status"
+            if (-not $windows.supported) { throw "Windows readiness endpoint is not supported" }
+            if ($windows.detail) { throw "Windows readiness probe failed: $($windows.detail)" }
             $mobile = Invoke-WebRequest `
               "http://$($state.lanIP):$($state.mobilePort)/api/setup/tools" -SkipHttpErrorCheck
             if ($mobile.StatusCode -ne 404) { throw "Mobile listener exposed control API" }

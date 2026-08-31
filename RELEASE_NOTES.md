@@ -1,19 +1,15 @@
-<!-- release: v2.14.0 -->
+<!-- release: v2.14.1 -->
 
-## Biz Studio gọn hơn và dễ vận hành hơn
+## Biz Studio ổn định hơn trên Windows
 
-Biz Studio hỗ trợ bạn biến nội dung và tài nguyên thô thành video hoàn chỉnh ngay trên máy: chuẩn bị nội dung, tạo giọng đọc, biên tập, kiểm tra chất lượng và đóng gói để đăng.
+Bản này sửa lỗi bộ cài Full dừng sau khi xác nhận Windows Firewall.
 
-### Điểm mới
+### Cải thiện
 
-- **Menu dễ tìm hơn:** tính năng được sắp theo đúng công việc từ bắt đầu, tạo nội dung, biên tập, thư viện đến hệ thống.
-- **Một màn biên tập duy nhất:** xem trước, cắt khoảng lặng, sắp nhiều lớp âm thanh, tiếng động và phụ đề tại **Biên tập video**.
-- **Claude luôn dùng model phù hợp:** Biz Studio để Claude CLI tự chọn model hiện hành theo tài khoản, tránh lỗi do tên model cũ.
-- **Cập nhật ngay trong ứng dụng:** khi có GitHub Release mới, Biz Studio tải đúng gói cho máy, kiểm tra an toàn rồi khởi động lại; dự án vẫn được giữ nguyên.
-- **Cập nhật đáng tin cậy hơn:** nhận đúng checksum từ gói phát hành trên GitHub trước khi cài.
-- **Cài đặt Windows ổn định hơn:** tự nhận đúng Python, chuẩn bị kết nối QR trên mạng riêng và không bắt cài lại chỉ vì model bóc băng tải chậm.
-- **Gửi tài nguyên từ điện thoại:** quét QR để đưa ảnh, video và âm thanh vào đúng dự án trên máy tính.
-- **Tập trung vào luồng dùng được ngay:** giao diện đã bỏ các mục cần dịch vụ trả phí hoặc máy GPU riêng, giúp phần mềm nhẹ và rõ hơn.
+- Biz Studio nhận đúng kết quả Firewall trên nhiều cấu hình Windows 10/11.
+- Bộ cài tiếp tục cài các công cụ còn thiếu sau khi xác nhận UAC.
+- Không cần cài lại Python hoặc tắt Windows Firewall.
+- Kết nối QR vẫn chỉ hoạt động trên mạng Private/Domain và đúng ứng dụng Biz Studio.
 
 ### Chọn bản tải về
 
@@ -22,4 +18,4 @@ Biz Studio hỗ trợ bạn biến nội dung và tài nguyên thô thành video
 - **Mac Intel:** `BizStudio-macos-amd64.dmg`
 - **Linux:** chọn gói `amd64` hoặc `arm64` phù hợp với máy
 
-Đây là bản ổn định dành cho sử dụng hằng ngày.
+Người đang dùng `v2.14.0` nên cập nhật lên bản này trước khi chạy lại bộ cài Full.

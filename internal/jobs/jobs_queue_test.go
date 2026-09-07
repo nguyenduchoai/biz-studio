@@ -1,6 +1,7 @@
 package jobs
 
 import (
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -18,28 +19,44 @@ func TestManagerBoundsConcurrentJobs(t *testing.T) {
 	st.SaveSettings(cfg)
 	m := New(st, func(string, any) {})
 	release := make(chan struct{})
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	t.Cleanup(unblock)
+	started := make(chan struct{}, 2)
 	var active, maxActive atomic.Int32
 	work := func(func(float64, string)) (string, error) {
 		n := active.Add(1)
-		if n > maxActive.Load() {
-			maxActive.Store(n)
+		for peak := maxActive.Load(); n > peak; peak = maxActive.Load() {
+			if maxActive.CompareAndSwap(peak, n) {
+				break
+			}
 		}
+		started <- struct{}{}
 		<-release
 		active.Add(-1)
 		return "ok", nil
 	}
 	one := m.Submit("one", "", "", work)
 	two := m.Submit("two", "", "", work)
-	time.Sleep(150 * time.Millisecond)
+	// Wait for the worker itself, not a 150 ms guess. Windows durable writes
+	// can exceed that budget while other native media tests saturate the host.
+	select {
+	case <-started:
+	case <-time.After(10 * time.Second):
+		t.Fatal("first queued job never started")
+	}
 	if got := maxActive.Load(); got != 1 {
 		t.Fatalf("concurrency = %d, muốn 1", got)
 	}
-	close(release)
-	deadline := time.Now().Add(3 * time.Second)
+	unblock()
+	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		a, _ := st.Job(one.ID)
 		b, _ := st.Job(two.ID)
 		if a.Status == "done" && b.Status == "done" {
+			if got := maxActive.Load(); got != 1 {
+				t.Fatalf("peak concurrency across both completed jobs = %d, want 1", got)
+			}
 			return
 		}
 		time.Sleep(10 * time.Millisecond)

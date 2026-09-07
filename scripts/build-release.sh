@@ -40,10 +40,11 @@ Biz Studio
 ==========
 
 Bấm đúp "Biz Studio.exe" — mở ra cửa sổ app, không cần trình duyệt.
-(Cửa sổ dùng Chrome hoặc Microsoft Edge đã có sẵn trên máy. Windows 10/11
-luôn có Edge nên không phải cài thêm gì.)
+(Cửa sổ dùng Chrome hoặc Microsoft Edge trên máy. Nếu không tìm thấy,
+Biz Studio thử mở bằng trình duyệt mặc định.)
 
-Đóng cửa sổ là thoát. Nếu còn việc đang render/cài đặt, máy chủ vẫn chạy tới khi xong.
+Nếu còn việc đang render/cài đặt, máy chủ vẫn chạy tới khi xong dù đóng cửa sổ.
+Bấm mở lại app để tiếp tục theo dõi công việc.
 
 Lần mở đầu:
   1. Xem danh sách và bấm "Cài đầy đủ thành phần còn thiếu".

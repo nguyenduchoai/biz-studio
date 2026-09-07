@@ -23,6 +23,20 @@ func TestInstalledSDKRuntime(t *testing.T) {
 	if err := Check(ctx, data); err != nil {
 		t.Fatal(err)
 	}
+	// Exercise real stdin/stdout with the same isolated interpreter flags as
+	// production. Windows redirected streams otherwise default to an ANSI codepage.
+	code := `import json, sys; assert sys.flags.utf8_mode == 1; print(json.dumps(json.load(sys.stdin), ensure_ascii=False))`
+	cmd := pythonCommand(ctx, data, "-I", "-u", "-c", code)
+	cmd.Env = safeEnv(os.Environ())
+	cmd.Stdin = strings.NewReader(`{"text":"Tiếng Việt — dữ liệu 🎬"}`)
+	out, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("isolated UTF-8 roundtrip: %v", err)
+	}
+	var got map[string]string
+	if err := json.Unmarshal(out, &got); err != nil || got["text"] != "Tiếng Việt — dữ liệu 🎬" {
+		t.Fatalf("SDK corrupted UTF-8 stdin/stdout: %q, %v", out, err)
+	}
 }
 
 func TestCommandRequiresExplicitKeyAndInstalledRuntime(t *testing.T) {
@@ -46,6 +60,9 @@ func TestCommandRequiresExplicitKeyAndInstalledRuntime(t *testing.T) {
 	}
 	if strings.Contains(strings.Join(cmd.Args, " "), "fake-test-key") || strings.Contains(strings.Join(cmd.Env, " "), "fake-test-key") {
 		t.Fatal("credential leaked into args or process environment")
+	}
+	if !strings.Contains(strings.Join(cmd.Args, " "), "-X utf8 -I") {
+		t.Fatal("isolated Python must force UTF-8 on the command line; -I ignores PYTHONUTF8")
 	}
 	body, err := io.ReadAll(cmd.Stdin)
 	if err != nil {
@@ -83,7 +100,7 @@ func TestBridgeOfflineProtocol(t *testing.T) {
 	if err != nil {
 		t.Skip("Python required for offline SDK adapter contract test")
 	}
-	cmd := exec.Command(py, "-I", "bridge_test.py")
+	cmd := exec.Command(py, "-I", "-X", "utf8", "bridge_test.py")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("bridge contract: %v\n%s", err, out)
 	}

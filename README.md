@@ -144,7 +144,7 @@ Mặc định ứng dụng mở tại `http://127.0.0.1:6868`. Dùng `-window=fa
 
 ```bash
 go test ./...
-./scripts/build-release.sh 2.15.0-rc.2
+./scripts/build-release.sh 2.15.0-rc.3
 ```
 
 Release được tạo tự động khi đẩy tag dạng `vX.Y.Z` hoặc `vX.Y.Z-rc.N`. Pipeline kiểm thử native trên Windows, Mac Intel và Mac Apple Silicon trước khi đóng gói, phát hành kèm `SHA256SUMS.txt`. Bài thử bao gồm gửi video/âm thanh qua QR, dựng và phát video, mở lại và giữ dữ liệu.

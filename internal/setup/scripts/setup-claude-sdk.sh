@@ -12,8 +12,8 @@ if [ -z "$PYTHON" ]; then
   echo "Cài Python trong Thiết lập đầy đủ rồi thử lại." >&2
   exit 1
 fi
-$ARCH_PREFIX "$PYTHON" -I -c 'import sys, venv; assert sys.version_info >= (3, 10) and sys.maxsize > 2**32'
+$ARCH_PREFIX "$PYTHON" -I -X utf8 -c 'import sys, venv; assert sys.version_info >= (3, 10) and sys.maxsize > 2**32'
 mkdir -p "$DATA/agent-sdk"
-$ARCH_PREFIX "$PYTHON" -m venv "$VENV"
-$ARCH_PREFIX "$VENV/bin/python" -m pip install --disable-pip-version-check "claude-agent-sdk==0.2.152"
-$ARCH_PREFIX "$VENV/bin/python" -I -c "import claude_agent_sdk, importlib.metadata as m; assert m.version('claude-agent-sdk') == '0.2.152'; print('Claude Agent SDK đã cài. Chưa gọi API, chưa phát sinh phí.')"
+$ARCH_PREFIX "$PYTHON" -X utf8 -m venv "$VENV"
+$ARCH_PREFIX "$VENV/bin/python" -X utf8 -m pip install --disable-pip-version-check "claude-agent-sdk==0.2.152"
+$ARCH_PREFIX "$VENV/bin/python" -I -X utf8 -c "import claude_agent_sdk, importlib.metadata as m; assert m.version('claude-agent-sdk') == '0.2.152'; print('Claude Agent SDK đã cài. Chưa gọi API, chưa phát sinh phí.')"

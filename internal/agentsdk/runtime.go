@@ -99,6 +99,9 @@ func Command(dataDir, cwd, prompt, resume, apiKey string, budget float64) (*exec
 
 func pythonCommand(ctx context.Context, dataDir string, args ...string) *exec.Cmd {
 	py := PythonPath(dataDir)
+	// Isolated mode ignores PYTHONUTF8/PYTHONIOENCODING. Force the interpreter
+	// flag so Windows ANSI locales cannot corrupt request JSON or streamed text.
+	args = append([]string{"-X", "utf8"}, args...)
 	// Match the installer even when an Intel app is running under Rosetta.
 	if runtime.GOOS == "darwin" {
 		out, _ := exec.CommandContext(ctx, "/usr/sbin/sysctl", "-n", "hw.optional.arm64").Output()

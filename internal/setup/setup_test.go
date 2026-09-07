@@ -94,7 +94,10 @@ func TestVenvScriptsForceNativeArchOnAppleSilicon(t *testing.T) {
 			t.Errorf("%s.sh: ARCH_PREFIX dạng mảng sẽ làm script chết trên bash 3.2 khi máy không phải Apple Silicon", tool.script)
 		}
 		for _, must := range []string{`$ARCH_PREFIX "$PYTHON" -m venv`, `$ARCH_PREFIX "$VENV/bin/python" -m pip`} {
-			if !strings.Contains(s, must) {
+			// An explicit interpreter encoding flag must retain the same
+			// native-architecture prefix for venv creation and pip installs.
+			withUTF8 := strings.Replace(must, " -m ", " -X utf8 -m ", 1)
+			if !strings.Contains(s, must) && !strings.Contains(s, withUTF8) {
 				t.Errorf("%s.sh: thiếu %q — bước này chạy sai kiến trúc là hỏng cả venv", tool.script, must)
 			}
 		}

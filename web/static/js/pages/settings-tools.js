@@ -156,7 +156,9 @@
       title: 'Công cụ trên máy', icon: '🧰',
       desc: 'Cài hoặc cập nhật các công cụ ngoài mà studio cần — không phải mở terminal. ' +
             'Lỗi 403 khi tải video hầu hết là do yt-dlp đã cũ: bấm Cập nhật.',
-      body: h('div', null, body, log.el)
+      body: h('div', null,
+        UI.btn('Thiết lập đầy đủ & nhận file QR', { variant: 'ghost', onclick: function () { App.navigate('setup'); } }),
+        body, log.el)
     });
   }
 

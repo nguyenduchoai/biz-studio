@@ -299,12 +299,9 @@
 	API.get('/api/instance').then(function (instance) {
 	  if (!instance || !instance.wizardEnabled) { openRequestedPage(); return; }
 	  if (SetupWizard.firstRunNeeded()) { location.hash = '#/setup'; return; }
-	  // Kiểm tra nhẹ mỗi lần mở: portable EXE có thể đã bị di chuyển, làm rule
-	  // Firewall cũ không còn khớp dù wizard từng hoàn tất.
-	  API.get('/api/setup/windows/status').then(function (status) {
-		if (status && status.needsPreparation) location.hash = '#/setup';
-		else openRequestedPage();
-	  }).catch(openRequestedPage);
+	  // QR preparation is optional for local editing. The setup page continues
+	  // to expose its current status; a Public network must not block startup.
+	  openRequestedPage();
 	}).catch(openRequestedPage);
   }
 

@@ -39,11 +39,14 @@
   }
 
   function load(wrap) {
+    if (!wrap.isConnected) return;
     wrap.innerHTML = '';
     wrap.appendChild(UI.card({ title: 'Đang kiểm tra máy…', icon: '🔎', body: UI.spinner() }));
     API.get('/api/setup/full/plan').then(function (plan) {
+      if (!wrap.isConnected) return;
       draw(wrap, plan);
     }).catch(function (err) {
+      if (!wrap.isConnected) return;
       wrap.innerHTML = '';
       wrap.appendChild(UI.card({ title: 'Không kiểm tra được bộ cài', icon: '❌',
         body: h('div', { class: 'text-red' }, err.message) }));
@@ -51,6 +54,7 @@
   }
 
   function draw(wrap, plan) {
+	if (!wrap.isConnected) return;
 	if (pollTimer) { clearTimeout(pollTimer); pollTimer = null; }
     wrap.innerHTML = '';
     var log = h('div', { class: 'setup-log', style: { display: 'none' } });
@@ -93,12 +97,20 @@
           cancel.style.display = windowsNeedsFirewall ? 'none' : '';
           log.style.display = '';
 		  appendLog(log, tr('Bắt đầu bộ cài Full…'));
+		  wrap._setupStarting = true;
 		  var prepare = Promise.resolve(plan);
 		  if (windowsNeedsFirewall) {
 			appendLog(log, '▶ ' + tr('Đang mở cửa sổ quyền quản trị Windows…'));
 			prepare = API.post('/api/setup/windows/firewall', { confirmed: true }).then(function () {
 			  appendLog(log, '✓ ' + tr('Windows Firewall đã sẵn sàng cho QR'));
 			  install.textContent = tr('⏳ Đang cài thư viện…');
+			  return API.get('/api/setup/full/plan');
+			}).catch(function (err) {
+			  // QR access can be prepared again later. A denied UAC prompt or
+			  // managed firewall must not prevent installing local media tools.
+			  if (!hasTools) throw err;
+			  appendLog(log, '⚠ ' + err.message);
+			  appendLog(log, tr('Chưa bật nhận file QR. Tiếp tục cài thư viện; có thể thử lại Firewall sau.'));
 			  return API.get('/api/setup/full/plan');
 			});
 		  }
@@ -107,7 +119,10 @@
 			if (!freshPlan.planID) throw new Error(tr('Kế hoạch cài đặt chưa sẵn sàng; hãy kiểm tra lại.'));
 			cancel.style.display = '';
 			return API.post('/api/setup/full', { planID: freshPlan.planID, confirmed: true });
+		  }).then(function () {
+			wrap._setupStarting = false;
 		  }).catch(function (err) {
+			wrap._setupStarting = false;
             appendLog(log, '❌ ' + err.message);
 			wrap._setupFailed = true;
 			install.disabled = false;
@@ -126,11 +141,24 @@
       actions.appendChild(cancel);
     }
 
+    if (!hasTools && !plan.running) {
+      actions.appendChild(UI.btn('Vào Biz Studio', {
+        variant: 'primary', onclick: function () {
+          try { localStorage.setItem(READY_KEY, '1'); } catch (e) { /* private mode */ }
+          App.navigate('dashboard');
+        }
+      }));
+      if (windowsNeedsFirewall) {
+        actions.appendChild(h('small', { class: 'text-muted' },
+          'Có thể làm việc trên máy tính ngay. Thiết lập nhận file QR sau tại Cấu hình & API.'));
+      }
+    }
+
     var body = h('div', null,
       h('p', null, plan.note || ''),
 	  windowsBox(plan.windows, load.bind(null, wrap)),
       tools,
-      plan.needsLogin ? loginBox(load.bind(null, wrap)) : null,
+      plan.needsLogin ? loginBox(load.bind(null, wrap), plan.goos) : null,
       actions,
       log);
 	if (!plan.needsSetup) {
@@ -205,18 +233,20 @@
 	function pollUntilIdle(wrap) {
 	  if (pollTimer) clearTimeout(pollTimer);
 	  pollTimer = setTimeout(function () {
+		if (!wrap.isConnected) return;
 		API.get('/api/setup/full/plan').then(function (plan) {
-		  if (plan.running) pollUntilIdle(wrap);
+		  if (!wrap.isConnected) return;
+		  if (plan.running || wrap._setupStarting) pollUntilIdle(wrap);
 		  else if (!wrap._setupFailed) load(wrap);
 		}).catch(function () { pollUntilIdle(wrap); });
 	  }, 3000);
 	}
 
-  function loginBox(reload) {
+  function loginBox(reload, platform) {
     var command = 'claude auth login';
     return h('div', { class: 'setup-login' },
       h('div', { style: { fontWeight: '700' } }, 'Bước riêng: đăng nhập Claude'),
-      h('div', { class: 'tool-detail' }, 'Claude CLI đã được cài. Mở PowerShell, chạy lệnh dưới đây và đăng nhập trực tiếp với Claude. Biz Studio không đọc hay lưu thông tin đăng nhập.'),
+      h('div', { class: 'tool-detail' }, 'Claude CLI đã được cài. Mở ' + (platform === 'windows' ? 'PowerShell' : 'Terminal') + ', chạy lệnh dưới đây và đăng nhập trực tiếp với Claude. Biz Studio không đọc hay lưu thông tin đăng nhập.'),
       h('div', { class: 'setup-actions' },
         UI.btn('Sao chép: ' + command, { variant: 'ghost', small: true, onclick: function () {
 		  if (!navigator.clipboard || !navigator.clipboard.writeText) {

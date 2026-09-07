@@ -27,9 +27,6 @@ jobs:
           check-latest: true
           cache: true
 
-      - name: Unit and integration tests
-        run: go test ./...
-
       - name: JavaScript syntax
         shell: pwsh
         run: |
@@ -50,6 +47,9 @@ jobs:
           npx playwright install chromium
           if ($LASTEXITCODE -ne 0) { throw "Test browser install failed" }
           Pop-Location
+
+      - name: Unit and integration tests with native media tools
+        run: go test ./...
 
       - name: Windows Python and Whisper installer smoke
         shell: pwsh

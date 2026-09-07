@@ -7,10 +7,11 @@ Bản cập nhật giúp cài đặt, biên tập và mở lại Biz Studio đá
 ### Cải thiện
 
 - Nhận đúng Python tương thích và thư viện đã cài, kể cả thư mục có dấu hoặc khoảng trắng.
+- Mac tự nhận bộ FFmpeg đầy đủ để dựng phụ đề và chữ; hướng dẫn thiết lập ngay lần mở đầu.
 - Cài thư viện vẫn tiếp tục khi chưa thiết lập được Firewall; có thể dùng trên máy tính và bật QR sau.
 - Mở lại app ổn định hơn khi cổng đang bận hoặc cửa sổ trình duyệt đã có sẵn; giữ tác vụ và phiên AI đang chạy.
 - Video dựng từ timeline xuất hiện ngay trong kết quả dự án để xem, kiểm tra và xuất bản.
-- Cập nhật giữ dữ liệu, chờ công việc hoàn tất và khôi phục bản trước nếu bản mới không khởi động được.
+- Chỉ cập nhật khi không có công việc đang chạy; giữ dữ liệu và khôi phục bản trước nếu bản mới không khởi động được.
 
 ### Chọn bản tải về
 

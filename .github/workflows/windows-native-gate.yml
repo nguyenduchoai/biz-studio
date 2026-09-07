@@ -127,7 +127,13 @@ jobs:
 
       - name: Install native media and browser test tools
         run: |
-          brew install ffmpeg python@3.11
+          brew install ffmpeg-full
+          echo "$(brew --prefix ffmpeg-full)/bin" >> "$GITHUB_PATH"
+          # Hosted Intel Macs already include python.org Python. Do not install
+          # a second distribution over its /usr/local/bin symlinks.
+          if ! python3.11 -I -c 'import sys, venv; assert sys.maxsize > 2**32'; then
+            brew install python@3.11
+          fi
           npm ci --prefix tools/qa --no-audit --no-fund
           cd tools/qa
           npx playwright install chromium

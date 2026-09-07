@@ -184,8 +184,7 @@ func (s *Server) runFullSetup(ctx context.Context, cancel context.CancelFunc, to
 		verified := s.setupToolStatus(verifyCtx, tool)
 		verifyCancel()
 		if !verified.Installed {
-			s.emitFullError(emit, base, tool,
-				"bộ cài đã chạy xong nhưng Biz Studio chưa tìm thấy công cụ; hãy khởi động lại Biz Studio rồi bấm thử lại")
+			s.emitFullError(emit, base, tool, setupVerificationFailure(verified.Detail))
 			return
 		}
 		emit(map[string]any{"batch": fullSetupID, "tool": tool.ID, "index": i + 1,

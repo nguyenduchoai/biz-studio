@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os/exec"
+	"strings"
 	"sync"
 
 	"bizstudio/internal/setup"
@@ -64,7 +65,31 @@ func checkFFmpeg(ctx context.Context) toolCheck {
 	if !ffprobe.OK {
 		return toolCheck{Detail: "đã có ffmpeg nhưng thiếu ffprobe — cần cài lại bộ FFmpeg đầy đủ"}
 	}
-	return toolCheck{OK: true, Detail: ffmpeg.Detail + " · ffprobe OK"}
+	filters, err := exec.CommandContext(ctx, "ffmpeg", "-hide_banner", "-filters").CombinedOutput()
+	if err != nil {
+		return toolCheck{Detail: "không kiểm tra được bộ lọc FFmpeg — hãy kiểm tra lại hoặc cài bộ FFmpeg đầy đủ"}
+	}
+	if missing := missingFFmpegFilters(string(filters)); len(missing) > 0 {
+		return toolCheck{Detail: "FFmpeg thiếu bộ lọc " + strings.Join(missing, ", ") + " — cần cài bộ FFmpeg đầy đủ để dựng phụ đề và chữ"}
+	}
+	return toolCheck{OK: true, Detail: ffmpeg.Detail + " · ffprobe, phụ đề và chữ OK"}
+}
+
+func missingFFmpegFilters(output string) []string {
+	found := map[string]bool{}
+	for _, line := range strings.Split(output, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) >= 3 && strings.Contains(fields[2], "->") {
+			found[fields[1]] = true
+		}
+	}
+	var missing []string
+	for _, required := range []string{"subtitles", "ass", "drawtext"} {
+		if !found[required] {
+			missing = append(missing, required)
+		}
+	}
+	return missing
 }
 
 func checkPython(ctx context.Context) toolCheck {
@@ -74,6 +99,13 @@ func checkPython(ctx context.Context) toolCheck {
 		return toolCheck{Detail: err.Error()}
 	}
 	return toolCheck{OK: true, Detail: py.Version}
+}
+
+func setupVerificationFailure(detail string) string {
+	if strings.TrimSpace(detail) == "" {
+		detail = "Chưa nhận diện được công cụ; mở lại Biz Studio rồi kiểm tra lại."
+	}
+	return "Bộ cài đã chạy xong nhưng công cụ chưa sẵn sàng. " + detail
 }
 
 func (s *Server) checkClaudeSetup(ctx context.Context, tool setup.Tool, configured string) toolStatus {

@@ -22,7 +22,7 @@ type Tool struct {
 // Tools là catalog và thứ tự cài Full.
 func Tools() []Tool {
 	tools := []Tool{
-		{ID: "git", Label: "Git for Windows", Desc: "Công cụ nền được Claude CLI và các quy trình dự án khuyên dùng.",
+		{ID: "git", Label: "Git", Desc: "Công cụ nền được Claude CLI và các quy trình dự án khuyên dùng.",
 			Manual: "https://git-scm.com/downloads", Full: true,
 			pkg: pkgNames{brew: "git", winget: "Git.Git", apt: "git", dnf: "git", pacman: "git"}},
 		{ID: "python", Label: "Python 3.11", Desc: "Nền tảng để cài VieNeu-TTS và faster-whisper trên máy.",
@@ -31,7 +31,7 @@ func Tools() []Tool {
 			aliases: []string{"python3", "py"}},
 		{ID: "ffmpeg", Label: "FFmpeg", Desc: "Bộ xử lý video/âm thanh — gần như mọi tính năng đều cần.",
 			Manual: "https://ffmpeg.org/download.html", Full: true,
-			pkg: pkgNames{brew: "ffmpeg", winget: "Gyan.FFmpeg", apt: "ffmpeg", dnf: "ffmpeg", pacman: "ffmpeg"}},
+			pkg: pkgNames{brew: "ffmpeg-full", winget: "Gyan.FFmpeg", apt: "ffmpeg", dnf: "ffmpeg", pacman: "ffmpeg"}},
 		{ID: "ytdlp", Label: "yt-dlp", Desc: "Tải video về từ YouTube/TikTok… Bản cũ hay lỗi 403 — nên cập nhật thường xuyên.",
 			Manual: "https://github.com/yt-dlp/yt-dlp#installation", Full: true,
 			pkg:        pkgNames{brew: "yt-dlp", winget: "yt-dlp.yt-dlp", apt: "yt-dlp", dnf: "yt-dlp", pacman: "yt-dlp"},

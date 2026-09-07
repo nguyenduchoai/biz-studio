@@ -16,6 +16,10 @@ Windows: build `artifacts/Biz Studio.exe` với `-ldflags "-H windowsgui"`, truy
 đường dẫn đó vào smoke. Bài smoke gọi `-window=false`: kiểm chứng executable,
 giao diện web, media và dữ liệu; vòng đời cửa sổ Chromium có kiểm thử riêng.
 
+macOS: dùng `brew install ffmpeg-full`, bổ sung `$(brew --prefix ffmpeg-full)/bin`
+vào PATH khi chạy test từ Terminal. Bản FFmpeg thông thường mới không có đủ
+bộ lọc phụ đề/chữ; app tự ưu tiên bản đầy đủ mà không ghi đè liên kết hệ thống.
+
 Gate phát hành chạy trên Windows Server runner, macOS Intel và macOS ARM64:
 
 - Cổng bận, lần mở thứ hai, thư mục có dấu/khoảng trắng, kho dữ liệu chỉ có một writer.

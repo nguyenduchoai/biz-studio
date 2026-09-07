@@ -141,9 +141,9 @@ func (s *Server) runSetup(ctx context.Context, cancel context.CancelFunc, t setu
 	status := s.setupToolStatus(verifyCtx, t)
 	verifyCancel()
 	if !status.Installed {
-		msg := "bộ cài đã chạy xong nhưng Biz Studio chưa tìm thấy công cụ; hãy khởi động lại Biz Studio rồi thử kiểm tra lại"
+		msg := setupVerificationFailure(status.Detail)
 		s.Log("error", "setup", verb+" "+t.Label+" chưa xác minh được: "+status.Detail)
-		emit(map[string]any{"state": "error", "error": msg, "manual": t.Manual, "restartRequired": true})
+		emit(map[string]any{"state": "error", "error": msg, "manual": t.Manual})
 		return
 	}
 	s.Log("info", "setup", verb+" "+t.Label+" thành công")

@@ -54,7 +54,7 @@ func (s *Server) routesState(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/instance", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"app": "bizstudio", "version": Version, "dataID": s.DataDirID,
-			"platform": s.Platform, "wizardEnabled": s.Platform == "windows",
+			"platform": s.Platform, "wizardEnabled": s.Platform == "windows" || s.Platform == "darwin",
 		})
 	})
 	mux.HandleFunc("GET /api/state", func(w http.ResponseWriter, r *http.Request) {

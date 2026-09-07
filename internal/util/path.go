@@ -52,7 +52,8 @@ func AugmentPATH() {
 		candidates = append(candidates, matches[len(matches)-1])
 	}
 
-	cur := os.Getenv("PATH")
+	original := os.Getenv("PATH")
+	cur := preferMediaBin(original, nativeFullMediaBin())
 	seen := map[string]bool{}
 	for _, p := range strings.Split(cur, string(os.PathListSeparator)) {
 		seen[p] = true
@@ -68,6 +69,12 @@ func AugmentPATH() {
 		}
 	}
 	if len(add) > 0 {
-		_ = os.Setenv("PATH", cur+string(os.PathListSeparator)+strings.Join(add, string(os.PathListSeparator)))
+		if cur != "" {
+			cur += string(os.PathListSeparator)
+		}
+		cur += strings.Join(add, string(os.PathListSeparator))
+	}
+	if cur != original {
+		_ = os.Setenv("PATH", cur)
 	}
 }

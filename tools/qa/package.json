@@ -1,0 +1,14 @@
+{
+  "name": "bizstudio-desktop-qa",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "smoke": "node native-smoke.mjs",
+    "test": "node --test setup-wizard.test.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "jsqr": "1.4.0",
+    "pngjs": "7.0.0"
+  }
+}

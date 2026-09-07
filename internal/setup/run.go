@@ -52,6 +52,14 @@ func Run(ctx context.Context, p *Plan, onLine func(string)) error {
 }
 
 func runStep(ctx context.Context, s Step, onLine func(string)) error {
+	if s.Python {
+		py, err := FindPython(ctx)
+		if err != nil {
+			return err
+		}
+		s.Env = append(s.Env, "BIZSTUDIO_PYTHON="+py.Path)
+		onLine("✓ " + py.Version + " · " + py.Path)
+	}
 	cmd := exec.CommandContext(ctx, s.Bin, s.Args...)
 	prepareProcessTree(cmd)
 	cmd.Env = append(safeInstallerEnv(os.Environ()), s.Env...)
@@ -162,6 +170,8 @@ func pump(r io.Reader, onLine func(string)) {
 }
 
 func clean(s string) string {
+	// CRLF là kết thúc dòng của Windows, không phải một lần ghi đè tiến trình.
+	s = strings.TrimRight(s, "\r\n")
 	// \r là ký tự thanh tiến trình ghi đè tại chỗ — giữ đoạn cuối cùng.
 	if i := strings.LastIndexByte(s, '\r'); i >= 0 {
 		s = s[i+1:]

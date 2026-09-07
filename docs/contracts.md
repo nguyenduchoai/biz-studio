@@ -515,8 +515,11 @@ Hai hành vi phải giữ:
 - **Cổng đã có bản đang chạy** → mở thêm cửa sổ rồi thoát mã 0. KHÔNG được chết
   vì "address already in use": người dùng bấm icon lần hai là chuyện thường.
 - **Đóng cửa sổ** → thoát, TRỪ KHI `store.Jobs()` còn job `running`/`queued`
-  hoặc setup đang chạy.
-  Còn việc thì giữ máy chủ, kiểm lại mỗi 15 giây, xong hết mới thoát. Giết một
+  hoặc setup, phiên AI hay sản xuất ý tưởng đang chạy.
+  Còn việc thì giữ máy chủ, kiểm lại mỗi 15 giây, xong hết mới thoát. Khi Chromium
+  chuyển sang tiến trình có sẵn hoặc đã mở cửa sổ khác, giữ server vì không còn
+  xác định chắc chắn quyền sở hữu cửa sổ. Khi mở lại sau crash, đánh dấu phiên AI
+  và ý tưởng bị ngắt để người dùng chạy lại; giữ lịch sử và tài nguyên. Giết một
   lượt render dài vì người dùng đóng nhầm cửa sổ là mất trắng công.
 
 Linux: `--class=BizStudio` phải khớp `StartupWMClass` trong `bizstudio.desktop`,
@@ -534,10 +537,15 @@ hình gọi ngay khi mở.
 
 `GET /api/setup/full/plan` → `planID` dùng một lần/hết hạn 5 phút, danh sách thành
 phần Full còn thiếu + toàn bộ status, `needsSetup`, `needsLogin`, `running`,
-`windowsPreparing`, và
+`windowsPreparing`, `goos`, và
 `windows {supported, winGetReady, firewallReady, networkReady, phoneReady,
 networkCategory, needsPreparation, ruleName, detail}`.
 Đây là preflight/consent data bất biến của lượt wizard.
+Python status và installer dùng chung interpreter đã probe: Python 3.10–3.13,
+64-bit, có `venv`; ưu tiên 3.11, native ARM64 trên Apple Silicon. Bộ cài Mac dùng
+Homebrew đúng kiến trúc và gọi `python -m pip` để hỗ trợ đường dẫn có khoảng trắng.
+QR là tuỳ chọn cho biên tập local: lỗi UAC/Firewall không chặn cài thư viện, người
+dùng có thể hoàn tất wizard và thiết lập QR lại từ Cấu hình & API.
 
 `GET /api/setup/windows/status` → kiểm tra WinGet, rule Firewall của đúng binary
 hiện tại và loại mạng đang dùng. Kết quả PowerShell dùng payload Base64 có marker

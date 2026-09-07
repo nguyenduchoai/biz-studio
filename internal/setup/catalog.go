@@ -44,7 +44,7 @@ func Tools() []Tool {
 			pkg:     pkgNames{brewCask: "claude-code", winget: "Anthropic.ClaudeCode"},
 			aliases: []string{"claude cli", "claude code", "claudecode"}},
 		{ID: "vieneu", Label: "VieNeu-TTS", Desc: "Giọng đọc tiếng Việt tự nhiên chạy ngay trên máy, không cần mạng.",
-			Manual: "https://www.python.org/downloads/", Full: true,
+			Manual: "https://pypi.org/project/vieneu/", Full: true,
 			script: "setup-vieneu", aliases: []string{"tts", "giọng"}},
 		{ID: "whisper", Label: "faster-whisper", Desc: "Bóc băng offline có mốc từng từ (cho phụ đề karaoke).",
 			Manual: "https://pypi.org/project/faster-whisper/", Full: true,

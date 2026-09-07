@@ -3,7 +3,6 @@
 package util
 
 import (
-	"os"
 	"strings"
 
 	"golang.org/x/sys/windows/registry"
@@ -30,10 +29,21 @@ func systemPATHEntries() []string {
 		if err != nil {
 			continue
 		}
-		for _, entry := range strings.Split(os.ExpandEnv(value), string(os.PathListSeparator)) {
-			if entry = strings.Trim(strings.TrimSpace(entry), `"`); entry != "" {
-				out = append(out, entry)
-			}
+		out = append(out, splitWindowsPATH(value)...)
+	}
+	return out
+}
+
+func splitWindowsPATH(value string) []string {
+	// Registry PATH uses %NAME%, not shell-style $NAME. Expand with the
+	// Windows API, including case-insensitive environment-variable names.
+	if expanded, err := registry.ExpandString(value); err == nil {
+		value = expanded
+	}
+	var out []string
+	for _, entry := range strings.Split(value, ";") {
+		if entry = strings.Trim(strings.TrimSpace(entry), `"`); entry != "" {
+			out = append(out, entry)
 		}
 	}
 	return out

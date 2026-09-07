@@ -20,6 +20,16 @@ func DefaultDataDir() string {
 }
 
 func DefaultDataDirFor(goos, localAppData, configDir, executable string) string {
+	if goos == "darwin" {
+		// Preserve source/CLI projects from older releases, while a fresh CLI
+		// uses the same writable directory as the Finder app.
+		if info, err := os.Stat(filepath.Join("data", "db.json")); err == nil && !info.IsDir() {
+			return "data"
+		}
+		if strings.TrimSpace(configDir) != "" {
+			return filepath.Join(configDir, "BizStudio")
+		}
+	}
 	if goos != "windows" {
 		return "data"
 	}

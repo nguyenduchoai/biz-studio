@@ -23,6 +23,7 @@ type Stage struct {
 	Target     string   `json:"target"`
 	LaunchPath string   `json:"launchPath"`
 	LaunchArgs []string `json:"launchArgs"`
+	ParentPID  int      `json:"parentPid,omitempty"`
 }
 
 func NewStage(archive, tag, goos string) Stage {
@@ -48,6 +49,20 @@ func Start(stage Stage) error {
 	if stage.Archive == "" || stage.Kind == "" || stage.Target == "" {
 		return errors.New("thông tin cài cập nhật chưa đầy đủ")
 	}
+	if err := validateDataOutsideBundle(stage); err != nil {
+		return err
+	}
+	// Check write access before the HTTP handler shuts down the working app.
+	parent := stage.Target
+	if stage.Kind == "tar-app" {
+		parent = filepath.Dir(stage.Target)
+	}
+	probe, err := os.MkdirTemp(parent, ".bizstudio-update-check-")
+	if err != nil {
+		return fmt.Errorf("không ghi được thư mục ứng dụng; hãy chuyển ứng dụng vào thư mục có quyền ghi trước khi cập nhật: %w", err)
+	}
+	_ = os.Remove(probe)
+	stage.ParentPID = os.Getpid()
 	exe, err := os.Executable()
 	if err != nil {
 		return err
@@ -70,7 +85,7 @@ func Start(stage Stage) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("khởi động bộ cập nhật: %w", err)
 	}
-	return nil
+	return cmd.Process.Release()
 }
 
 func Apply(specPath string) error {
@@ -82,128 +97,79 @@ func Apply(specPath string) error {
 	if err := json.Unmarshal(raw, &stage); err != nil {
 		return err
 	}
-	// HTTP handler trả phản hồi rồi tiến trình chính mới thoát. Chờ ngắn trước
-	// khi thay binary, đặc biệt Windows không cho ghi đè file đang chạy.
-	time.Sleep(2 * time.Second)
-	if err := applyStage(stage); err != nil {
+	if err := waitForParent(stage.ParentPID, 30*time.Second); err != nil {
 		return err
 	}
-	return relaunch(stage)
+	tx, err := prepareUpdate(stage)
+	if err != nil {
+		// Extraction/replacement failed with the original version still present.
+		stage.Tag = ""
+		return errors.Join(err, relaunch(stage))
+	}
+	return finishUpdate(tx, stage, relaunch)
 }
 
 func applyStage(stage Stage) error {
+	tx, err := prepareUpdate(stage)
+	if err != nil {
+		return err
+	}
+	return tx.commit()
+}
+
+func prepareUpdate(stage Stage) (*updateTransaction, error) {
 	parent := stage.Target
 	if stage.Kind == "tar-app" {
 		parent = filepath.Dir(stage.Target)
 	}
-	tmp := filepath.Join(parent, ".bizstudio-update-"+stage.Tag)
-	if err := os.RemoveAll(tmp); err != nil {
-		return err
-	}
-	if err := os.MkdirAll(tmp, 0o755); err != nil {
-		return err
+	tmp, err := os.MkdirTemp(parent, ".bizstudio-update-")
+	if err != nil {
+		return nil, err
 	}
 	defer os.RemoveAll(tmp)
 
 	switch stage.Kind {
 	case "zip-dir":
 		if err := extractZip(stage.Archive, tmp); err != nil {
-			return err
+			return nil, err
 		}
-		return replaceFiles(tmp, stage.Target)
+		return replaceFilesTransaction(tmp, stage.Target)
 	case "tar-dir":
 		if err := extractTarGz(stage.Archive, tmp); err != nil {
-			return err
+			return nil, err
 		}
-		return replaceFiles(tmp, stage.Target)
+		return replaceFilesTransaction(tmp, stage.Target)
 	case "tar-app":
 		if err := extractTarGz(stage.Archive, tmp); err != nil {
-			return err
+			return nil, err
 		}
-		return replaceApp(filepath.Join(tmp, "Biz Studio.app"), stage.Target)
+		return replaceAppTransaction(filepath.Join(tmp, "Biz Studio.app"), stage.Target)
 	default:
-		return fmt.Errorf("kiểu cập nhật không hỗ trợ: %s", stage.Kind)
+		return nil, fmt.Errorf("kiểu cập nhật không hỗ trợ: %s", stage.Kind)
 	}
 }
 
 func replaceFiles(src, dst string) error {
-	return filepath.WalkDir(src, func(path string, entry os.DirEntry, walkErr error) error {
-		if walkErr != nil {
-			return walkErr
-		}
-		rel, err := filepath.Rel(src, path)
-		if err != nil || rel == "." {
-			return err
-		}
-		target := filepath.Join(dst, rel)
-		if entry.IsDir() {
-			return os.MkdirAll(target, 0o755)
-		}
-		info, err := entry.Info()
-		if err != nil {
-			return err
-		}
-		return replaceFileWithRetry(path, target, info.Mode().Perm())
-	})
-}
-
-func replaceFileWithRetry(src, dst string, mode os.FileMode) error {
-	var last error
-	for i := 0; i < 40; i++ {
-		newPath := dst + ".new"
-		oldPath := dst + ".old"
-		_ = os.Remove(newPath)
-		if err := copyFile(src, newPath, mode); err != nil {
-			last = err
-		} else {
-			_ = os.Remove(oldPath)
-			if _, err := os.Stat(dst); err == nil {
-				if err = os.Rename(dst, oldPath); err != nil {
-					last = err
-					_ = os.Remove(newPath)
-					time.Sleep(250 * time.Millisecond)
-					continue
-				}
-			}
-			if err := os.Rename(newPath, dst); err == nil {
-				_ = os.Remove(oldPath)
-				return nil
-			}
-			last = err
-			_ = os.Rename(oldPath, dst)
-			_ = os.Remove(newPath)
-		}
-		time.Sleep(250 * time.Millisecond)
+	tx, err := replaceFilesTransaction(src, dst)
+	if err != nil {
+		return err
 	}
-	return fmt.Errorf("không thay được %s: %w", filepath.Base(dst), last)
-}
-
-func replaceApp(src, dst string) error {
-	if info, err := os.Stat(filepath.Join(src, "Contents", "MacOS", "bizstudio")); err != nil || info.IsDir() {
-		return errors.New("gói cập nhật macOS thiếu Biz Studio.app hợp lệ")
-	}
-	backup := dst + ".old"
-	_ = os.RemoveAll(backup)
-	if err := os.Rename(dst, backup); err != nil {
-		return fmt.Errorf("không thể thay ứng dụng hiện tại: %w", err)
-	}
-	if err := os.Rename(src, dst); err != nil {
-		_ = os.Rename(backup, dst)
-		return fmt.Errorf("cài ứng dụng mới: %w", err)
-	}
-	_ = os.RemoveAll(backup)
-	return nil
+	return tx.commit()
 }
 
 func relaunch(stage Stage) error {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "darwin" && stage.Kind == "tar-app" {
-		args := append([]string{stage.LaunchPath, "--args"}, stage.LaunchArgs...)
-		cmd = exec.Command("open", args...)
+		// Launch the binary directly: older bundle launchers discard --args,
+		// resetting the user's data directory and port after an update.
+		cmd = exec.Command(filepath.Join(stage.LaunchPath, "Contents", "MacOS", "bizstudio"), stage.LaunchArgs...)
 	} else {
 		cmd = exec.Command(stage.LaunchPath, stage.LaunchArgs...)
 	}
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	return awaitRelaunch(cmd, stage, 30*time.Second)
 }
 
 func appBundle(exe string) string {

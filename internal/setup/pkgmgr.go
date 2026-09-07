@@ -1,10 +1,13 @@
 package setup
 
 import (
+	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // pkgStep dựng lệnh cài/cập nhật bằng trình quản lý gói của hệ điều hành.
@@ -27,14 +30,15 @@ func pkgStep(t Tool, action string) (Step, error) {
 }
 
 func brewStep(t Tool, action string) (Step, error) {
-	if !have("brew") {
-		return Step{}, fmt.Errorf("máy chưa có Homebrew — cài tại https://brew.sh rồi bấm lại, "+
-			"hoặc tải thủ công tại %s", t.Manual)
+	step, err := nativeBrewStep(nativePythonARM64(context.Background()), exec.LookPath)
+	if err != nil {
+		return Step{}, err
 	}
 	if t.pkg.brewCask != "" {
 		// Cask .app không cần sudo; cài lại đè lên bản cũ nên update dùng luôn install.
-		return Step{Label: "brew " + t.pkg.brewCask, Bin: "brew",
-			Args: []string{"install", "--cask", "--force", t.pkg.brewCask}}, nil
+		step.Label = "brew " + t.pkg.brewCask
+		step.Args = append(step.Args, "install", "--cask", "--force", t.pkg.brewCask)
+		return step, nil
 	}
 	if t.pkg.brew == "" {
 		return Step{}, fmt.Errorf("chưa hỗ trợ cài %s tự động trên macOS — xem %s", t.Label, t.Manual)
@@ -43,7 +47,26 @@ func brewStep(t Tool, action string) (Step, error) {
 	if action == "update" {
 		verb = "upgrade"
 	}
-	return Step{Label: "brew " + verb + " " + t.pkg.brew, Bin: "brew", Args: []string{verb, t.pkg.brew}}, nil
+	step.Label = "brew " + verb + " " + t.pkg.brew
+	step.Args = append(step.Args, verb, t.pkg.brew)
+	return step, nil
+}
+
+// Finder can launch an Intel app through Rosetta on an M-series Mac. Force
+// both Homebrew's prefix and process architecture to match native media wheels.
+func nativeBrewStep(arm64 bool, lookup func(string) (string, error)) (Step, error) {
+	if arm64 {
+		path, err := lookup("/opt/homebrew/bin/brew")
+		if err != nil {
+			return Step{}, fmt.Errorf("máy Apple Silicon cần Homebrew bản arm64 tại /opt/homebrew — mở Terminal không dùng Rosetta và cài theo https://brew.sh rồi thử lại")
+		}
+		return Step{Bin: "/usr/bin/arch", Args: []string{"-arm64", path}}, nil
+	}
+	path, err := lookup("brew")
+	if err != nil {
+		return Step{}, fmt.Errorf("máy chưa có Homebrew — cài tại https://brew.sh rồi thử lại")
+	}
+	return Step{Bin: path}, nil
 }
 
 func wingetStep(t Tool, action string) (Step, error) {
@@ -64,7 +87,7 @@ func wingetStep(t Tool, action string) (Step, error) {
 		Label: "winget " + verb + " " + t.pkg.winget,
 		Bin:   winget,
 		Args: []string{verb, "--id", t.pkg.winget, "--exact", "--source", "winget", "--silent",
-			"--accept-package-agreements", "--accept-source-agreements"},
+			"--accept-package-agreements", "--accept-source-agreements", "--disable-interactivity"},
 	}, nil
 }
 
@@ -102,7 +125,7 @@ func sudoReady() bool {
 	if !have("sudo") {
 		return false
 	}
-	return exec.Command("sudo", "-n", "true").Run() == nil
+	return packageProbe("sudo", "-n", "true")
 }
 
 // pkgOwns cho biết công cụ có phải do trình quản lý gói của máy cài hay không.
@@ -110,18 +133,30 @@ func sudoReady() bool {
 func pkgOwns(t Tool) bool {
 	switch runtime.GOOS {
 	case "darwin":
-		if !have("brew") || t.pkg.brew == "" {
+		step, err := nativeBrewStep(nativePythonARM64(context.Background()), exec.LookPath)
+		if err != nil || t.pkg.brew == "" {
 			return false
 		}
-		return exec.Command("brew", "list", "--formula", "--versions", t.pkg.brew).Run() == nil
+		return packageProbe(step.Bin, append(step.Args, "list", "--formula", "--versions", t.pkg.brew)...)
 	case "windows":
 		if !have("winget") || t.pkg.winget == "" {
 			return false
 		}
-		return exec.Command("winget", "list", "--id", t.pkg.winget, "-e").Run() == nil
+		return packageProbe("winget", "list", "--id", t.pkg.winget, "-e", "--source", "winget",
+			"--accept-source-agreements", "--disable-interactivity")
 	default:
 		return true
 	}
+}
+
+// BuildPlan có thể chạy ngay trong HTTP handler. Probe package manager phải
+// có hạn chờ, kể cả khi registry/source bị khóa bởi một trình cài khác.
+func packageProbe(bin string, args ...string) bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, args...)
+	cmd.Env = safeInstallerEnv(os.Environ())
+	return cmd.Run() == nil
 }
 
 func have(bin string) bool {

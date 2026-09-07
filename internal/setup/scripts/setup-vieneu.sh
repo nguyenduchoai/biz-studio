@@ -29,21 +29,34 @@ if [ "$(uname -s)" = "Darwin" ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null)
   echo "→ Máy Apple Silicon — cài bản arm64 (nhanh hơn hẳn chạy qua Rosetta)."
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "❌ Cần Python 3.10+ — cài tại https://www.python.org/downloads/" >&2
+PYTHON="${BIZSTUDIO_PYTHON:-}"
+PYTHON_CHECK='import sys, venv; raise SystemExit(0 if sys.version_info.major == 3 and 10 <= sys.version_info.minor <= 13 and sys.maxsize > 2**32 else 2)'
+if [ -z "$PYTHON" ]; then
+  for candidate in python3.11 /opt/homebrew/opt/python@3.11/bin/python3.11 /usr/local/opt/python@3.11/bin/python3.11 python3.12 python3.10 python3.13 python3 python; do
+    if command -v "$candidate" >/dev/null 2>&1 && $ARCH_PREFIX "$candidate" -I -c "$PYTHON_CHECK" >/dev/null 2>&1; then
+      PYTHON="$(command -v "$candidate")"
+      break
+    fi
+  done
+fi
+if [ -z "$PYTHON" ] || ! $ARCH_PREFIX "$PYTHON" -I -c "$PYTHON_CHECK" >/dev/null 2>&1; then
+  echo "❌ Cần Python 3.10–3.13 bản 64-bit — cài Python 3.11 tại https://www.python.org/downloads/" >&2
   exit 1
 fi
 
-$ARCH_PREFIX python3 -m venv "$VENV"
-$ARCH_PREFIX "$VENV/bin/pip" install --quiet --upgrade pip
+echo "✓ Đã nhận Python: $PYTHON"
+$ARCH_PREFIX "$PYTHON" -m venv "$VENV"
+if ! $ARCH_PREFIX "$VENV/bin/python" -m pip install --quiet --upgrade pip; then
+  echo "⚠️ Không nâng được pip; tiếp tục dùng pip hiện có trong venv." >&2
+fi
 echo "→ pip install vieneu 3.2.3 (bản đã kiểm với Biz Studio)…"
-$ARCH_PREFIX "$VENV/bin/pip" install "vieneu==3.2.3"
+$ARCH_PREFIX "$VENV/bin/python" -m pip install "vieneu==3.2.3"
 
 # torch/torchaudio chỉ cần cho Clone voice (trích đặc trưng giọng từ clip mẫu).
 # Bỏ qua bằng: SKIP_CLONE=1 ./scripts/setup-vieneu.sh
 if [ "${SKIP_CLONE:-0}" != "1" ]; then
   echo "→ pip install torch torchaudio (cho tính năng Clone voice, ~300 MB)…"
-  $ARCH_PREFIX "$VENV/bin/pip" install torch torchaudio
+  $ARCH_PREFIX "$VENV/bin/python" -m pip install torch torchaudio
 else
   echo "→ Bỏ qua torch/torchaudio — Clone voice sẽ không dùng được."
 fi

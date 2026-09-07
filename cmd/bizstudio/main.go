@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"time"
 
 	"bizstudio/internal/cli"
@@ -107,6 +106,7 @@ func main() {
 	if err != nil {
 		fatalStartup("không mở được dữ liệu: %v", err)
 	}
+	recoverInterruptedWork(st)
 
 	srv := server.New(st, *dataDir, actualPort, mobilePort)
 	if err := writeInstanceFile(*dataDir, url); err != nil {
@@ -128,11 +128,13 @@ func main() {
 	}
 
 	if openWindow {
+		launch := recordWindowLaunch(*dataDir)
 		if cmd, err := desktop.OpenWindow(st, url, *dataDir); err != nil {
 			log.Printf("không mở được cửa sổ app (%v) — mở bằng trình duyệt mặc định", err)
 			_ = desktop.OpenDefault(url)
 		} else if cmd != nil {
-			go quitWhenWindowClosed(cmd, st, url)
+			launch.openedAt = time.Now()
+			go quitWhenWindowClosed(cmd, st, url, launch)
 		}
 	}
 
@@ -150,43 +152,8 @@ func openRunningInstance(openWindow bool, url, dataDir string) {
 	if !openWindow {
 		return
 	}
+	recordWindowLaunch(dataDir)
 	if _, err := desktop.OpenWindowDefault(url, dataDir); err != nil {
 		_ = desktop.OpenDefault(url)
 	}
-}
-
-// quitWhenWindowClosed thoát khi người dùng đóng cửa sổ app — trừ khi còn việc
-// đang chạy.
-//
-// Đóng cửa sổ mà tắt luôn server thì một lượt render dài đang chạy dở bị giết,
-// mất trắng công. Ngược lại, cứ để server sống mãi thì thành tiến trình ma
-// người dùng không biết đường tắt. Nên: hết việc mới thoát, còn việc thì sống
-// tiếp và nói rõ vì sao.
-func quitWhenWindowClosed(cmd *exec.Cmd, st *store.Store, url string) {
-	_ = cmd.Wait()
-	for {
-		n := runningJobs(st)
-		installing := server.SetupInProgress()
-		storageErr := st.PersistenceError()
-		if n == 0 && !installing && storageErr == "" {
-			log.Printf("Đã đóng cửa sổ — thoát Biz Studio.")
-			os.Exit(0)
-		}
-		if storageErr != "" {
-			log.Printf("Không thoát vì còn lỗi lưu dữ liệu chưa khắc phục: %s", storageErr)
-		}
-		log.Printf("Đã đóng cửa sổ nhưng còn %d việc và trạng thái cài đặt=%t — vẫn giữ máy chủ ở %s. "+
-			"Xong hết sẽ tự thoát.", n, installing, url)
-		time.Sleep(15 * time.Second)
-	}
-}
-
-func runningJobs(st *store.Store) int {
-	n := 0
-	for _, j := range st.Jobs() {
-		if j.Status == "running" || j.Status == "queued" {
-			n++
-		}
-	}
-	return n
 }

@@ -14,10 +14,11 @@ func TestWindowsPythonScriptsValidateInterpreterAndPrefer311(t *testing.T) {
 		script := string(body)
 		for _, want := range []string{
 			`@("py", "-3.11")`,
-			`sys.version_info >= (3, 10)`,
+			`10 <= sys.version_info.minor <= 13`,
 			`sys.maxsize > 2**32`,
 			`$VenvPy -m pip`,
-			`Python 3.10+ 64-bit`,
+			`Python 3.10–3.13 bản 64-bit`,
+			`$env:BIZSTUDIO_PYTHON`,
 			`$env:PYTHONUTF8 = "1"`,
 			`$env:PYTHONIOENCODING = "utf-8"`,
 		} {

@@ -94,6 +94,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.mux.ServeHTTP(w, r)
 		return
 	}
+	unlock, ok := beginMutation(w, r, r.Method == http.MethodPost && r.URL.Path == "/api/update/apply")
+	if !ok {
+		return
+	}
+	defer unlock()
 	buffered := newBufferedResponse()
 	s.mux.ServeHTTP(buffered, r)
 	if persistenceErr := s.st.PersistenceError(); persistenceErr != "" {

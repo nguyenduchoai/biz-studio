@@ -42,13 +42,15 @@ Tải gói phù hợp tại trang [GitHub Releases](../../releases):
 
 Giải nén ZIP rồi bấm đúp **Biz Studio.exe**. Ở lần mở đầu, Biz Studio kiểm tra App Installer/WinGet, xin quyền Windows khi cần để điện thoại gửi file qua mạng Private và cài các thành phần còn thiếu. Rule Firewall chỉ áp dụng cho đúng file **Biz Studio.exe** trên mạng Private/Domain.
 
-Nếu máy chưa có WinGet, bấm **Cài App Installer / WinGet**, cài từ Microsoft rồi mở lại Biz Studio. Không cần tắt Windows Firewall; nếu Wi-Fi đang để Public, đổi thuộc tính mạng sang Private trước khi quét QR.
+Nếu máy chưa có WinGet, bấm **Cài App Installer / WinGet**, cài từ Microsoft rồi mở lại Biz Studio. Không cần tắt Windows Firewall; nếu Wi-Fi đang để Public, đổi thuộc tính mạng sang Private trước khi quét QR. Nếu chưa cho phép nhận file QR, vẫn có thể cài thư viện và làm việc trên máy tính; thiết lập QR sau tại **Cấu hình & API → Thiết lập đầy đủ & nhận file QR**.
 
 Đăng nhập Claude là bước riêng: mở PowerShell và chạy `claude auth login`. Biz Studio không nhận hoặc lưu thông tin đăng nhập Claude.
 
 ### macOS
 
 Mở DMG, kéo **Biz Studio.app** vào Applications. Nếu macOS chặn lần mở đầu, nhấp phải ứng dụng và chọn **Open**.
+
+Bộ cài thư viện dùng [Homebrew](https://brew.sh). Mac Apple Silicon cần Homebrew ARM64 tại `/opt/homebrew`; Mac Intel dùng bản Intel. Biz Studio tự tìm Python tương thích và lưu dữ liệu trong `~/Library/Application Support/BizStudio`.
 
 ### Linux
 
@@ -61,6 +63,8 @@ Biz Studio tự kiểm tra GitHub Release khi mở. Khi có bản mới, ứng d
 - Chọn đúng gói theo Windows, macOS hoặc Linux và đúng kiến trúc máy.
 - Kiểm tra SHA-256 trước khi cài; sai checksum thì hủy cập nhật.
 - Giữ nguyên dự án và dữ liệu người dùng.
+- Chờ cài đặt, dựng video và phiên AI hoàn tất trước khi cập nhật.
+- Giữ bản cũ đến khi bản mới khởi động được; khôi phục nếu quá trình thay file hoặc khởi động thất bại.
 - Bấm **Cập nhật ngay** để tải, cài và khởi động lại.
 
 Bản ổn định chỉ nhận bản ổn định. Bản RC có thể nhận RC mới hơn để phục vụ kiểm thử trước phát hành.
@@ -114,7 +118,7 @@ data/
 
 ## Chạy từ mã nguồn
 
-Yêu cầu Go 1.22 trở lên:
+Yêu cầu Go 1.26 trở lên:
 
 ```bash
 git clone https://github.com/nguyenduchoai/biz-studio.git
@@ -128,10 +132,10 @@ Mặc định ứng dụng mở tại `http://127.0.0.1:6868`. Dùng `-window=fa
 
 ```bash
 go test ./...
-./scripts/build-release.sh 2.14.0
+./scripts/build-release.sh 2.14.2
 ```
 
-Release được tạo tự động khi đẩy tag dạng `vX.Y.Z` hoặc `vX.Y.Z-rc.N`. Pipeline kiểm thử trên Windows, đóng gói Windows/macOS/Linux và phát hành kèm `SHA256SUMS.txt`.
+Release được tạo tự động khi đẩy tag dạng `vX.Y.Z` hoặc `vX.Y.Z-rc.N`. Pipeline kiểm thử native trên Windows, Mac Intel và Mac Apple Silicon trước khi đóng gói, phát hành kèm `SHA256SUMS.txt`. Bài thử bao gồm gửi video/âm thanh qua QR, dựng và phát video, mở lại và giữ dữ liệu.
 
 Hợp đồng API và quy ước phát triển nằm tại [docs/contracts.md](docs/contracts.md).
 

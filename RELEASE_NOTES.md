@@ -1,15 +1,16 @@
-<!-- release: v2.14.1 -->
+<!-- release: v2.14.2 -->
 
-## Biz Studio ổn định hơn trên Windows
+## Làm việc ổn định hơn trên Windows và macOS
 
-Bản này sửa lỗi bộ cài Full dừng sau khi xác nhận Windows Firewall.
+Bản cập nhật giúp cài đặt, biên tập và mở lại Biz Studio đáng tin cậy hơn.
 
 ### Cải thiện
 
-- Biz Studio nhận đúng kết quả Firewall trên nhiều cấu hình Windows 10/11.
-- Bộ cài tiếp tục cài các công cụ còn thiếu sau khi xác nhận UAC.
-- Không cần cài lại Python hoặc tắt Windows Firewall.
-- Kết nối QR vẫn chỉ hoạt động trên mạng Private/Domain và đúng ứng dụng Biz Studio.
+- Nhận đúng Python tương thích và thư viện đã cài, kể cả thư mục có dấu hoặc khoảng trắng.
+- Cài thư viện vẫn tiếp tục khi chưa thiết lập được Firewall; có thể dùng trên máy tính và bật QR sau.
+- Mở lại app ổn định hơn khi cổng đang bận hoặc cửa sổ trình duyệt đã có sẵn; giữ tác vụ và phiên AI đang chạy.
+- Video dựng từ timeline xuất hiện ngay trong kết quả dự án để xem, kiểm tra và xuất bản.
+- Cập nhật giữ dữ liệu, chờ công việc hoàn tất và khôi phục bản trước nếu bản mới không khởi động được.
 
 ### Chọn bản tải về
 
@@ -18,4 +19,4 @@ Bản này sửa lỗi bộ cài Full dừng sau khi xác nhận Windows Firewal
 - **Mac Intel:** `BizStudio-macos-amd64.dmg`
 - **Linux:** chọn gói `amd64` hoặc `arm64` phù hợp với máy
 
-Người đang dùng `v2.14.0` nên cập nhật lên bản này trước khi chạy lại bộ cài Full.
+Sau khi cập nhật, mở **Cấu hình & API → Thiết lập đầy đủ & nhận file QR** để kiểm tra lại máy. Đăng nhập Claude vẫn thực hiện riêng bằng `claude auth login`.

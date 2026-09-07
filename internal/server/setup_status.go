@@ -2,11 +2,8 @@ package server
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os/exec"
-	"runtime"
-	"strings"
 	"sync"
 
 	"bizstudio/internal/setup"
@@ -70,48 +67,13 @@ func checkFFmpeg(ctx context.Context) toolCheck {
 	return toolCheck{OK: true, Detail: ffmpeg.Detail + " · ffprobe OK"}
 }
 
-type pythonCandidate struct {
-	bin  string
-	args []string
-}
-
-func pythonCandidates(goos string) []pythonCandidate {
-	if goos == "windows" {
-		return []pythonCandidate{
-			{bin: "py", args: []string{"-3.11", "--version"}},
-			{bin: "py", args: []string{"-3", "--version"}},
-			{bin: "python3", args: []string{"--version"}},
-			{bin: "python", args: []string{"--version"}},
-		}
-	}
-	return []pythonCandidate{
-		{bin: "python3", args: []string{"--version"}},
-		{bin: "python", args: []string{"--version"}},
-	}
-}
-
 func checkPython(ctx context.Context) toolCheck {
-	if runtime.GOOS == "windows" {
-		// Python vừa được WinGet/bộ cài tay thêm vào registry nhưng process Biz
-		// Studio đang chạy chưa tự nhận PATH mới.
-		util.AugmentPATH()
+	util.AugmentPATH()
+	py, err := setup.FindPython(ctx)
+	if err != nil {
+		return toolCheck{Detail: err.Error()}
 	}
-	for _, c := range pythonCandidates(runtime.GOOS) {
-		if !util.Exists(c.bin) {
-			continue
-		}
-		res := checkBinVersion(ctx, c.bin, c.args...)
-		if res.OK && pythonVersionSupported(res.Detail) {
-			return res
-		}
-	}
-	return toolCheck{Detail: "cần Python 3.10 trở lên, bản 64-bit (bộ cài Full dùng Python 3.11)"}
-}
-
-func pythonVersionSupported(version string) bool {
-	var major, minor int
-	_, err := fmt.Sscanf(strings.TrimSpace(version), "Python %d.%d", &major, &minor)
-	return err == nil && (major > 3 || major == 3 && minor >= 10)
+	return toolCheck{OK: true, Detail: py.Version}
 }
 
 func (s *Server) checkClaudeSetup(ctx context.Context, tool setup.Tool, configured string) toolStatus {

@@ -21,10 +21,11 @@ import (
 // Step là một lệnh trong quy trình cài. Nhiều bước chạy tuần tự, bước nào lỗi
 // thì dừng — không chạy tiếp để tránh che mất lỗi gốc.
 type Step struct {
-	Label string
-	Bin   string
-	Args  []string
-	Env   []string // thêm vào môi trường hiện tại, dạng "K=V"
+	Label  string
+	Bin    string
+	Args   []string
+	Env    []string // thêm vào môi trường hiện tại, dạng "K=V"
+	Python bool     // chọn interpreter đã probe trước khi tạo venv
 }
 
 // Plan là toàn bộ việc cần làm để cài (hoặc cập nhật) một công cụ trên MÁY NÀY.
@@ -120,8 +121,9 @@ func scriptStep(t Tool, _, dataDir, tmpDir string) (Step, []string, error) {
 		abs = dataDir
 	}
 	return Step{
-		Label: "Chạy " + name,
-		Bin:   bin,
-		Args:  append(append([]string{}, pre...), path, abs),
+		Label:  "Chạy " + name,
+		Bin:    bin,
+		Args:   append(append([]string{}, pre...), path, abs),
+		Python: true,
 	}, []string{path}, nil
 }

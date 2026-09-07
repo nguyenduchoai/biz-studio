@@ -2,8 +2,6 @@ package updater
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -149,6 +147,7 @@ func (m *Manager) Prepare(ctx context.Context) (Info, error) {
 	if m.candidate == nil || m.selected == nil {
 		return Info{}, errors.New("không có bản cập nhật mới")
 	}
+	m.archive = ""
 	dir := filepath.Join(m.dataDir, "updates", safeTag(m.candidate.TagName))
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return Info{}, err
@@ -162,20 +161,8 @@ func (m *Manager) Prepare(ctx context.Context) (Info, error) {
 	if err != nil {
 		return Info{}, err
 	}
-	data, err := m.download(ctx, *m.selected, 1<<30)
-	if err != nil {
-		return Info{}, err
-	}
-	got := sha256.Sum256(data)
-	if !strings.EqualFold(hex.EncodeToString(got[:]), want) {
-		return Info{}, errors.New("checksum gói cập nhật không khớp — đã hủy cài đặt")
-	}
 	path := filepath.Join(dir, m.selected.Name)
-	tmp := path + ".part"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
-		return Info{}, err
-	}
-	if err := os.Rename(tmp, path); err != nil {
+	if err := m.downloadArchive(ctx, *m.selected, path, want); err != nil {
 		return Info{}, err
 	}
 	m.archive = path
@@ -204,29 +191,9 @@ func (m *Manager) infoLocked(available bool) Info {
 }
 
 func (m *Manager) download(ctx context.Context, a asset, limit int64) ([]byte, error) {
-	if a.BrowserDownloadURL == "" {
-		return nil, fmt.Errorf("Release thiếu đường dẫn %s", a.Name)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, a.BrowserDownloadURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := m.client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("tải %s: %w", a.Name, err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("tải %s trả HTTP %d", a.Name, resp.StatusCode)
-	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, limit+1))
-	if err != nil {
-		return nil, err
-	}
-	if int64(len(data)) > limit {
-		return nil, fmt.Errorf("%s vượt giới hạn tải", a.Name)
-	}
-	return data, nil
+	var data strings.Builder
+	err := m.downloadTo(ctx, a, &data, limit)
+	return []byte(data.String()), err
 }
 
 func assetName(goos, goarch string) string {

@@ -180,7 +180,15 @@ func (s *Server) handleTimelineRender(w http.ResponseWriter, r *http.Request) {
 			}
 			upd(96, plan.Note)
 			s.Log("info", "timeline", "Dựng xong "+filepath.Base(dst)+" — "+plan.Note)
-			return s.toolRelPath(dst), nil
+			out := s.toolRelPath(dst)
+			// The project preview, QC and publishing all read OutputFile, not
+			// the job's output. Re-read to retain edits made while rendering.
+			if current, ok := s.st.Project(id); ok {
+				current.OutputFile, current.Status, current.Progress = out, "done", 6
+				s.st.SaveProject(&current)
+				s.Hub.Broadcast("project", current)
+			}
+			return out, nil
 		})
 	writeJSON(w, http.StatusOK, j)
 }

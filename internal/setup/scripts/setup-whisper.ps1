@@ -22,19 +22,25 @@ New-Item -ItemType Directory -Force -Path $Models | Out-Null
 # Ưu tiên đúng Python 3.11 do bộ cài Full quản lý. Không chỉ kiểm tra tên lệnh:
 # WindowsApps có thể chứa python.exe giả chỉ để mở Microsoft Store.
 $Py = $null
-foreach ($c in @(@("py", "-3.11"), @("py", "-3"), @("python", ""), @("python3", ""))) {
+$candidates = @(@("py", "-3.11"), @("py", "-3.12"), @("py", "-3.10"), @("py", "-3.13"), @("py", "-3"), @("python", ""), @("python3", ""))
+if ($env:BIZSTUDIO_PYTHON) { $candidates = ,@($env:BIZSTUDIO_PYTHON, "") + $candidates }
+foreach ($c in $candidates) {
   $bin = $c[0]
   if (-not (Get-Command $bin -ErrorAction SilentlyContinue)) { continue }
   $candidateArgs = @()
   if ($c[1]) { $candidateArgs += $c[1] }
-  & $bin @candidateArgs -c "import sys; raise SystemExit(0 if sys.version_info >= (3, 10) and sys.maxsize > 2**32 else 2)" 2>$null
-  if ($LASTEXITCODE -eq 0) {
+  $valid = $false
+  try {
+    & $bin @candidateArgs -I -c "import sys, venv; raise SystemExit(0 if sys.version_info.major == 3 and 10 <= sys.version_info.minor <= 13 and sys.maxsize > 2**32 else 2)" 2>$null
+    $valid = $LASTEXITCODE -eq 0
+  } catch { $valid = $false }
+  if ($valid) {
     $Py = $c
     break
   }
 }
 if (-not $Py) {
-  Write-Error "❌ Cần Python 3.10+ 64-bit — cài tại https://www.python.org/downloads/ (nhớ tích 'Add python.exe to PATH')"
+  Write-Error "❌ Cần Python 3.10–3.13 bản 64-bit — cài Python 3.11 tại https://www.python.org/downloads/"
   exit 1
 }
 

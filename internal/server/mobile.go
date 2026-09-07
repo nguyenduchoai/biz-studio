@@ -28,7 +28,7 @@ func (s *Server) MobileHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /m/{projectID}", s.requireMobileToken(s.handleMobilePage))
 	mux.HandleFunc("POST /m/{projectID}/upload", s.requireMobileToken(s.handleMobileUpload))
-	return mux
+	return updateAwareMobile(mux)
 }
 
 func (s *Server) requireMobileToken(next http.HandlerFunc) http.HandlerFunc {

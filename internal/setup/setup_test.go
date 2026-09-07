@@ -93,7 +93,7 @@ func TestVenvScriptsForceNativeArchOnAppleSilicon(t *testing.T) {
 		if strings.Contains(s, `"${ARCH_PREFIX[@]}"`) {
 			t.Errorf("%s.sh: ARCH_PREFIX dạng mảng sẽ làm script chết trên bash 3.2 khi máy không phải Apple Silicon", tool.script)
 		}
-		for _, must := range []string{"$ARCH_PREFIX python3 -m venv", `$ARCH_PREFIX "$VENV/bin/pip"`} {
+		for _, must := range []string{`$ARCH_PREFIX "$PYTHON" -m venv`, `$ARCH_PREFIX "$VENV/bin/python" -m pip`} {
 			if !strings.Contains(s, must) {
 				t.Errorf("%s.sh: thiếu %q — bước này chạy sai kiến trúc là hỏng cả venv", tool.script, must)
 			}

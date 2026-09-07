@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"net/http"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"bizstudio/internal/setup"
@@ -26,8 +27,12 @@ type fullSetupGrant struct {
 func (s *Server) handleSetupFullPlan(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
+	// Tool imports and the OS probe each get the full timeout, concurrently.
+	// A slow Python import must not hand an expired context to PowerShell.
+	windowsResult := make(chan setup.WindowsReadiness, 1)
+	go func() { windowsResult <- setup.CheckWindowsReadiness(ctx) }()
 	statuses := s.setupStatuses(ctx)
-	windows := setup.CheckWindowsReadiness(ctx)
+	windows := <-windowsResult
 	selected := make([]toolStatus, 0, len(statuses))
 	needsLogin := false
 	running := fullSetupPlanRunning(statuses)
@@ -56,6 +61,7 @@ func (s *Server) handleSetupFullPlan(w http.ResponseWriter, r *http.Request) {
 		"running":          running,
 		"windowsPreparing": setupIsRunning(windowsPrepareID),
 		"windows":          windows,
+		"goos":             runtime.GOOS,
 		"note":             "Chỉ cài thành phần còn thiếu. VieNeu và Whisper có thể tải model lớn; Claude đăng nhập riêng sau khi cài.",
 	})
 }

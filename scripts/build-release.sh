@@ -105,17 +105,7 @@ make_app() { # make_app <arch>
   mkdir -p "$appdir/Contents/MacOS"
   gobuild darwin "$arch" "$appdir/Contents/MacOS/bizstudio"
 
-  cat > "$appdir/Contents/MacOS/launcher" <<'EOF'
-#!/bin/bash
-DIR="$(cd "$(dirname "$0")" && pwd)"
-DATA="$HOME/Library/Application Support/BizStudio"
-mkdir -p "$DATA"
-# Binary tự lo cả hai việc: mở cửa sổ app, và nếu đã có bản đang chạy thì mở
-# thêm cửa sổ rồi thoát. Trước đây launcher tự curl rồi `open` — hai chỗ cùng
-# quyết định một việc, sửa một chỗ là lệch.
-# Chạy qua login shell để kế thừa PATH của người dùng (claude, ffmpeg, yt-dlp…)
-exec /bin/zsh -l -c "exec \"$DIR/bizstudio\" -port 6868 -data \"$DATA\""
-EOF
+  cp scripts/macos-launcher.sh "$appdir/Contents/MacOS/launcher"
   chmod +x "$appdir/Contents/MacOS/launcher"
 
   cat > "$appdir/Contents/Info.plist" <<EOF

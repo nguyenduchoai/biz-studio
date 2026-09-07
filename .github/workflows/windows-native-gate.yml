@@ -34,12 +34,27 @@ jobs:
         shell: pwsh
         run: |
           Get-ChildItem web/static/js -Recurse -Filter *.js |
-            ForEach-Object { node --check $_.FullName }
+            ForEach-Object {
+              node --check $_.FullName
+              if ($LASTEXITCODE -ne 0) { throw "JavaScript syntax failed: $($_.FullName)" }
+            }
+
+      - name: Install media and browser test tools
+        shell: pwsh
+        run: |
+          choco install ffmpeg -y --no-progress
+          if ($LASTEXITCODE -ne 0) { throw "FFmpeg install failed" }
+          npm ci --prefix tools/qa --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "QA dependencies failed" }
+          Push-Location tools/qa
+          npx playwright install chromium
+          if ($LASTEXITCODE -ne 0) { throw "Test browser install failed" }
+          Pop-Location
 
       - name: Windows Python and Whisper installer smoke
         shell: pwsh
         run: |
-          $data = Join-Path $env:RUNNER_TEMP "bizstudio-whisper-setup"
+          $data = Join-Path $env:RUNNER_TEMP "Biz Studio dữ liệu Whisper"
           $env:WHISPER_MODEL = "__bizstudio_missing_model__"
           & ./internal/setup/scripts/setup-whisper.ps1 $data
           if ($LASTEXITCODE -ne 0) { throw "Whisper installer failed" }
@@ -52,7 +67,15 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force artifacts | Out-Null
           go build -trimpath -o artifacts/bizstudio.exe ./cmd/bizstudio
+          if ($LASTEXITCODE -ne 0) { throw "Console build failed" }
           go build -trimpath -ldflags "-H windowsgui" -o "artifacts/Biz Studio.exe" ./cmd/bizstudio
+          if ($LASTEXITCODE -ne 0) { throw "GUI build failed" }
+
+      - name: Setup wizard browser regressions
+        run: npm test --prefix tools/qa
+
+      - name: Packaged Windows executable media and persistence smoke
+        run: node tools/qa/native-smoke.mjs "artifacts/Biz Studio.exe"
 
       - name: Native control and mobile-listener smoke
         shell: pwsh
@@ -87,9 +110,49 @@ jobs:
           name: bizstudio-windows-amd64-unsigned
           path: artifacts/
 
+  test-macos:
+    name: Native macOS (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15-intel, macos-latest]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install native media and browser test tools
+        run: |
+          brew install ffmpeg python@3.11
+          npm ci --prefix tools/qa --no-audit --no-fund
+          cd tools/qa
+          npx playwright install chromium
+
+      - name: Native tests and race detector
+        run: go test -race -count=1 ./...
+
+      - name: macOS Whisper installer in path with spaces
+        env:
+          SKIP_MODEL: "1"
+        run: |
+          bash scripts/setup-whisper.sh "$RUNNER_TEMP/Biz Studio dữ liệu Whisper"
+
+      - name: Setup wizard browser regressions
+        run: npm test --prefix tools/qa
+
+      - name: Native executable media and persistence smoke
+        run: |
+          mkdir -p artifacts
+          go build -trimpath -o artifacts/bizstudio ./cmd/bizstudio
+          node tools/qa/native-smoke.mjs artifacts/bizstudio
+
   package-release:
     if: startsWith(github.ref, 'refs/tags/')
-    needs: test-build-smoke
+    needs: [test-build-smoke, test-macos]
     runs-on: macos-latest
     timeout-minutes: 30
     steps:

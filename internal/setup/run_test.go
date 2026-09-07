@@ -5,6 +5,16 @@ import (
 	"testing"
 )
 
+func TestInstallerOutputKeepsWindowsCRLFLines(t *testing.T) {
+	var lines []string
+	pump(strings.NewReader("Preparing Python\r\nInstalling package\r\nDone\r\n"), func(line string) {
+		lines = append(lines, line)
+	})
+	if got := strings.Join(lines, "|"); got != "Preparing Python|Installing package|Done" {
+		t.Fatalf("Windows installer log disappeared: %q", got)
+	}
+}
+
 func TestSafeInstallerEnvRemovesCredentialsButKeepsRuntimePaths(t *testing.T) {
 	got := safeInstallerEnv([]string{
 		"PATH=C:\\Windows", "TEMP=C:\\Temp", "HTTPS_PROXY=http://proxy.local",

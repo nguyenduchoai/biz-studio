@@ -31,6 +31,7 @@ type Step struct {
 // Plan là toàn bộ việc cần làm để cài (hoặc cập nhật) một công cụ trên MÁY NÀY.
 // Dựng plan tách khỏi lúc chạy để giao diện xem trước được sẽ chạy lệnh gì.
 type Plan struct {
+	DataDir string   `json:"-"`
 	Tool    string   `json:"tool"`
 	Action  string   `json:"action"` // "install" | "update"
 	Steps   []Step   `json:"-"`
@@ -47,7 +48,7 @@ func BuildPlan(t Tool, action, dataDir, tmpDir string) (*Plan, error) {
 	if action != "install" && action != "update" {
 		return nil, fmt.Errorf("hành động không hợp lệ: %q", action)
 	}
-	p := &Plan{Tool: t.ID, Action: action, Manual: t.Manual}
+	p := &Plan{Tool: t.ID, Action: action, Manual: t.Manual, DataDir: dataDir}
 
 	if t.script != "" {
 		st, cleanup, err := scriptStep(t, action, dataDir, tmpDir)

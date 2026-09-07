@@ -109,3 +109,25 @@ func TestRecoverInterruptedWorkPreservesHistoryAndCompletedResults(t *testing.T)
 		t.Fatal("repeated recovery added duplicate interruption events")
 	}
 }
+
+func TestStoppedSessionKeepsServerAliveUntilProcessTeardown(t *testing.T) {
+	st, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := store.Project{Name: "Stopping"}
+	st.SaveProject(&p)
+	st.SaveSession(&store.Session{ProjectID: p.ID, Status: "stopped"})
+	release, ok := st.ProjectWork.TryAcquire(p.ID)
+	if !ok {
+		t.Fatal("cannot acquire project lease")
+	}
+	defer release()
+	if runningWork(st) == 0 {
+		t.Fatal("stopped UI status must not permit exit while process teardown owns a lease")
+	}
+	release()
+	if runningWork(st) != 0 {
+		t.Fatal("fully stopped work must allow shutdown")
+	}
+}

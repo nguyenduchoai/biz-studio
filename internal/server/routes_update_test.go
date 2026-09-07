@@ -13,7 +13,7 @@ import (
 )
 
 func TestUpdateApplyRejectsBusyWorkBeforeStartingUpdater(t *testing.T) {
-	for _, kind := range []string{"job-running", "job-queued", "session", "idea", "setup"} {
+	for _, kind := range []string{"job-running", "job-queued", "session", "session-stopping", "idea", "setup"} {
 		t.Run(kind, func(t *testing.T) {
 			s := newTestServer(t)
 			// A blocked request must not even request a stage or launch a helper.
@@ -25,6 +25,15 @@ func TestUpdateApplyRejectsBusyWorkBeforeStartingUpdater(t *testing.T) {
 				p := store.Project{Name: "Active project"}
 				s.st.SaveProject(&p)
 				s.st.SaveSession(&store.Session{ProjectID: p.ID, Status: "running"})
+			case "session-stopping":
+				p := store.Project{Name: "Stopping project"}
+				s.st.SaveProject(&p)
+				s.st.SaveSession(&store.Session{ProjectID: p.ID, Status: "stopped"})
+				release, ok := s.st.ProjectWork.TryAcquire(p.ID)
+				if !ok {
+					t.Fatal("cannot acquire project lease")
+				}
+				defer release()
 			case "idea":
 				s.st.SaveIdea(&store.Idea{Status: "producing"})
 			case "setup":

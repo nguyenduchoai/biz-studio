@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"bizstudio/internal/agentsdk"
 	"bizstudio/internal/store"
 	"bizstudio/internal/tts"
 	"bizstudio/internal/util"
@@ -30,10 +31,13 @@ type toolCheck struct {
 const secretMask = "••••••••"
 
 var secretSettingKeys = map[string]bool{
-	"geminiApiKey": true, "openaiKey": true, "pexelsKey": true,
+	"geminiApiKey": true, "openaiKey": true, "pexelsKey": true, "anthropicApiKey": true,
 }
 
 func maskedSettings(cfg store.Settings) store.Settings {
+	if cfg.AnthropicAPIKey != "" {
+		cfg.AnthropicAPIKey = secretMask
+	}
 	if cfg.GeminiAPIKey != "" {
 		cfg.GeminiAPIKey = secretMask
 	}
@@ -380,6 +384,15 @@ func mergeSettings(cur store.Settings, r *http.Request) (store.Settings, error) 
 	var out store.Settings
 	if err := json.Unmarshal(raw, &out); err != nil {
 		return cur, fmt.Errorf("cấu hình gửi lên không hợp lệ: %w", err)
+	}
+	if out.ClaudeBackend != "" && out.ClaudeBackend != "cli" && out.ClaudeBackend != "sdk" {
+		return cur, fmt.Errorf("Claude backend chỉ hỗ trợ cli hoặc sdk")
+	}
+	if _, err := agentsdk.Budget(out.ClaudeSDKBudgetUSD); err != nil {
+		return cur, err
+	}
+	if out.ClaudeBackend == "sdk" && strings.TrimSpace(out.AnthropicAPIKey) == "" {
+		return cur, fmt.Errorf("chế độ Agent SDK cần Anthropic API key riêng")
 	}
 	return out, nil
 }

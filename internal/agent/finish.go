@@ -2,69 +2,104 @@ package agent
 
 import (
 	"bytes"
-	"encoding/json"
-	"os"
-	"path"
-	"path/filepath"
+	"context"
+	"fmt"
 	"strings"
 	"time"
 
 	"bizstudio/internal/store"
 )
 
-// finishRun xử lý khi tiến trình claude thoát. Nếu đã có event "result" thì
-// onResult đã cập nhật đầy đủ; nếu không → phiên lỗi (hoặc giữ "stopped" nếu bị Stop).
-func (r *Runner) finishRun(sessionID, projectID string, gotResult bool, waitErr error, stderr *bytes.Buffer) {
-	if gotResult {
-		return
-	}
+// A result event is only a claim. Confirm process success and a fresh, valid
+// artifact before publishing done, while still holding the project lease.
+func (r *Runner) finishRun(ctx context.Context, sessionID, projectID string, result *streamEvent, waitErr error, stderr *bytes.Buffer, before outputSnapshot) {
 	sess, ok := r.st.Session(sessionID)
 	if !ok {
 		return
 	}
 	if sess.Status == "stopped" {
-		if sess.EndedAt.IsZero() {
-			sess.EndedAt = time.Now()
-			r.st.SaveSession(&sess)
-			r.broadcast("session", sess)
-		}
 		r.resetProjectAfterStop(projectID)
 		return
 	}
-
-	msg := "claude CLI kết thúc mà không trả kết quả"
-	if waitErr != nil {
-		msg = "claude CLI lỗi: " + waitErr.Error()
+	var failure error
+	switch {
+	case ctx.Err() != nil:
+		failure = fmt.Errorf("phiên AI đã hết thời gian hoặc bị hủy: %w", ctx.Err())
+	case waitErr != nil:
+		failure = fmt.Errorf("Claude kết thúc lỗi: %w", waitErr)
+	case result == nil:
+		failure = fmt.Errorf("Claude kết thúc mà không trả kết quả")
+	case result.IsError || result.Subtype != "success":
+		failure = fmt.Errorf("Claude chưa hoàn thành (%s)", result.Subtype)
 	}
-	if s := strings.TrimSpace(stderr.String()); s != "" {
-		msg += " — " + truncate(s, 500)
+	if failure != nil {
+		msg := failure.Error()
+		if stderr != nil && strings.TrimSpace(stderr.String()) != "" {
+			msg += " — " + truncate(stderr.String(), 500)
+		}
+		r.failSession(sessionID, projectID, msg)
+		return
 	}
-	r.addEvent(&store.SessionEvent{SessionID: sessionID, Type: "error", Payload: msg})
-	r.st.AddLog("error", "agent", msg)
-
-	sess.Status = "error"
-	sess.EndedAt = time.Now()
+	verifyCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+	out, err := r.verifiedOutput(verifyCtx, projectID, before)
+	if err != nil {
+		r.failSession(sessionID, projectID, "Chưa thể hoàn thành video: "+err.Error()+". Có thể tiếp tục phiên để sửa kết quả.")
+		return
+	}
+	// Stop may arrive during a long media validation.
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	sess, ok = r.st.Session(sessionID)
+	if !ok {
+		return
+	}
+	if sess.Status == "stopped" {
+		r.resetProjectAfterStop(projectID)
+		return
+	}
+	if ctx.Err() != nil {
+		r.failSessionLocked(sessionID, projectID, "Phiên AI đã hết thời gian trước khi hoàn tất")
+		return
+	}
+	p, ok := r.st.Project(projectID)
+	if !ok {
+		r.failSessionLocked(sessionID, projectID, "Dự án không còn tồn tại")
+		return
+	}
+	p.OutputFile, p.Status, p.Progress = out, "done", 6
+	r.st.SaveProject(&p)
+	r.broadcast("project", p)
+	sess.Status, sess.EndedAt = "done", time.Now()
 	r.st.SaveSession(&sess)
 	r.broadcast("session", sess)
-
-	r.finalizeProject(projectID, false)
 }
 
-// failSession dùng khi không khởi động được tiến trình claude.
 func (r *Runner) failSession(sessionID, projectID, msg string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.failSessionLocked(sessionID, projectID, msg)
+}
+
+func (r *Runner) failSessionLocked(sessionID, projectID, msg string) {
 	r.addEvent(&store.SessionEvent{SessionID: sessionID, Type: "error", Payload: msg})
 	r.st.AddLog("error", "agent", msg)
-
 	if sess, ok := r.st.Session(sessionID); ok {
-		sess.Status = "error"
-		sess.EndedAt = time.Now()
+		if sess.Status == "stopped" {
+			r.resetProjectAfterStop(projectID)
+			return
+		}
+		sess.Status, sess.EndedAt = "error", time.Now()
 		r.st.SaveSession(&sess)
 		r.broadcast("session", sess)
 	}
-	r.finalizeProject(projectID, false)
+	if p, ok := r.st.Project(projectID); ok {
+		p.Status = "error"
+		r.st.SaveProject(&p)
+		r.broadcast("project", p)
+	}
 }
 
-// resetProjectAfterStop trả dự án đang "running" về "draft" khi phiên bị dừng chủ động.
 func (r *Runner) resetProjectAfterStop(projectID string) {
 	p, ok := r.st.Project(projectID)
 	if !ok || p.Status != "running" {
@@ -73,72 +108,4 @@ func (r *Runner) resetProjectAfterStop(projectID string) {
 	p.Status = "draft"
 	r.st.SaveProject(&p)
 	r.broadcast("project", p)
-}
-
-// finalizeProject cập nhật dự án khi phiên kết thúc: done → tìm output; lỗi → error.
-func (r *Runner) finalizeProject(projectID string, sessionDone bool) {
-	p, ok := r.st.Project(projectID)
-	if !ok {
-		return
-	}
-	if !sessionDone {
-		p.Status = "error"
-		r.st.SaveProject(&p)
-		r.broadcast("project", p)
-		return
-	}
-	if out := r.findOutput(projectID); out != "" {
-		p.OutputFile = out
-	} else {
-		r.st.AddLog("warn", "agent", "phiên hoàn tất nhưng không tìm thấy video output cho dự án "+projectID)
-	}
-	p.Status = "done"
-	p.Progress = 6
-	r.st.SaveProject(&p)
-	r.broadcast("project", p)
-}
-
-// findOutput tìm video kết quả, trả đường dẫn tương đối dataDir
-// ("projects/<id>/outputs/<file>") hoặc "" nếu không có.
-// Ưu tiên meta.json {"status","output"}, sau đó file .mp4 mới nhất trong outputs/.
-func (r *Runner) findOutput(projectID string) string {
-	dir := filepath.Join(r.dataDir, "projects", projectID)
-
-	if raw, err := os.ReadFile(filepath.Join(dir, "meta.json")); err == nil {
-		var meta struct {
-			Status string `json:"status"`
-			Output string `json:"output"`
-		}
-		if json.Unmarshal(raw, &meta) == nil && meta.Output != "" {
-			rel := path.Clean(filepath.ToSlash(meta.Output))
-			if rel != "." && !strings.HasPrefix(rel, "..") && !path.IsAbs(rel) {
-				if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(rel))); err == nil {
-					return path.Join("projects", projectID, rel)
-				}
-			}
-		}
-	}
-
-	entries, err := os.ReadDir(filepath.Join(dir, "outputs"))
-	if err != nil {
-		return ""
-	}
-	var newest string
-	var newestT time.Time
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(strings.ToLower(e.Name()), ".mp4") {
-			continue
-		}
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-		if newest == "" || info.ModTime().After(newestT) {
-			newest, newestT = e.Name(), info.ModTime()
-		}
-	}
-	if newest == "" {
-		return ""
-	}
-	return path.Join("projects", projectID, "outputs", newest)
 }

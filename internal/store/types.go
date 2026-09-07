@@ -44,6 +44,7 @@ type Session struct {
 	ID              string    `json:"id"`
 	ProjectID       string    `json:"projectId"`
 	ClaudeSessionID string    `json:"claudeSessionId"`
+	Backend         string    `json:"backend,omitempty"` // cli (including legacy empty) | sdk
 	Title           string    `json:"title"`
 	Status          string    `json:"status"` // running | done | error | stopped
 	AutoContinue    bool      `json:"autoContinue"`
@@ -301,18 +302,21 @@ type Settings struct {
 	GeminiImageModel string `json:"geminiImageModel"` // rỗng = gemini-2.5-flash-image
 	GeminiTTSModel   string `json:"geminiTtsModel"`   // rỗng = gemini-2.5-flash-preview-tts
 
-	ClaudeBin            string `json:"claudeBin"`
-	YtdlpBin             string `json:"ytdlpBin"`
-	DownloadDir          string `json:"downloadDir"`
-	CookiesFile          string `json:"cookiesFile"`
-	Quality              string `json:"quality"`
-	Threads              int    `json:"threads"`
-	Theme                string `json:"theme"` // light | dark
-	UIScale              int    `json:"uiScale"`
-	PerfMode             string `json:"perfMode"`
-	GradientBg           bool   `json:"gradientBg"`
-	RememberTranslations bool   `json:"rememberTranslations"`
-	CacheTTS             bool   `json:"cacheTts"`
+	ClaudeBin            string  `json:"claudeBin"`
+	ClaudeBackend        string  `json:"claudeBackend"` // empty/cli preserves existing local CLI sessions
+	AnthropicAPIKey      string  `json:"anthropicApiKey"`
+	ClaudeSDKBudgetUSD   float64 `json:"claudeSdkBudgetUsd"` // 0 uses the safe default of $2 per invocation
+	YtdlpBin             string  `json:"ytdlpBin"`
+	DownloadDir          string  `json:"downloadDir"`
+	CookiesFile          string  `json:"cookiesFile"`
+	Quality              string  `json:"quality"`
+	Threads              int     `json:"threads"`
+	Theme                string  `json:"theme"` // light | dark
+	UIScale              int     `json:"uiScale"`
+	PerfMode             string  `json:"perfMode"`
+	GradientBg           bool    `json:"gradientBg"`
+	RememberTranslations bool    `json:"rememberTranslations"`
+	CacheTTS             bool    `json:"cacheTts"`
 
 	// API Trực Tiếp — endpoint OpenAI-compatible (OpenAI, LM Studio, Ollama, OpenRouter…)
 	OpenAIBase  string `json:"openaiBase"`

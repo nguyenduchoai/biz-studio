@@ -214,12 +214,17 @@ func (s *Server) handleProjectRenderFinal(w http.ResponseWriter, r *http.Request
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Minute)
 		defer cancel()
 		upd(10, fmt.Sprintf("Đang re-encode về %dx%d…", cur.Width, cur.Height))
-		tmp := filepath.Join(dir, "tmp", "final-render.mp4")
+		tmp, err := newRenderTemp(dir, "final-render-*.mp4")
+		if err != nil {
+			return "", err
+		}
+		defer os.Remove(tmp)
 		if err := media.ReEncode(ctx, src, tmp, cur.Width, cur.Height); err != nil {
 			return "", err
 		}
-		if err := os.Rename(tmp, filepath.Join(dir, "outputs", "final.mp4")); err != nil {
-			return "", fmt.Errorf("không di chuyển được file final: %w", err)
+		upd(92, "Đang kiểm tra toàn bộ video final…")
+		if err := validateAndPromoteRender(ctx, tmp, filepath.Join(dir, "outputs", "final.mp4")); err != nil {
+			return "", err
 		}
 		rel := "projects/" + id + "/outputs/final.mp4"
 		if p2, ok := s.st.Project(id); ok {
@@ -230,6 +235,34 @@ func (s *Server) handleProjectRenderFinal(w http.ResponseWriter, r *http.Request
 		return rel, nil
 	})
 	writeJSON(w, http.StatusOK, job)
+}
+
+func newRenderTemp(projectDir, pattern string) (string, error) {
+	tmp, err := os.CreateTemp(filepath.Join(projectDir, "tmp"), pattern)
+	if err != nil {
+		return "", fmt.Errorf("không tạo được file render tạm: %w", err)
+	}
+	path := tmp.Name()
+	if err := tmp.Close(); err != nil {
+		_ = os.Remove(path)
+		return "", err
+	}
+	return path, nil
+}
+
+// Never overwrite a previous playable result just because FFmpeg exited zero.
+// Validation happens against the temporary file before touching live output.
+func validateAndPromoteRender(ctx context.Context, tmp, dst string) error {
+	if err := media.ValidateVideo(ctx, tmp); err != nil {
+		return fmt.Errorf("video render chưa hợp lệ; giữ nguyên bản trước: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, dst); err != nil {
+		return fmt.Errorf("không thay được video output (đóng file đang mở rồi thử lại): %w", err)
+	}
+	return nil
 }
 
 // renderSource chọn video nguồn cho render final: OutputFile hiện tại,

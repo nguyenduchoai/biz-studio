@@ -57,7 +57,7 @@ func (s *Server) handleGradeApply(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dst := strings.TrimSuffix(src, filepath.Ext(src)) + "." + p.ID + ".mp4"
-	j := s.Jobs.Submit("grade", "", "Chỉnh màu "+p.Name+": "+filepath.Base(src),
+	j := s.Jobs.Submit("grade", s.projectIDForToolPath(filepath.Dir(dst)), "Chỉnh màu "+p.Name+": "+filepath.Base(src),
 		func(upd func(float64, string)) (string, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), toolJobTimeout)
 			defer cancel()
@@ -174,7 +174,7 @@ func (s *Server) handleSfxMix(w http.ResponseWriter, r *http.Request) {
 		cues = append(cues, media.SfxCue{Path: p, AtSec: c.AtSec, Gain: c.Gain})
 	}
 	dst := strings.TrimSuffix(src, filepath.Ext(src)) + ".sfx.mp4"
-	j := s.Jobs.Submit("sfx", "", "Chèn tiếng động: "+filepath.Base(src),
+	j := s.Jobs.Submit("sfx", s.projectIDForToolPath(filepath.Dir(dst)), "Chèn tiếng động: "+filepath.Base(src),
 		func(upd func(float64, string)) (string, error) {
 			jctx, jcancel := context.WithTimeout(context.Background(), toolJobTimeout)
 			defer jcancel()

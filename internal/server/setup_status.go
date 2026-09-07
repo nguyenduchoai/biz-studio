@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"bizstudio/internal/agentsdk"
 	"bizstudio/internal/setup"
 	"bizstudio/internal/util"
 )
@@ -43,6 +44,17 @@ func (s *Server) setupToolStatus(ctx context.Context, tool setup.Tool) toolStatu
 		check = checkChrome(ctx, cfg)
 	case "claude":
 		return s.checkClaudeSetup(ctx, tool, cfg.ClaudeBin)
+	case "claude-sdk":
+		err := agentsdk.Check(ctx, s.DataDir)
+		status.Installed = err == nil
+		status.Ready = err == nil && strings.TrimSpace(cfg.AnthropicAPIKey) != ""
+		status.Detail = "SDK đã cài; cần Anthropic API key riêng trong Cấu hình & API"
+		if err != nil {
+			status.Detail = err.Error()
+		} else if status.Ready {
+			status.Detail = "SDK và API key đã cấu hình; chưa gọi API để xác thực key"
+		}
+		return status
 	case "vieneu":
 		check = s.checkVieNeu(ctx)
 	case "whisper":

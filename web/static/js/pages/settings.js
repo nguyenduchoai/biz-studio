@@ -273,6 +273,17 @@
         modelField('Model đọc giọng (Gemini TTS)', st, 'geminiTtsModel', 'rỗng = gemini-2.5-flash-preview-tts', 'tts'),
         'Chỉ dùng khi chọn engine Gemini; giọng VieNeu trên máy không cần model này.'),
       textField('Claude bin', st, 'claudeBin', 'claude'),
+      withNote(
+        UI.select('Phiên AI — cách kết nối Claude', [
+          { value: 'cli', label: 'Claude CLI — giữ cách chạy hiện tại' },
+          { value: 'sdk', label: 'Claude Agent SDK — API trả phí riêng' }
+        ], st.claudeBackend || 'cli', function (v) { st.claudeBackend = v; }),
+        'SDK chỉ áp dụng cho Phiên AI. Cài Claude Agent SDK ở Công cụ trên máy trước khi chọn; các phiên cũ giữ cách kết nối ban đầu.'),
+      passwordField('Anthropic API key (chỉ Agent SDK)', st, 'anthropicApiKey', 'Không phải tài khoản hay mật khẩu Claude'),
+      withNote(UI.slider('Ngân sách SDK mỗi lượt (USD)', {
+        min: 1, max: 20, step: 1, value: st.claudeSdkBudgetUsd || 2,
+        oninput: function (v) { st.claudeSdkBudgetUsd = v; }
+      }), 'Mặc định 2 USD và tối đa 24 lượt AI. Chi phí thực tế do Anthropic tính; SDK không dùng hạn mức thuê bao Claude.'),
       textField('yt-dlp bin', st, 'ytdlpBin', 'yt-dlp'),
       textField('Thư mục tải về', st, 'downloadDir', 'data/downloads'),
       textField('File Cookies', st, 'cookiesFile', 'Đường dẫn file cookies.txt (tùy chọn)'),

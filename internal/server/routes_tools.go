@@ -201,7 +201,7 @@ func (s *Server) handleToolTranslate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	j := s.Jobs.Submit("translate", "", "Dịch: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
+	j := s.Jobs.Submit("translate", s.projectIDForToolPath(filepath.Dir(src)), "Dịch: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), toolJobTimeout)
 		defer cancel()
 		out, err := translate.File(ctx, s.st, src, body.Mode, body.Engine, body.TargetLang, upd)
@@ -320,7 +320,7 @@ func (s *Server) handleToolAutocut(w http.ResponseWriter, r *http.Request) {
 
 	guard := body.Guard == nil || *body.Guard
 	if !guard {
-		j := s.Jobs.Submit("autocut", "", "Cắt khoảng lặng: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
+		j := s.Jobs.Submit("autocut", s.projectIDForToolPath(filepath.Dir(dst)), "Cắt khoảng lặng: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), toolJobTimeout)
 			defer cancel()
 			if err := media.AutoCut(ctx, src, dst, body.SilenceDb, body.MinSilence, upd); err != nil {
@@ -348,7 +348,7 @@ func (s *Server) handleToolAutocut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	opt := media.AutoCutOpt{SilenceDb: body.SilenceDb, MinSilence: body.MinSilence}
-	j := s.Jobs.Submit("autocut", "", "Cắt khoảng lặng an toàn: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
+	j := s.Jobs.Submit("autocut", s.projectIDForToolPath(filepath.Dir(dst)), "Cắt khoảng lặng an toàn: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), toolJobTimeout)
 		defer cancel()
 		rep, err := media.AutoCutGuarded(ctx, src, dst, tr, opt, upd)

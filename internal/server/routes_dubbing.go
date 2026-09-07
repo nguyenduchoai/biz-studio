@@ -70,8 +70,14 @@ func (s *Server) handleToolDub(w http.ResponseWriter, r *http.Request) {
 		MaxSpeed:        body.MaxSpeed,
 	}
 	workDir := filepath.Join(s.DataDir, "tmp", s.st.NewID("dub"))
+	projectID := s.projectIDForToolPath(video)
+	if projectID == "" && srt != "" {
+		// Translation may write a sibling of the supplied SRT even when the
+		// primary video is a global/library file.
+		projectID = s.projectIDForToolPath(filepath.Dir(srt))
+	}
 
-	j := s.Jobs.Submit("dub", "", "Lồng tiếng: "+dubLabel(video, srt), func(upd func(float64, string)) (string, error) {
+	j := s.Jobs.Submit("dub", projectID, "Lồng tiếng: "+dubLabel(video, srt), func(upd func(float64, string)) (string, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), toolJobTimeout)
 		defer cancel()
 

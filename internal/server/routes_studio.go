@@ -55,7 +55,7 @@ func (s *Server) handleNormalize(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dst := strings.TrimSuffix(src, filepath.Ext(src)) + "." + p.ID + ".mp4"
-	j := s.Jobs.Submit("normalize", "", "Chuẩn hoá cho "+p.Name+": "+filepath.Base(src),
+	j := s.Jobs.Submit("normalize", s.projectIDForToolPath(filepath.Dir(dst)), "Chuẩn hoá cho "+p.Name+": "+filepath.Base(src),
 		func(upd func(float64, string)) (string, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), toolJobTimeout)
 			defer cancel()

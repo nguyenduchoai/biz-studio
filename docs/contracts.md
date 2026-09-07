@@ -13,6 +13,8 @@ internal/server/routes_*.go — route handlers (stub → agent thay thế)
 internal/jobs/             — job manager [SCAFFOLD - KHÔNG SỬA]
 internal/util/             — exec helpers, sys stats [SCAFFOLD - KHÔNG SỬA]
 internal/agent/            — Claude CLI session runner
+internal/agentsdk/         — backend Claude Agent SDK tùy chọn, venv riêng
+internal/projectwork/      — điều phối tác vụ/phiên AI theo dự án
 internal/media/            — ffmpeg/ffprobe wrappers
 internal/qc/               — QC tự động
 internal/gemini/           — Gemini REST client (text/vision/audio/image/tts)
@@ -31,16 +33,28 @@ Dữ liệu runtime: `data/` — `db.json`, `projects/<projectID>/` (assets/, ou
 
 Xem `internal/store/types.go`. Store methods (crud.go): `Projects() []Project`, `Project(id)`, `SaveProject(*Project)`, `DeleteProject(id)`, `AssetsByProject(pid)`, `Asset(id)`, `SaveAsset(*Asset)`, `DeleteAsset(id)`, `SessionsByProject(pid)`, `Session(id)`, `SaveSession(*Session)`, `AddEvent(*SessionEvent)`, `EventsBySession(sid)`, `Jobs()`, `Job(id)`, `SaveJob(*Job)`, `Prompts()`, `SavePrompt(*PromptTemplate)`, `DeletePrompt(id)`, `AddLog(level, module, msg)`, `Logs(limit)`, `Settings()`, `SaveSettings(Settings)`, `NewID(prefix)`.
 Mọi Save tự persist xuống disk. `store.Store` an toàn goroutine.
+`Store.ProjectWork` là coordinator dùng chung cho Jobs và Runner của cùng Store;
+không tạo coordinator riêng cho mỗi handler/Runner.
 
 ## Server helpers (đã có sẵn)
 
 - `writeJSON(w, status, v)`, `httpErr(w, status, msg)`, `readJSON(r, &v) error`
 - `s.Hub.Broadcast(event string, data any)` — SSE. Events chuẩn: `job` (data=store.Job), `session_event` (data={sessionId, event: store.SessionEvent}), `session` (data=store.Session), `log` (data=store.LogEntry).
-- `s.Jobs.Submit(kind, projectID, detail string, fn func(upd func(progress float64, detail string)) (output string, err error)) *store.Job` — chạy nền, tự cập nhật store + SSE.
+- `s.Jobs.Submit(kind, projectID, detail string, fn func(upd func(progress float64, detail string)) (output string, err error)) *store.Job` — chạy nền, tự cập nhật store + SSE. Trả snapshot tại thời điểm submit; worker không sửa object mà HTTP đang marshal. Theo dõi trạng thái mới qua store/SSE.
+- `s.projectIDForToolPath(path string) string` — resolve symlink, chỉ nhận path nằm trong `DataDir/projects/<id>/` của dự án còn tồn tại; file/thư mục global trả rỗng. Tool ghi file cạnh nguồn truyền thư mục chứa output để symlink ở chính file nguồn không bỏ qua khóa thư mục đích.
 - `s.DataDir` string; `s.ProjectDir(id)` = data/projects/<id> (tự mkdir).
 - `util.Run(ctx, name, args...) (stdout string, err)`; `util.RunErr(...)(stdout, stderr string, err)`; `util.Exists(bin) bool`; `util.LanIP() string`.
 - Route đăng ký: mỗi file `routes_X.go` có method `func (s *Server) routesX(mux *http.ServeMux)` — server.go đã gọi sẵn. **Chỉ được sửa đúng file routes được giao.**
 - Path param: dùng Go 1.22 pattern `mux.HandleFunc("GET /api/projects/{id}", ...)`, `r.PathValue("id")`.
+
+### Hàng đợi và khóa dự án
+
+- Workers = `Settings.Threads`, giới hạn 1–16; hàng đợi chờ tối đa `max(4, workers*4)`. Đầy hàng đợi → Job `error`, callback không chạy. Khi khởi động, job `running/queued` cũ chuyển `error` vì goroutine không còn tồn tại.
+- `projectwork.Coordinator.TryAcquire(projectID) (release func(), ok bool)` không chờ; `release` idempotent. `Changed()` trả kênh báo lần nhả khóa kế tiếp; lấy kênh **trước** khi thử acquire để không mất wakeup. Project ID rỗng là việc độc lập.
+- Jobs cùng dự án chạy FIFO, không đồng thời với phiên AI của dự án đó. Job đang đợi khóa không chiếm worker; dự án khác vẫn chạy. Start/Resume AI khi khóa bận trả lỗi để người dùng chờ, không tự thêm phiên vào hàng đợi.
+- ASR, OCR, dịch file, autocut, normalize, chỉnh màu, SFX, highlight, collections và B-roll gắn khóa theo dự án sở hữu thư mục output; dubbing theo video, hoặc thư mục SRT nếu video không thuộc dự án. Download, TTS và tài nguyên global không bị gom vào một khóa chung.
+
+Giới hạn: mapping này chỉ khóa **một dự án chính**; không tuần tự hóa media phụ lấy từ dự án khác (SRT/audio/B-roll/SFX…), các handler CRUD đồng bộ, hoặc downloader khi người dùng đặt `Settings.DownloadDir` vào trong một dự án. Không coi đây là transaction hay khóa đọc/ghi toàn bộ filesystem.
 
 ## REST API (FE và BE phải khớp chính xác)
 
@@ -66,8 +80,8 @@ Mọi response lỗi: `{"error": "..."}` với status 4xx/5xx.
 - `POST /api/projects/{id}/duplicate` → Project mới (copy assets)
 - `POST /api/projects/{id}/qc` → Job (kind=qc; output=đường dẫn qc.json; FE đọc qua /data/)
 - `POST /api/projects/{id}/thumbnail` body `{mode:"frame"|"ai", t:float, prompt}` → Job; xong set project.thumbFile
-- `POST /api/projects/{id}/publish` → Job kind=publish; tạo publish/ (video, .srt, .vtt, meta.json title/desc/hashtags qua LLM, thumbnail) + zip
-- `POST /api/projects/{id}/render-final` → Job kind=render (copy/re-encode output draft → final, đặt outputFile)
+- `POST /api/projects/{id}/publish` → Job kind=publish; QC mới trên video hiện tại trước khi gọi LLM hay ghi gói. Gói gồm video, .srt/.vtt nếu có, meta.json, qc.json, thumbnail nếu có và zip; staging + thay thư mục khi hoàn tất, giữ gói trước nếu lỗi/hủy.
+- `POST /api/projects/{id}/render-final` → Job kind=render; re-encode vào file tạm riêng, kiểm tra giải mã toàn bộ trước khi thay final/đặt outputFile và trạng thái done. Timeline render áp dụng cùng quy tắc; render lỗi không ghi đè bản output trước.
 
 ### Assets (routes_assets.go)
 - `POST /api/projects/{id}/assets` — multipart, field `files` (nhiều), lưu vào projects/<id>/assets/, tự phân loại kind theo ext (video/image/audio/other), ffprobe lấy duration/size → []Asset
@@ -101,15 +115,23 @@ Mọi response lỗi: `{"error": "..."}` với status 4xx/5xx.
 
 ## Module Go signatures (route agents ĐỌC code module thật trước khi gọi)
 
-- `agent.New(st *store.Store, broadcast func(string, any), dataDir string) *Runner`; `(*Runner).Start(projectID, extra string) (*store.Session, error)`; `Resume(sessionID, text string) error`; `Stop(sessionID) error`. Chạy Claude CLI bằng `--safe-mode --permission-mode dontAsk`, allowlist Read/Write/Edit/Glob/Grep và lệnh media/file tối thiểu; chặn WebFetch/WebSearch; không truyền credential cloud qua env. Bin từ Settings.ClaudeBin, cwd=ProjectDir. Prompt build từ project (brief, editPrompt, toggles, keywords, danh sách asset + mô tả, yêu cầu output `outputs/<id>-vN.mp4` + `meta.json {status:"done", output:"..."}`). Parse NDJSON: system.init→claudeSessionId; assistant content blocks (text|tool_use)→AddEvent+SSE; result→cập nhật session (status, numTurns, costUSD). Sự kiện SSE: `session_event`, `session`.
+- `agent.New(st *store.Store, broadcast func(string, any), dataDir string) *Runner`; `(*Runner).Start(projectID, extra string) (*store.Session, error)`; `Resume(sessionID, text string) error`; `Stop(sessionID) error`. Mặc định Claude CLI, không gắn model; dùng `--safe-mode --permission-mode dontAsk`, allowlist Read/Write/Edit/Glob/Grep và lệnh media/file tối thiểu; chặn WebFetch/WebSearch; không truyền credential cloud qua env. Bin từ Settings.ClaudeBin, cwd=ProjectDir. Prompt yêu cầu output `outputs/<id>-vN.mp4` + `meta.json {status:"done", output:"..."}`. Parse NDJSON: system.init→claudeSessionId; assistant content blocks→AddEvent+SSE; result lưu lời báo kết quả/số lượt/chi phí, **chưa** chuyển done. Chỉ hoàn tất sau process exit thành công, kết quả success và video mới/thay đổi đã qua kiểm tra; giữ khóa dự án tới hết bước xác minh. Sự kiện SSE: `session_event`, `session`, `project`.
 - `media.Probe(path) (Info{Duration float64, Width, Height int, FPS float64, Size int64}, error)`; `media.Thumbnail(src, dst string, t float64, w int) error`; `media.AutoCut(ctx, src, dst string, silenceDb float64, minSil float64, upd func(float64,string)) error`; `media.BurnSubs(ctx, src, srt, dst) error`; `media.ExtractAudioWav16k(ctx, src, dst) error`; `media.ExtractFrames(ctx, src, outDir string, fps float64) ([]string, error)`; `media.Concat(ctx, parts []string, dst) error`; `media.ApplyLUT(ctx, src, lut, dst) error`
-- `qc.Run(ctx, videoPath string) (Report, error)` — Report{DurationS, Width, Height, LoudnessLUFS, BlackSpans, FreezeSpans, SilenceSpans []Span{Start,End}, Warnings []string}; route lưu JSON vào projects/<id>/qc.json
+- `media.LocalVideoPath(path string) (string, error)` — file cục bộ thường, không rỗng; `media.ValidateVideo(ctx, path string) error` — thêm thời lượng hữu hạn >0, kích thước video >0 (không tính ảnh bìa audio), giải mã toàn bộ video/audio không lỗi và có frame thật. Chỉ cho giao thức file; probe tối đa 30 giây, toàn bộ kiểm tra tối đa 30 phút và tuân theo deadline/hủy sớm hơn của caller.
+- `qc.Run(ctx, videoPath string) (Report, error)` — Report{SourceSHA256 string, CheckedAt time.Time, DurationS, Width, Height, LoudnessLUFS, BlackSpans, FreezeSpans, SilenceSpans []Span{Start,End}, Warnings []string}. Luôn kiểm tra video hiện tại, hash trước/sau để phát hiện file đổi trong lúc QC; route lưu projects/<id>/qc.json. `qc.Fingerprint(ctx, path) (string, error)` cho SHA-256 đối chiếu bản copy với báo cáo.
 - `gemini.NewFromSettings(st) *Client` (đọc key/base/model từ Settings; nếu key rỗng → các call trả error "chưa cấu hình Gemini API key"); `GenerateText(ctx, system, user string) (string, error)`; `GenerateWithFiles(ctx, prompt string, paths []string) (string, error)` (inline_data, đoán mime); `GenerateImage(ctx, prompt, dstPNG string) error`; `TTS(ctx, text, voice, dstWav string) error`
 - `tts.Voices() []Voice{ID,Name,Gender,Lang,Engine}`; `tts.Speak(ctx, st *store.Store, text, voiceID string, rate float64, engine, dst string) error` (engine "say": say -o aiff → ffmpeg wav; "gemini": gemini.TTS)
 - `translate.File(ctx, st, path, mode, engine, targetLang string, upd func(float64,string)) (outPath string, error)`; `translate.Text(ctx, st, text, mode, engine, targetLang string) (string, error)` — engine "claude": `claude -p` plain; "gemini": gemini.GenerateText. Giữ nguyên timing SRT.
 - `downloader.Download(ctx, st, link, quality string, upd func(float64,string)) (outPath string, error)` — yt-dlp -o data/downloads/...; parse % progress; lỗi rõ nếu thiếu yt-dlp
-- `publishpkg.Build(ctx, st, p *store.Project, dir string, upd func(float64,string)) (zipPath string, error)`
+- `publishpkg.Build(ctx, st, p *store.Project, dir string, upd func(float64,string)) (zipPath string, error)` — không tái dùng qc.json cũ; chạy QC trước provider/ghi gói, kiểm tra hash bản copy staging. Không có video hợp lệ/lỗi giải mã/lỗi phân tích → chặn. Frame đen, đứng hình, không audio/im lặng và loudness chỉ là cảnh báo vì có thể là chủ ý; cảnh báo nằm trong log, qc.json, `meta.json.qcWarnings` và thông báo hoàn tất. `meta.json.videoSha256` gắn đúng video trong gói. Lỗi thay gói thử khôi phục gói trước; đây không phải journal chống mất điện.
 - `vox.Render(ctx, st, scenes []Scene, cfg Config, workDir string, upd func(float64,string)) (mp4 string, error)` — Scene{Title, VoiceText, MediaPath, MediaKeyword, Duration}; mỗi cảnh: TTS → ảnh (MediaPath | tìm asset theo keyword | gemini image | card màu drawtext title) → clip ffmpeg (loop ảnh + audio + drawtext) → concat + bgm + subs.
+
+### Backend Claude Agent SDK tùy chọn
+
+- `Settings.ClaudeBackend` rỗng/`cli` giữ luồng CLI cũ; `sdk` dùng venv `agent-sdk/venv`. `Session.Backend` lưu backend đã dùng; không resume chéo CLI/SDK. Settings có `anthropicApiKey` (che như các key khác) và `claudeSdkBudgetUsd`; 0 dùng giới hạn mặc định 2 USD/lượt, giá trị cấu hình hợp lệ 0.1–100.
+- `agentsdk.Check(ctx, dataDir) error` chỉ import SDK và chạy bundled CLI `--version`, không gọi AI. `agentsdk.Command(dataDir, cwd, prompt, resume, apiKey string, budget float64) (*exec.Cmd, error)` yêu cầu API key riêng; payload/key truyền qua stdin, không ghi vào command arguments. Không dùng đăng nhập/thuê bao Claude CLI thay API key.
+- `agentsdk.TryUseRuntime(dataDir)` / `TryInstallRuntime(dataDir)` trả `(release func(), ok bool)`: nhiều phiên được đọc runtime, nhưng cài và sử dụng loại trừ nhau. Khóa trong process cộng khóa file OS bảo vệ cả lệnh `bizstudio setup` chạy riêng; `release` idempotent. Runner giữ read lease suốt lượt SDK, `setup.Run` giữ install lease cho toàn plan `claude-sdk`.
+- `claude-sdk` là công cụ cài riêng, **không** thêm vào Full mặc định. SDK không thay backend của các tính năng LLM khác; xem `docs/agent-runtime.md` cho cấu hình và giới hạn vận hành.
 
 ## Frontend conventions
 

@@ -10,6 +10,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"bizstudio/internal/agentsdk"
 )
 
 //go:embed scripts/*.sh scripts/*.ps1
@@ -39,6 +41,13 @@ func Run(ctx context.Context, p *Plan, onLine func(string)) error {
 			_ = os.Remove(f)
 		}
 	}()
+	if p.Tool == "claude-sdk" {
+		release, ok := agentsdk.TryInstallRuntime(p.DataDir)
+		if !ok {
+			return fmt.Errorf("Agent SDK đang được sử dụng; chờ các phiên hoàn tất rồi cài lại")
+		}
+		defer release()
+	}
 
 	for i, s := range p.Steps {
 		if len(p.Steps) > 1 {

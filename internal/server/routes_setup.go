@@ -76,6 +76,16 @@ func (s *Server) handleSetupRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id = tool.ID
+	if id == "claude-sdk" {
+		for _, project := range s.st.Projects() {
+			for _, session := range s.st.SessionsByProject(project.ID) {
+				if session.Backend == "sdk" && session.Status == "running" {
+					httpErr(w, http.StatusConflict, "chờ phiên Agent SDK hoàn tất trước khi cài hoặc cập nhật SDK")
+					return
+				}
+			}
+		}
+	}
 	action := r.URL.Query().Get("action")
 	if action == "" {
 		action = "install"

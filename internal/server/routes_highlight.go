@@ -71,7 +71,7 @@ func (s *Server) handleHighlight(w http.ResponseWriter, r *http.Request) {
 	base := strings.TrimSuffix(src, filepath.Ext(src))
 	dst := fmt.Sprintf("%s.short%ds.mp4", base, secs)
 
-	j := s.Jobs.Submit("highlight", "", "Rút clip "+fmt.Sprint(secs)+"s: "+filepath.Base(src),
+	j := s.Jobs.Submit("highlight", s.projectIDForToolPath(filepath.Dir(dst)), "Rút clip "+fmt.Sprint(secs)+"s: "+filepath.Base(src),
 		func(upd func(float64, string)) (string, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), highlightTimeout)
 			defer cancel()

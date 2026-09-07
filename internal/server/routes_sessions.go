@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"sync"
 
@@ -46,7 +47,11 @@ func (s *Server) handleSessionStart(w http.ResponseWriter, r *http.Request) {
 	}
 	sess, err := s.runner().Start(id, body.Extra)
 	if err != nil {
-		httpErr(w, http.StatusInternalServerError, "không khởi động được phiên AI: %s", err)
+		status := http.StatusInternalServerError
+		if errors.Is(err, agent.ErrBusy) {
+			status = http.StatusConflict
+		}
+		httpErr(w, status, "không khởi động được phiên AI: %s", err)
 		return
 	}
 	writeJSON(w, http.StatusOK, sess)
@@ -62,7 +67,11 @@ func (s *Server) handleSessionMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.runner().Resume(id, body.Text); err != nil {
-		httpErr(w, http.StatusBadRequest, "%s", err)
+		status := http.StatusBadRequest
+		if errors.Is(err, agent.ErrBusy) {
+			status = http.StatusConflict
+		}
+		httpErr(w, status, "%s", err)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]bool{"ok": true})

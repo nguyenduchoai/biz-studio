@@ -83,6 +83,9 @@ func (s *Server) updateBusyReason() string {
 	if SetupInProgress() {
 		return "đang cài đặt thành phần; chờ hoàn tất trước khi cập nhật ứng dụng"
 	}
+	if s.st.ProjectWork != nil && s.st.ProjectWork.ActiveCount() > 0 {
+		return "dự án còn tiến trình đang xử lý hoặc đang dừng; chờ kết thúc trước khi cập nhật"
+	}
 	if s.ideaRunner().Running() {
 		return "hàng đợi sản xuất đang bật; dừng hàng đợi trước khi cập nhật"
 	}

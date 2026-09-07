@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
+
+	"bizstudio/internal/projectwork"
 )
 
 type db struct {
@@ -35,6 +37,7 @@ type Store struct {
 	d                  db
 	path               string
 	DataDir            string
+	ProjectWork        *projectwork.Coordinator
 	lastPersistenceErr string
 }
 
@@ -49,7 +52,7 @@ func Open(dataDir string) (*Store, error) {
 			return nil, err
 		}
 	}
-	s := &Store{path: filepath.Join(abs, "db.json"), DataDir: abs}
+	s := &Store{path: filepath.Join(abs, "db.json"), DataDir: abs, ProjectWork: projectwork.New()}
 	if b, err := os.ReadFile(s.path); err == nil {
 		if err := secureFilePermissions(s.path); err != nil {
 			return nil, fmt.Errorf("giới hạn quyền db.json: %w", err)

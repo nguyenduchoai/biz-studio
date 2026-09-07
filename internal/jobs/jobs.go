@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"bizstudio/internal/store"
@@ -12,13 +13,18 @@ type Broadcast func(event string, data any)
 
 // Manager — chạy tác vụ nền, tự cập nhật store + SSE.
 type Manager struct {
-	st    *store.Store
-	pub   Broadcast
-	queue chan queuedJob
+	st       *store.Store
+	pub      Broadcast
+	mu       sync.Mutex
+	pending  []queuedJob
+	active   int
+	limit    int
+	queueCap int
+	wake     chan struct{}
 }
 
 type queuedJob struct {
-	job *store.Job
+	job store.Job
 	fn  func(upd func(progress float64, detail string)) (string, error)
 }
 
@@ -34,11 +40,9 @@ func New(st *store.Store, pub Broadcast) *Manager {
 	if queueCap < 4 {
 		queueCap = 4
 	}
-	m := &Manager{st: st, pub: pub, queue: make(chan queuedJob, queueCap)}
-	for i := 0; i < limit; i++ {
-		go m.worker()
-	}
+	m := &Manager{st: st, pub: pub, limit: limit, queueCap: queueCap, wake: make(chan struct{}, 1)}
 	m.reapStale()
+	go m.schedule()
 	return m
 }
 
@@ -72,24 +76,24 @@ func (m *Manager) Submit(kind, projectID, detail string,
 	m.st.SaveJob(j)
 	m.pub("job", *j)
 
-	select {
-	case m.queue <- queuedJob{job: j, fn: fn}:
-	default:
+	m.mu.Lock()
+	if len(m.pending) >= m.queueCap {
+		m.mu.Unlock()
 		j.Status = "error"
 		j.Error = "hàng đợi đã đầy — chờ các tác vụ hiện tại xong rồi thử lại"
 		m.finish(j)
+		return j
 	}
+	// The queued worker owns a value copy. HTTP handlers may safely marshal
+	// the returned snapshot while execution updates its own job value.
+	m.pending = append(m.pending, queuedJob{job: *j, fn: fn})
+	m.mu.Unlock()
+	m.notify()
 	return j
 }
 
-func (m *Manager) worker() {
-	for item := range m.queue {
-		m.run(item)
-	}
-}
-
 func (m *Manager) run(item queuedJob) {
-	j, fn := item.job, item.fn
+	j, fn := &item.job, item.fn
 	defer func() {
 		if r := recover(); r != nil {
 			j.Status, j.Error = "error", fmt.Sprintf("panic: %v", r)

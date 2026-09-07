@@ -60,7 +60,7 @@ func (s *Server) handleBroll(w http.ResponseWriter, r *http.Request) {
 	}
 	dst := strings.TrimSuffix(audio, filepath.Ext(audio)) + ".broll.mp4"
 
-	j := s.Jobs.Submit("broll", "", fmt.Sprintf("Ghép %d clip tư liệu: %s", len(clips), filepath.Base(audio)),
+	j := s.Jobs.Submit("broll", s.projectIDForToolPath(filepath.Dir(dst)), fmt.Sprintf("Ghép %d clip tư liệu: %s", len(clips), filepath.Base(audio)),
 		func(upd func(float64, string)) (string, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), brollTimeout)
 			defer cancel()

@@ -6,6 +6,7 @@ package agent
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -16,25 +17,35 @@ import (
 	"sync"
 	"time"
 
+	"bizstudio/internal/agentsdk"
+	"bizstudio/internal/media"
 	"bizstudio/internal/store"
 )
 
+// ErrBusy is an expected admission conflict, not a provider/startup failure.
+var ErrBusy = errors.New("tác vụ đang bận")
+
 // Runner quản lý các phiên AI (Claude CLI) đang chạy.
 type Runner struct {
-	st        *store.Store
-	broadcast func(string, any)
-	dataDir   string
-	mu        sync.Mutex
-	procs     map[string]*exec.Cmd
+	st             *store.Store
+	broadcast      func(string, any)
+	dataDir        string
+	mu             sync.Mutex
+	active         map[string]*activeRun
+	runTimeout     time.Duration
+	validateVideo  func(context.Context, string) error
+	commandBuilder func(string, string, string) (*exec.Cmd, io.ReadCloser, *bytes.Buffer, error)
 }
 
 // New tạo Runner mới.
 func New(st *store.Store, broadcast func(string, any), dataDir string) *Runner {
 	return &Runner{
-		st:        st,
-		broadcast: broadcast,
-		dataDir:   dataDir,
-		procs:     map[string]*exec.Cmd{},
+		st:            st,
+		broadcast:     broadcast,
+		dataDir:       dataDir,
+		active:        map[string]*activeRun{},
+		runTimeout:    2 * time.Hour,
+		validateVideo: media.ValidateVideo,
 	}
 }
 
@@ -44,26 +55,26 @@ func (r *Runner) Start(projectID, extra string) (*store.Session, error) {
 	if !ok {
 		return nil, fmt.Errorf("không tìm thấy dự án %q", projectID)
 	}
+	cfg := r.st.Settings()
+	release, err := r.acquireWork(projectID, cfg)
+	if err != nil {
+		return nil, err
+	}
 	assets := r.st.AssetsByProject(projectID)
 	version := len(r.st.SessionsByProject(projectID)) + 1
 
 	sess := &store.Session{
 		ProjectID: projectID,
+		Backend:   normalizedBackend(cfg.ClaudeBackend),
 		Title:     "Edit: " + p.Name,
 		Status:    "running",
 	}
 	r.st.SaveSession(sess)
+	state := r.reserve(sess.ID, release, cfg)
 	r.broadcast("session", *sess)
 
-	p.Status = "running"
-	if p.Progress < 1 {
-		p.Progress = 1
-	}
-	r.st.SaveProject(&p)
-	r.broadcast("project", p)
-
 	prompt := BuildPrompt(p, assets, extra, version)
-	go r.run(sess.ID, projectID, prompt, "")
+	go r.run(state, sess.ID, projectID, prompt, "")
 	return sess, nil
 }
 
@@ -79,32 +90,35 @@ func (r *Runner) Resume(sessionID, text string) error {
 	if sess.ClaudeSessionID == "" {
 		return errors.New("phiên chưa có Claude session ID, không thể tiếp tục")
 	}
-	r.mu.Lock()
-	_, running := r.procs[sessionID]
-	r.mu.Unlock()
-	if running {
-		return errors.New("phiên đang chạy, vui lòng đợi hoàn tất")
+	cfg := r.st.Settings()
+	if normalizedBackend(sess.Backend) != normalizedBackend(cfg.ClaudeBackend) {
+		return errors.New("phiên này dùng backend Claude khác; hãy chọn lại backend cũ hoặc tạo phiên mới")
 	}
-
-	sess.Status = "running"
-	r.st.SaveSession(&sess)
-	r.broadcast("session", sess)
+	_, ok = r.st.Project(sess.ProjectID)
+	if !ok {
+		return errors.New("dự án không còn tồn tại")
+	}
+	release, err := r.acquireWork(sess.ProjectID, cfg)
+	if err != nil {
+		return err
+	}
+	state := r.reserve(sessionID, release, cfg)
 	r.addEvent(&store.SessionEvent{SessionID: sessionID, Type: "user", Payload: text})
 
-	go r.run(sessionID, sess.ProjectID, text, sess.ClaudeSessionID)
+	go r.run(state, sessionID, sess.ProjectID, text, sess.ClaudeSessionID)
 	return nil
 }
 
 // Stop dừng tiến trình claude của phiên, đặt trạng thái "stopped".
 func (r *Runner) Stop(sessionID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	sess, ok := r.st.Session(sessionID)
 	if !ok {
 		return fmt.Errorf("không tìm thấy phiên %q", sessionID)
 	}
-	r.mu.Lock()
-	cmd, running := r.procs[sessionID]
-	r.mu.Unlock()
-	if !running || cmd.Process == nil {
+	state, running := r.active[sessionID]
+	if !running || sess.Status != "running" {
 		return fmt.Errorf("phiên %q không có tiến trình đang chạy", sessionID)
 	}
 
@@ -114,40 +128,19 @@ func (r *Runner) Stop(sessionID string) error {
 	r.st.SaveSession(&sess)
 	r.broadcast("session", sess)
 
-	if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return fmt.Errorf("không dừng được tiến trình: %w", err)
-	}
+	state.cancel()
 	return nil
-}
-
-// run chạy claude CLI, đọc stream-json và cập nhật phiên khi kết thúc.
-func (r *Runner) run(sessionID, projectID, prompt, resumeID string) {
-	cmd, stdout, stderr, err := r.buildCmd(projectID, prompt, resumeID)
-	if err != nil {
-		r.failSession(sessionID, projectID, err.Error())
-		return
-	}
-	if err := cmd.Start(); err != nil {
-		r.failSession(sessionID, projectID, "không chạy được claude CLI: "+err.Error())
-		return
-	}
-	r.mu.Lock()
-	r.procs[sessionID] = cmd
-	r.mu.Unlock()
-	defer func() {
-		r.mu.Lock()
-		delete(r.procs, sessionID)
-		r.mu.Unlock()
-	}()
-
-	gotResult := r.readStream(sessionID, projectID, stdout)
-	waitErr := cmd.Wait()
-	r.finishRun(sessionID, projectID, gotResult, waitErr, stderr)
 }
 
 // buildCmd dựng lệnh claude CLI theo Settings; cwd = data/projects/<projectID>.
 func (r *Runner) buildCmd(projectID, prompt, resumeID string) (*exec.Cmd, io.ReadCloser, *bytes.Buffer, error) {
-	cfg := r.st.Settings()
+	return r.buildCmdWithSettings(projectID, prompt, resumeID, r.st.Settings())
+}
+
+func (r *Runner) buildCmdWithSettings(projectID, prompt, resumeID string, cfg store.Settings) (*exec.Cmd, io.ReadCloser, *bytes.Buffer, error) {
+	if cfg.ClaudeBackend == "sdk" {
+		return r.buildSDKCmdWithSettings(projectID, prompt, resumeID, cfg)
+	}
 	bin := cfg.ClaudeBin
 	if bin == "" {
 		bin = "claude"
@@ -182,6 +175,29 @@ func (r *Runner) buildCmd(projectID, prompt, resumeID string) (*exec.Cmd, io.Rea
 	return cmd, stdout, &errBuf, nil
 }
 
+func (r *Runner) acquireWork(projectID string, cfg store.Settings) (func(), error) {
+	release, ok := r.st.ProjectWork.TryAcquire(projectID)
+	if !ok {
+		return nil, fmt.Errorf("%w: dự án đang có phiên AI hoặc tác vụ xử lý; vui lòng chờ hoàn tất", ErrBusy)
+	}
+	if normalizedBackend(cfg.ClaudeBackend) != "sdk" {
+		return release, nil
+	}
+	releaseRuntime, ok := agentsdk.TryUseRuntime(r.dataDir)
+	if !ok {
+		release()
+		return nil, fmt.Errorf("%w: Claude Agent SDK đang cài hoặc cập nhật; vui lòng đợi hoàn tất", ErrBusy)
+	}
+	return func() { releaseRuntime(); release() }, nil
+}
+
+func normalizedBackend(value string) string {
+	if value == "sdk" {
+		return "sdk"
+	}
+	return "cli"
+}
+
 func safeAgentEnv(env []string) []string {
 	allowed := map[string]bool{
 		"PATH": true, "HOME": true, "USERPROFILE": true, "LOCALAPPDATA": true,
@@ -202,24 +218,24 @@ func safeAgentEnv(env []string) []string {
 	return out
 }
 
-// readStream đọc từng dòng NDJSON từ stdout của claude. Trả true nếu đã nhận event "result".
-func (r *Runner) readStream(sessionID, projectID string, out io.Reader) bool {
+// readStream retains result claims but never finalizes a run before Wait.
+func (r *Runner) readStream(sessionID, projectID string, out io.Reader) (*streamEvent, error) {
 	sc := bufio.NewScanner(out)
 	sc.Buffer(make([]byte, 64*1024), 10*1024*1024)
-	gotResult := false
+	var result *streamEvent
 	for sc.Scan() {
 		line := bytes.TrimSpace(sc.Bytes())
 		if len(line) == 0 {
 			continue
 		}
-		if r.handleLine(sessionID, projectID, line) {
-			gotResult = true
+		if ev := r.handleLine(sessionID, projectID, line); ev != nil {
+			if result != nil {
+				return result, errors.New("Claude trả nhiều kết quả cuối trong cùng lượt chạy")
+			}
+			result = ev
 		}
 	}
-	if err := sc.Err(); err != nil {
-		r.addEvent(&store.SessionEvent{SessionID: sessionID, Type: "error", Payload: "lỗi đọc stream claude: " + err.Error()})
-	}
-	return gotResult
+	return result, sc.Err()
 }
 
 // addEvent lưu event phiên và phát SSE "session_event".

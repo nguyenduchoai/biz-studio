@@ -73,7 +73,7 @@ func (s *Server) handleToolASR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	j := s.Jobs.Submit("asr", "", "Bóc băng (Gemini): "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
+	j := s.Jobs.Submit("asr", s.projectIDForToolPath(filepath.Dir(src)), "Bóc băng (Gemini): "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 		defer cancel()
 
@@ -111,7 +111,7 @@ func (s *Server) handleToolASR(w http.ResponseWriter, r *http.Request) {
 // Output job là .srt; ghi kèm .words.json (dùng để cắt khoảng lặng an toàn)
 // và .ass karaoke khi được yêu cầu — đường dẫn nằm trong detail của job.
 func (s *Server) asrWhisperJob(src, lang string, karaoke bool) *store.Job {
-	return s.Jobs.Submit("asr", "", "Bóc băng (whisper): "+filepath.Base(src),
+	return s.Jobs.Submit("asr", s.projectIDForToolPath(filepath.Dir(src)), "Bóc băng (whisper): "+filepath.Base(src),
 		func(upd func(float64, string)) (string, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), toolJobTimeout)
 			defer cancel()
@@ -175,7 +175,7 @@ func (s *Server) handleToolOCR(w http.ResponseWriter, r *http.Request) {
 		fps = 0.5
 	}
 
-	j := s.Jobs.Submit("ocr", "", "OCR video: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
+	j := s.Jobs.Submit("ocr", s.projectIDForToolPath(filepath.Dir(src)), "OCR video: "+filepath.Base(src), func(upd func(float64, string)) (string, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Hour)
 		defer cancel()
 

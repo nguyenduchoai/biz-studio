@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "smoke": "node native-smoke.mjs",
-    "test": "node --test setup-wizard.test.mjs first-run.test.mjs"
+    "test": "node --test setup-wizard.test.mjs first-run.test.mjs sdk-settings.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

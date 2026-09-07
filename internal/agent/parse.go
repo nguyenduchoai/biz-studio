@@ -3,7 +3,6 @@ package agent
 import (
 	"encoding/json"
 	"strings"
-	"time"
 
 	"bizstudio/internal/store"
 )
@@ -18,6 +17,7 @@ type streamEvent struct {
 	Result    json.RawMessage `json:"result"`
 	NumTurns  int             `json:"num_turns"`
 	CostUSD   float64         `json:"total_cost_usd"`
+	IsError   bool            `json:"is_error"`
 }
 
 type streamMessage struct {
@@ -56,12 +56,12 @@ func (ev streamEvent) resultText() string {
 	return string(ev.Result)
 }
 
-// handleLine xử lý một dòng stream-json. Trả true nếu là event "result".
-func (r *Runner) handleLine(sessionID, projectID string, line []byte) bool {
+// handleLine records events; only finishRun may publish a terminal status.
+func (r *Runner) handleLine(sessionID, projectID string, line []byte) *streamEvent {
 	var ev streamEvent
 	if err := json.Unmarshal(line, &ev); err != nil {
 		r.st.AddLog("warn", "agent", "dòng stream không hợp lệ: "+truncate(string(line), 200))
-		return false
+		return nil
 	}
 	switch ev.Type {
 	case "system":
@@ -74,13 +74,15 @@ func (r *Runner) handleLine(sessionID, projectID string, line []byte) bool {
 		r.onToolResult(sessionID, ev)
 	case "result":
 		r.onResult(sessionID, projectID, ev)
-		return true
+		return &ev
 	}
-	return false
+	return nil
 }
 
 // onInit lưu Claude session ID + model của phiên.
 func (r *Runner) onInit(sessionID string, ev streamEvent) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	sess, ok := r.st.Session(sessionID)
 	if !ok {
 		return
@@ -127,8 +129,11 @@ func (r *Runner) onToolResult(sessionID string, ev streamEvent) {
 	}
 }
 
-// onResult chốt phiên: lưu kết quả, số lượt, chi phí, trạng thái + finalize dự án.
+// onResult stores usage/text, never success: the process may still fail after
+// emitting this event, and the output has not been verified yet.
 func (r *Runner) onResult(sessionID, projectID string, ev streamEvent) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.addEvent(&store.SessionEvent{SessionID: sessionID, Type: "result", Payload: ev.resultText()})
 
 	sess, ok := r.st.Session(sessionID)
@@ -137,16 +142,8 @@ func (r *Runner) onResult(sessionID, projectID string, ev streamEvent) {
 	}
 	sess.NumTurns = ev.NumTurns
 	sess.CostUSD = ev.CostUSD
-	if ev.Subtype == "success" {
-		sess.Status = "done"
-	} else {
-		sess.Status = "error"
-	}
-	sess.EndedAt = time.Now()
 	r.st.SaveSession(&sess)
 	r.broadcast("session", sess)
-
-	r.finalizeProject(projectID, sess.Status == "done")
 }
 
 // decodeContent lấy text từ content của tool_result (string hoặc mảng block).

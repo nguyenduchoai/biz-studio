@@ -1,18 +1,18 @@
-<!-- release: v2.14.2 -->
+<!-- release: v2.15.0-rc.1 -->
 
-## Làm việc ổn định hơn trên Windows và macOS
+## Biên tập AI và xuất bản đáng tin cậy hơn
 
-Bản cập nhật giúp cài đặt, biên tập và mở lại Biz Studio đáng tin cậy hơn.
+Bản RC để kiểm thử trên Windows và macOS trước khi phát hành ổn định.
 
 ### Cải thiện
 
-- Nhận đúng Python tương thích và thư viện đã cài, kể cả thư mục có dấu hoặc khoảng trắng.
-- Mac tự nhận bộ FFmpeg đầy đủ để dựng phụ đề và chữ; hướng dẫn thiết lập ngay lần mở đầu.
-- Cài thư viện vẫn tiếp tục khi chưa thiết lập được Firewall; có thể dùng trên máy tính và bật QR sau.
-- Mở lại app ổn định hơn khi cổng đang bận hoặc cửa sổ trình duyệt đã có sẵn; giữ tác vụ và phiên AI đang chạy.
-- Video dựng từ timeline xuất hiện ngay trong kết quả dự án để xem, kiểm tra và xuất bản.
-- Sửa đường dẫn dựng HTML Video trên Windows và xử lý tên thư mục có ký tự đặc biệt.
-- Chỉ cập nhật khi không có công việc đang chạy; giữ dữ liệu và khôi phục bản trước nếu bản mới không khởi động được.
+- Thêm Claude Agent SDK tùy chọn cho phiên biên tập AI. Claude CLI vẫn là mặc định, không gắn cố định model.
+- Chỉ báo hoàn tất khi có video mới vượt qua kiểm tra; giữ kết quả trước nếu lượt dựng mới thất bại.
+- Xếp các tác vụ xử lý cùng dự án chạy lần lượt, giảm xung đột khi biên tập và tạo phụ đề.
+- Kiểm tra lại chất lượng video trước khi đóng gói xuất bản; không dùng báo cáo cũ cho video đã thay đổi.
+- Dừng phiên AI và chờ tiến trình thoát trước khi đóng hoặc cập nhật ứng dụng.
+
+Agent SDK cần **Anthropic API key riêng**, tính phí API và không dùng hạn mức thuê bao Claude. Chỉ bật khi có nhu cầu; mặc định không tự cài hoặc chuyển sang SDK.
 
 ### Chọn bản tải về
 
@@ -21,4 +21,6 @@ Bản cập nhật giúp cài đặt, biên tập và mở lại Biz Studio đá
 - **Mac Intel:** `BizStudio-macos-amd64.dmg`
 - **Linux:** chọn gói `amd64` hoặc `arm64` phù hợp với máy
 
-Sau khi cập nhật, mở **Cấu hình & API → Thiết lập đầy đủ & nhận file QR** để kiểm tra lại máy. Đăng nhập Claude vẫn thực hiện riêng bằng `claude auth login`.
+Sau khi cập nhật, mở **Cấu hình & API → Thiết lập đầy đủ & nhận file QR** để kiểm tra lại máy. Đăng nhập Claude CLI vẫn thực hiện riêng bằng `claude auth login`.
+
+Bản ổn định không tự chuyển sang RC. Nên sao lưu dự án quan trọng trước khi thử bản này.

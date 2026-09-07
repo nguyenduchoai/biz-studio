@@ -22,7 +22,7 @@ Biz Studio là phần mềm sản xuất video chạy trên máy tính. Bạn đ
 1. Tạo dự án và đưa video, ảnh, âm thanh vào.
 2. Chọn một luồng phù hợp: khuôn làm sẵn, Text → Video, HTML Video hoặc phiên AI.
 3. Mở **Biên tập video** để xem trước, cắt khoảng lặng, sắp lớp âm thanh và chỉnh phụ đề.
-4. Chạy QC, tạo thumbnail rồi xuất gói đăng.
+4. Xem QC, tạo thumbnail rồi xuất gói đăng. Khi xuất bản, phần mềm tự kiểm tra lại video hiện tại; video hỏng bị chặn và gói trước đó được giữ nguyên nếu có lỗi.
 
 Điện thoại chỉ dùng để gửi tài nguyên: mở dự án trên máy tính, quét QR bằng điện thoại cùng Wi-Fi rồi chọn file cần gửi. Điện thoại không truy cập được cấu hình, bộ cài hay tác vụ quản trị của ứng dụng.
 
@@ -74,6 +74,18 @@ Bản ổn định chỉ nhận bản ổn định. Bản RC có thể nhận RC
 Biz Studio gọi `claude` mà không gắn tên model. Model được chính Claude CLI và tài khoản của người dùng lựa chọn, tránh lỗi khi Anthropic đổi hoặc ngừng một model cụ thể.
 
 Phiên AI chỉ làm việc trong thư mục dự án, dùng nhóm lệnh media/file đã cho phép và không nhận credential cloud từ môi trường của ứng dụng.
+
+### Claude Agent SDK (tùy chọn)
+
+SDK dùng **Anthropic API key riêng**, tính phí API; không dùng hạn mức thuê bao Claude. Claude CLI vẫn là mặc định và không bị thay đổi khi cập nhật.
+
+1. Tại **Cấu hình & API → Công cụ trên máy**, cài **Claude Agent SDK** sau khi Python đã sẵn sàng.
+2. Chọn **Phiên AI — cách kết nối Claude → Claude Agent SDK**, nhập API key và lưu.
+3. Kiểm tra ngân sách trước khi chạy. Mặc định SDK dừng theo ngân sách 2 USD/lượt và tối đa 24 lượt AI; chi phí thực tế do Anthropic tính.
+
+Cách kết nối được giữ cố định cho từng lượt; muốn tiếp tục phiên cũ, chọn lại cách kết nối đã dùng. SDK hiện áp dụng cho **Phiên AI**, không tự đổi engine dịch thuật, TTS hay viết kịch bản.
+
+Phiên AI chỉ báo hoàn tất sau khi tiến trình đã thoát thành công và video mới được kiểm tra giải mã. Nếu chưa đạt, giữ lịch sử để tiếp tục sửa. Các tác vụ xử lý cùng dự án được chạy lần lượt.
 
 ## Nhóm tính năng
 
@@ -132,7 +144,7 @@ Mặc định ứng dụng mở tại `http://127.0.0.1:6868`. Dùng `-window=fa
 
 ```bash
 go test ./...
-./scripts/build-release.sh 2.14.2
+./scripts/build-release.sh 2.15.0-rc.1
 ```
 
 Release được tạo tự động khi đẩy tag dạng `vX.Y.Z` hoặc `vX.Y.Z-rc.N`. Pipeline kiểm thử native trên Windows, Mac Intel và Mac Apple Silicon trước khi đóng gói, phát hành kèm `SHA256SUMS.txt`. Bài thử bao gồm gửi video/âm thanh qua QR, dựng và phát video, mở lại và giữ dữ liệu.

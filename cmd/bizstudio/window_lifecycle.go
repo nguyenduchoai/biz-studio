@@ -72,6 +72,11 @@ func runningWork(st *store.Store) int {
 			n++
 		}
 	}
+	// UI status changes before subprocess teardown releases project ownership.
+	// Count is a lower bound: do not double-count running sessions already above.
+	if st.ProjectWork != nil {
+		n = max(n, st.ProjectWork.ActiveCount())
+	}
 	return n
 }
 

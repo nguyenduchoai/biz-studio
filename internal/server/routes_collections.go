@@ -68,7 +68,7 @@ func (s *Server) handleCollections(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	j := s.Jobs.Submit("collections", "", "Gom hợp tuyển: "+filepath.Base(src),
+	j := s.Jobs.Submit("collections", s.projectIDForToolPath(filepath.Dir(src)), "Gom hợp tuyển: "+filepath.Base(src),
 		func(upd func(float64, string)) (string, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), highlightTimeout)
 			defer cancel()

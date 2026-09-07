@@ -151,6 +151,11 @@ func (s *Server) handleTimelineRender(w http.ResponseWriter, r *http.Request) {
 		func(upd func(float64, string)) (string, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), timelineRenderTimeout)
 			defer cancel()
+			tmp, err := newRenderTemp(dir, "timeline-render-*.mp4")
+			if err != nil {
+				return "", err
+			}
+			defer os.Remove(tmp)
 
 			// Đường dẫn trong tài liệu là tương đối data dir (để dự án chuyển máy
 			// vẫn mở được); ffmpeg cần đường dẫn tuyệt đối.
@@ -175,8 +180,12 @@ func (s *Server) handleTimelineRender(w http.ResponseWriter, r *http.Request) {
 			s.Log("info", "timeline", "filter: "+plan.Filter)
 
 			upd(25, "ffmpeg đang trộn "+plan.Note+"…")
-			if _, err := util.Run(ctx, "ffmpeg", append(plan.Args, dst)...); err != nil {
+			if _, err := util.Run(ctx, "ffmpeg", append(plan.Args, tmp)...); err != nil {
 				return "", fmt.Errorf("trộn timeline thất bại: %w", err)
+			}
+			upd(92, "Đang kiểm tra toàn bộ video timeline…")
+			if err := validateAndPromoteRender(ctx, tmp, dst); err != nil {
+				return "", err
 			}
 			upd(96, plan.Note)
 			s.Log("info", "timeline", "Dựng xong "+filepath.Base(dst)+" — "+plan.Note)

@@ -74,6 +74,16 @@ jobs:
       - name: Setup wizard browser regressions
         run: npm test --prefix tools/qa
 
+      - name: Optional Agent SDK native installation (no paid API calls)
+        shell: pwsh
+        run: |
+          $sdkData = Join-Path $env:RUNNER_TEMP "Biz Studio SDK dữ liệu"
+          & artifacts/bizstudio.exe setup claude-sdk --data $sdkData
+          if ($LASTEXITCODE -ne 0) { throw "SDK installer failed" }
+          $env:BIZSTUDIO_SDK_TEST_DATA = $sdkData
+          go test -count=1 ./internal/agentsdk
+          if ($LASTEXITCODE -ne 0) { throw "SDK local runtime checks failed" }
+
       - name: Packaged Windows executable media and persistence smoke
         run: node tools/qa/native-smoke.mjs "artifacts/Biz Studio.exe"
 
@@ -155,6 +165,12 @@ jobs:
           mkdir -p artifacts
           go build -trimpath -o artifacts/bizstudio ./cmd/bizstudio
           node tools/qa/native-smoke.mjs artifacts/bizstudio
+
+      - name: Optional Agent SDK native installation (no paid API calls)
+        run: |
+          sdkData="$RUNNER_TEMP/Biz Studio SDK dữ liệu"
+          artifacts/bizstudio setup claude-sdk --data "$sdkData"
+          BIZSTUDIO_SDK_TEST_DATA="$sdkData" go test -count=1 ./internal/agentsdk
 
   package-release:
     if: startsWith(github.ref, 'refs/tags/')

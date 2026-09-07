@@ -49,7 +49,7 @@ jobs:
           Pop-Location
 
       - name: Unit and integration tests with native media tools
-        run: go test ./...
+        run: go test -count=1 ./...
 
       - name: Windows Python and Whisper installer smoke
         shell: pwsh

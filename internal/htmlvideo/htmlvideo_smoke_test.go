@@ -124,7 +124,7 @@ func TestRenderSmoke(t *testing.T) {
 			t.Skipf("bỏ qua: thiếu %s trong PATH", bin)
 		}
 	}
-	dir := t.TempDir()
+	dir := filepath.Join(t.TempDir(), "Dữ liệu video #1%")
 	st, err := store.Open(filepath.Join(dir, "data"))
 	if err != nil {
 		t.Fatalf("mở store: %v", err)

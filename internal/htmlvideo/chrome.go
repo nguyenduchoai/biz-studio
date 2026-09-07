@@ -3,7 +3,6 @@ package htmlvideo
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,9 +78,13 @@ func (b *browser) captureScene(htmlPath, frameDir string, durS float64, fps int,
 	if err := os.MkdirAll(frameDir, 0o755); err != nil {
 		return fmt.Errorf("không tạo được thư mục frame %s: %w", frameDir, err)
 	}
+	absHTML, err := filepath.Abs(htmlPath)
+	if err != nil {
+		return fmt.Errorf("không xác định được đường dẫn trang cảnh: %w", err)
+	}
 	var hasSeek bool
 	if err := chromedp.Run(b.ctx,
-		chromedp.Navigate(fileURL(htmlPath)),
+		chromedp.Navigate(fileURL(absHTML)),
 		chromedp.WaitReady("#stage", chromedp.ByQuery),
 		waitFontsReady(),
 		chromedp.Evaluate("typeof window.seek === 'function'", &hasSeek),
@@ -131,10 +134,4 @@ func frameCount(durS float64, fps int) int {
 		return 1
 	}
 	return n
-}
-
-// fileURL chuyển path tuyệt đối → URL file:// (an toàn với dấu cách, tiếng Việt).
-func fileURL(p string) string {
-	u := url.URL{Scheme: "file", Path: p}
-	return u.String()
 }

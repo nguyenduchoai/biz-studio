@@ -44,11 +44,9 @@ func ensureDir(dst string) error {
 	return nil
 }
 
-// escapeFilterPath escape ':' và ”' cho path dùng trong filter ffmpeg (subtitles, lut3d).
+// escapeFilterPath returns an unquoted path escaped for both FFmpeg parsers.
 func escapeFilterPath(p string) string {
-	p = strings.ReplaceAll(p, `'`, `\'`)
-	p = strings.ReplaceAll(p, `:`, `\:`)
-	return p
+	return util.FFmpegFilterPath(p)
 }
 
 // Thumbnail trích 1 frame tại giây t, scale về bề rộng w (giữ tỉ lệ, chiều cao chẵn).
@@ -76,7 +74,7 @@ func BurnSubs(ctx context.Context, src, srtPath, dst string) error {
 	if err := ensureDir(dst); err != nil {
 		return err
 	}
-	vf := fmt.Sprintf("subtitles='%s'", escapeFilterPath(srtPath))
+	vf := fmt.Sprintf("subtitles=filename=%s", escapeFilterPath(srtPath))
 	return run(ctx, "-y", "-i", src, "-vf", vf,
 		"-c:v", "libx264", "-crf", "20", "-preset", "veryfast", "-c:a", "copy", dst)
 }
@@ -165,7 +163,7 @@ func ApplyLUT(ctx context.Context, src, lutPath, dst string) error {
 	if err := ensureDir(dst); err != nil {
 		return err
 	}
-	vf := fmt.Sprintf("lut3d='%s'", escapeFilterPath(lutPath))
+	vf := fmt.Sprintf("lut3d=file=%s", escapeFilterPath(lutPath))
 	return run(ctx, "-y", "-i", src, "-vf", vf,
 		"-c:v", "libx264", "-crf", "20", "-preset", "veryfast", "-c:a", "copy", dst)
 }

@@ -3,6 +3,8 @@ package timeline
 import (
 	"fmt"
 	"strings"
+
+	"bizstudio/internal/util"
 )
 
 // Thông số né giọng, giống internal/media/ducking.go — nhạc lùi nhanh khi bắt
@@ -215,7 +217,7 @@ func subtitleFilter(srt, style string) string {
 		style = "FontName=Be Vietnam Pro,FontSize=18,PrimaryColour=&H00FFFFFF," +
 			"OutlineColour=&H80000000,BorderStyle=3,Outline=1,Shadow=0,MarginV=40"
 	}
-	return fmt.Sprintf("subtitles=%s:force_style='%s'", escapeFilterPath(srt), style)
+	return fmt.Sprintf("subtitles=filename=%s:force_style='%s'", escapeFilterPath(srt), style)
 }
 
 // escapeFilterPath thoát đường dẫn cho bộ lọc của ffmpeg.
@@ -224,8 +226,7 @@ func subtitleFilter(srt, style string) string {
 // bình thường trên máy người dùng — có dấu cách, có dấu nháy — làm vỡ cả chuỗi
 // lọc và ffmpeg báo lỗi ở chỗ chẳng liên quan.
 func escapeFilterPath(p string) string {
-	r := strings.NewReplacer(`\`, `\\`, `:`, `\:`, `'`, `\'`, `[`, `\[`, `]`, `\]`, `,`, `\,`)
-	return r.Replace(p)
+	return util.FFmpegFilterPath(p)
 }
 
 // sourceTrackGain đọc chỉnh sửa người dùng đặt cho tiếng gốc của video.

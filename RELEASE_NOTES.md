@@ -11,6 +11,7 @@ Bản cập nhật giúp cài đặt, biên tập và mở lại Biz Studio đá
 - Cài thư viện vẫn tiếp tục khi chưa thiết lập được Firewall; có thể dùng trên máy tính và bật QR sau.
 - Mở lại app ổn định hơn khi cổng đang bận hoặc cửa sổ trình duyệt đã có sẵn; giữ tác vụ và phiên AI đang chạy.
 - Video dựng từ timeline xuất hiện ngay trong kết quả dự án để xem, kiểm tra và xuất bản.
+- Sửa đường dẫn dựng HTML Video trên Windows và xử lý tên thư mục có ký tự đặc biệt.
 - Chỉ cập nhật khi không có công việc đang chạy; giữ dữ liệu và khôi phục bản trước nếu bản mới không khởi động được.
 
 ### Chọn bản tải về

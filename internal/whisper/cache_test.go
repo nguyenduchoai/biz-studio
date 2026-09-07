@@ -27,12 +27,14 @@ func TestTranscribeUsesCache(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Trỏ WhisperPython vào một file có thật bất kỳ. Cache được kiểm TRƯỚC khi
-	// chạm tới python, nên test chứng minh được đường tắt mà không cần cài
-	// faster-whisper — và nếu ai đó lỡ đảo thứ tự, test này chết ngay vì
-	// /bin/echo không bóc băng được gì.
+	// Use a real but deliberately non-executable fixture on every OS (Windows
+	// has no /bin/echo). A cache hit must never attempt to run this as Python;
+	// moving execution before the cache lookup will fail this test immediately.
 	cfg := st.Settings()
-	cfg.WhisperPython = "/bin/echo"
+	cfg.WhisperPython = filepath.Join(dir, "python-must-not-run")
+	if err := os.WriteFile(cfg.WhisperPython, []byte("not a Python executable\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	st.SaveSettings(cfg)
 
 	src := filepath.Join(dir, "clip.wav")

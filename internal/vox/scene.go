@@ -195,7 +195,7 @@ func drawTitleFilter(title string, w int) string {
 	}
 	return fmt.Sprintf(
 		"drawtext=fontfile=%s:text=%s:fontsize=%d:fontcolor=white:box=1:boxcolor=0x2563EB@0.75:boxborderw=18:x=(w-text_w)/2:y=h*0.82:enable='lt(t,%.1f)'",
-		escapeDrawText(font), escapeDrawText(title), w/22, titleShowSec,
+		util.FFmpegFilterPath(font), escapeDrawText(title), w/22, titleShowSec,
 	)
 }
 

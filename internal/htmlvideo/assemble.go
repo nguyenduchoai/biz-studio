@@ -35,7 +35,9 @@ func buildClips(ctx context.Context, jobs []*sceneJob, fps int, tmpDir string, u
 func encodeClip(ctx context.Context, j *sceneJob, fps int, dst string) error {
 	args := []string{"-y",
 		"-framerate", strconv.Itoa(fps),
-		"-i", filepath.Join(j.frameDir, "frame-%05d.png"),
+		// image2 interprets '%' in the entire input path, including directory
+		// names. Escape the literal directory while retaining frame numbering.
+		"-i", filepath.Join(strings.ReplaceAll(j.frameDir, "%", "%%"), "frame-%05d.png"),
 	}
 	if j.wavPath != "" {
 		args = append(args, "-i", j.wavPath, "-af", "apad") // đệm im lặng nếu audio ngắn hơn video

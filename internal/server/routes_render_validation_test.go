@@ -97,10 +97,12 @@ func TestVideoRenderRoutesCommitValidatedOutput(t *testing.T) {
 				}
 				current, _ := s.st.Project(p.ID)
 				want := "projects/" + p.ID + "/outputs/" + kind + ".mp4"
-				if current.OutputFile != want || job.Output != want || current.Status != "done" || current.Progress != 6 {
+				// Stored paths may use native Windows separators; compare the
+				// same relative file without weakening the completion assertions.
+				if filepath.ToSlash(current.OutputFile) != want || filepath.ToSlash(job.Output) != want || current.Status != "done" || current.Progress != 6 {
 					t.Fatalf("validated output not committed: project=%+v job=%+v", current, job)
 				}
-				if err := media.ValidateVideo(context.Background(), filepath.Join(s.DataDir, want)); err != nil {
+				if err := media.ValidateVideo(context.Background(), filepath.Join(s.DataDir, current.OutputFile)); err != nil {
 					t.Fatalf("done project is not a playable video: %v", err)
 				}
 			}

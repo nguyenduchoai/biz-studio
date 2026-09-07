@@ -1,4 +1,4 @@
-<!-- release: v2.15.0-rc.1 -->
+<!-- release: v2.15.0-rc.2 -->
 
 ## Biên tập AI và xuất bản đáng tin cậy hơn
 

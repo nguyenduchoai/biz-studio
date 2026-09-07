@@ -37,7 +37,6 @@ func TestManagerBoundsConcurrentJobs(t *testing.T) {
 		return "ok", nil
 	}
 	one := m.Submit("one", "", "", work)
-	two := m.Submit("two", "", "", work)
 	// Wait for the worker itself, not a 150 ms guess. Windows durable writes
 	// can exceed that budget while other native media tests saturate the host.
 	select {
@@ -47,6 +46,14 @@ func TestManagerBoundsConcurrentJobs(t *testing.T) {
 	}
 	if got := maxActive.Load(); got != 1 {
 		t.Fatalf("concurrency = %d, muốn 1", got)
+	}
+	two := m.Submit("two", "", "", work)
+	// Once the first worker is definitely blocked, a second start is a real
+	// concurrency violation. The timeout here checks absence, not startup speed.
+	select {
+	case <-started:
+		t.Fatal("second job started while the first still owns the only worker")
+	case <-time.After(150 * time.Millisecond):
 	}
 	unblock()
 	deadline := time.Now().Add(10 * time.Second)

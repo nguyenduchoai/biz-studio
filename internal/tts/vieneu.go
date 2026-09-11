@@ -18,7 +18,15 @@ import (
 // nhờ đó bản đóng gói (dmg/exe) không phụ thuộc thư mục scripts/.
 const vieneuRunner = `#!/usr/bin/env python3
 # Runner VieNeu-TTS cho Biz Studio (tu sinh — dung sua tay).
-import argparse, json, sys
+import argparse, json, os, sys
+
+# Windows 10, antivirus va proxy doanh nghiep thuong chan Xet hoac symlink cua Hugging Face
+# (model tai them luc doc cau dau). Cung luat voi runner whisper.
+if sys.platform == "win32":
+    os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
+    os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+    os.environ.setdefault("HF_HUB_ETAG_TIMEOUT", "30")
+    os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "60")
 
 def main():
     ap = argparse.ArgumentParser()

@@ -126,6 +126,7 @@ data/
 | Cổng 6868 đang bận | Ứng dụng tự chọn cổng trống; nếu cần xem lỗi, chạy `bizstudio.exe -window=false` |
 | QR không mở trên điện thoại | Hai thiết bị phải cùng Wi-Fi; trên Windows hãy để mạng là Private rồi mở lại Biz Studio để kiểm tra Firewall |
 | VieNeu/Whisper chưa sẵn sàng | Bấm Cài tại Cấu hình & API → Công cụ trên máy |
+| Cài VieNeu/Whisper báo lỗi hoặc "quá thời gian" | Cần mạng ổn định tới pypi.org và huggingface.co (VieNeu tải ~550 MB gồm torch, whisper ~500 MB). Bấm **Cài** lại — phần đã tải được giữ nguyên. Antivirus bên thứ ba chặn thư mục BizStudio thì thêm loại trừ; proxy công ty phải cho phép hai tên miền trên |
 | Timeline dựng khác lúc nghe thử | Bấm Lưu; nút Dựng video cũng tự lưu trước khi chạy |
 
 ## Chạy từ mã nguồn

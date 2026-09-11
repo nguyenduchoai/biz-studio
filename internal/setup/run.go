@@ -78,6 +78,13 @@ func runStep(ctx context.Context, s Step, onLine func(string)) error {
 		"NO_COLOR=1", "TERM=dumb", "PYTHONUNBUFFERED=1",
 		"PYTHONUTF8=1", "PYTHONIOENCODING=utf-8",
 		"PIP_PROGRESS_BAR=off", "PIP_DISABLE_PIP_VERSION_CHECK=1",
+		// Mạng hay rớt giữa chừng: pip chờ lâu hơn và tự thử lại thay vì hỏng cả
+		// lượt cài; ưu tiên wheel để không bao giờ cần trình biên dịch C trên máy khách.
+		"PIP_TIMEOUT=120", "PIP_RETRIES=5", "PIP_PREFER_BINARY=1",
+		// Hugging Face: Windows 10, antivirus và proxy doanh nghiệp thường chặn
+		// Xet/symlink — tải bằng HTTP chuẩn, cùng luật với runner whisper/vieneu.
+		"HF_HUB_DISABLE_XET=1", "HF_HUB_DISABLE_SYMLINKS_WARNING=1",
+		"HF_HUB_ETAG_TIMEOUT=30", "HF_HUB_DOWNLOAD_TIMEOUT=60",
 		"HOMEBREW_NO_AUTO_UPDATE=1", "HOMEBREW_NO_COLOR=1", "HOMEBREW_NO_ENV_HINTS=1",
 		"DEBIAN_FRONTEND=noninteractive")
 

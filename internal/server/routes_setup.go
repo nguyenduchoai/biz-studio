@@ -13,7 +13,11 @@ import (
 
 // installMax — trần thời gian cho một lượt cài. faster-whisper kèm model
 // large-v3 tải hơn 3 GB trên đường truyền chậm, nên đặt rộng tay.
-const installMax = 60 * time.Minute
+// installMax là trần cho MỘT lượt cài. 60 phút từng giết VieNeu giữa chừng trên
+// mạng chậm: pip (torch ~250 MB + phụ thuộc) rồi model Hugging Face — và người
+// dùng chỉ thấy "quá thời gian cho phép" sau khi đã chờ cả tiếng. Nhật ký vẫn
+// chạy từng dòng nên trần rộng không làm ai tưởng app treo.
+const installMax = 3 * time.Hour
 
 // running theo dõi các lượt cài đang chạy để không bấm hai lần thành hai tiến
 // trình pip cùng ghi vào một venv (hỏng venv, và lỗi sinh ra thì vô nghĩa).

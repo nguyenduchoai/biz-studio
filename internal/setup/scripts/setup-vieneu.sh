@@ -7,6 +7,10 @@ set -euo pipefail
 
 DATA="${1:-data}"
 VENV="$DATA/vieneu/venv"
+# Mạng chậm/rớt: pip chờ lâu hơn và tự thử lại; ưu tiên wheel để khỏi cần trình biên dịch C.
+export PIP_TIMEOUT="${PIP_TIMEOUT:-120}" PIP_RETRIES="${PIP_RETRIES:-5}" PIP_PREFER_BINARY="${PIP_PREFER_BINARY:-1}"
+# Hugging Face: tải bằng HTTP chuẩn (không Xet) và cho mạng chậm thêm thời gian — cùng luật với setup-whisper.
+export HF_HUB_DISABLE_XET=1 HF_HUB_DISABLE_SYMLINKS_WARNING=1 HF_HUB_ETAG_TIMEOUT=30 HF_HUB_DOWNLOAD_TIMEOUT=60
 
 echo "🦜 Cài VieNeu-TTS vào $VENV …"
 mkdir -p "$DATA/vieneu"
@@ -61,7 +65,8 @@ else
   echo "→ Bỏ qua torch/torchaudio — Clone voice sẽ không dùng được."
 fi
 
-echo "→ Tải model lần đầu + xuất danh sách giọng (có thể mất vài phút)…"
+echo "→ Tải model lần đầu từ Hugging Face (~300 MB) + xuất danh sách giọng (mạng chậm có thể mất 10–20 phút)…"
+xuat_giong() {
 DATA_DIR="$DATA" $ARCH_PREFIX "$VENV/bin/python" - <<'EOF'
 import json, os
 from vieneu import Vieneu
@@ -73,6 +78,12 @@ with open(out, "w", encoding="utf-8") as f:
     json.dump(voices, f, ensure_ascii=False, indent=1)
 print(f"✅ {len(voices)} giọng preset — đã ghi {out}")
 EOF
+}
+# Tải dở giữa chừng vì mạng rớt là chuyện thường; Hugging Face tải tiếp phần còn thiếu.
+if ! xuat_giong; then
+  echo "⚠️ Tải model lần 1 chưa xong — thử lại một lần…" >&2
+  xuat_giong || { echo "❌ Xuất danh sách giọng thất bại — kiểm tra mạng/proxy tới huggingface.co rồi cài lại (phần đã tải được giữ nguyên)" >&2; exit 1; }
+fi
 
 echo
 echo "✅ Xong! Mở Biz Studio → TTS / Giọng đọc: nhóm giọng VieNeu nằm đầu danh sách."

@@ -9,10 +9,26 @@ $PSNativeCommandUseErrorActionPreference = $false   # tự kiểm tra $LASTEXITC
 $OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
 $env:PYTHONUTF8 = "1"
 $env:PYTHONIOENCODING = "utf-8"
+# Mạng chậm/rớt: pip chờ lâu hơn và tự thử lại; ưu tiên wheel để khỏi cần trình biên dịch C.
+if (-not $env:PIP_TIMEOUT) { $env:PIP_TIMEOUT = "120" }
+if (-not $env:PIP_RETRIES) { $env:PIP_RETRIES = "5" }
+if (-not $env:PIP_PREFER_BINARY) { $env:PIP_PREFER_BINARY = "1" }
+# Hugging Face: Windows 10, antivirus và proxy doanh nghiệp thường chặn Xet/symlink.
+# Tải bằng HTTP chuẩn và cho mạng chậm thêm thời gian — cùng luật với setup-whisper.
+$env:HF_HUB_DISABLE_XET = "1"
+$env:HF_HUB_DISABLE_SYMLINKS_WARNING = "1"
+$env:HF_HUB_ETAG_TIMEOUT = "30"
+$env:HF_HUB_DOWNLOAD_TIMEOUT = "60"
 
 $Venv = Join-Path $Data "vieneu\venv"
 Write-Host "🦜 Cài VieNeu-TTS vào $Venv …"
 New-Item -ItemType Directory -Force -Path (Join-Path $Data "vieneu") | Out-Null
+# Windows giới hạn đường dẫn 260 ký tự; gói Python lồng sâu trong venv dễ vượt trần nếu
+# thư mục dữ liệu đã dài. Chỉ cảnh báo — vẫn thử cài, nhưng người dùng biết vì sao hỏng.
+$VenvAbs = [System.IO.Path]::GetFullPath($Venv)
+if ($VenvAbs.Length -gt 120) {
+  Write-Warning "Đường dẫn venv dài ($($VenvAbs.Length) ký tự): $VenvAbs. Nếu pip báo lỗi đường dẫn/không giải nén được, đổi thư mục dữ liệu ngắn hơn (VD: D:\BizStudio) rồi cài lại."
+}
 
 # Ưu tiên đúng Python 3.11 do bộ cài Full quản lý và loại Windows Store stub.
 $Py = $null
@@ -62,7 +78,7 @@ if ($env:SKIP_CLONE -ne "1") {
   Write-Host "→ Bỏ qua torch/torchaudio — Clone voice sẽ không dùng được."
 }
 
-Write-Host "→ Tải model lần đầu + xuất danh sách giọng (có thể mất vài phút)…"
+Write-Host "→ Tải model lần đầu từ Hugging Face (~300 MB) + xuất danh sách giọng (mạng chậm có thể mất 10–20 phút)…"
 $snippet = @'
 import json, os
 from vieneu import Vieneu
@@ -79,8 +95,14 @@ Set-Content -Path $tmp -Value $snippet -Encoding UTF8
 $env:DATA_DIR = $Data
 & $VenvPy $tmp
 $code = $LASTEXITCODE
+if ($code -ne 0) {
+  # Tải dở giữa chừng vì mạng rớt là chuyện thường; Hugging Face tải tiếp phần còn thiếu.
+  Write-Warning "Tải model lần 1 chưa xong — thử lại một lần…"
+  & $VenvPy $tmp
+  $code = $LASTEXITCODE
+}
 Remove-Item $tmp -ErrorAction SilentlyContinue
-if ($code -ne 0) { Write-Error "❌ Xuất danh sách giọng thất bại"; exit 1 }
+if ($code -ne 0) { Write-Error "❌ Xuất danh sách giọng thất bại — kiểm tra mạng/proxy tới huggingface.co rồi bấm Cài lại (phần đã tải được giữ nguyên)"; exit 1 }
 
 Write-Host ""
 Write-Host "✅ Xong! Mở Biz Studio → TTS / Giọng đọc: nhóm giọng VieNeu nằm đầu danh sách."
